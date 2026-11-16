@@ -66,7 +66,7 @@ export default function AiSettings() {
               mb="lg"
             >
               {t(
-                "AI is available in the Docmost paid editions. Contact sales@docmost.com.",
+                "AI is available in the Docmore paid editions. Contact sales@docmost.com.",
               )}
             </Alert>
           )}

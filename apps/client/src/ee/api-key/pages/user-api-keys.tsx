@@ -74,7 +74,7 @@ export default function UserApiKeys() {
         <Alert variant="light" color="blue" mb="md" p="sm" icon={<IconInfoCircle />}>
           <Text size="sm">
             {t(
-              "Your workspace has MCP enabled. Connect AI assistants with your Docmost account via OAuth.",
+              "Your workspace has MCP enabled. Connect AI assistants with your Docmore account via OAuth.",
             )}{" "}
             <Anchor
               href="https://docmost.com/docs/user-guide/mcp"

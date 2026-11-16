@@ -104,7 +104,7 @@ export default function Integrations() {
       {error === "tenant_in_use" && (
         <Alert color="red" mb="md">
           {t(
-            "This Slack workspace is already connected to another Docmost workspace. Disconnect it there first, or install Docmost into a different Slack workspace.",
+            "This Slack workspace is already connected to another Docmore workspace. Disconnect it there first, or install Docmore into a different Slack workspace.",
           )}
         </Alert>
       )}

@@ -222,11 +222,9 @@ export default function PublicSpaceDirectoryPage() {
               Powered by{" "}
               <a
                 className={styles.footerBranding}
-                href="https://docmost.com?ref=public-space"
-                target="_blank"
-                rel="noreferrer"
+                href="/"
               >
-                Docmost
+                Docmore
               </a>
             </div>
           </div>

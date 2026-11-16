@@ -327,7 +327,7 @@ describe('WorkspaceInvitationService expiry', () => {
     expect(text).toContain('IT Help');
     expect(text).not.toContain('evil.com');
     expect(text).toContain('Hi');
-    expect(mail.subject).toBe('IT Help it-help@evil.com invited you to Docmost');
+    expect(mail.subject).toBe('IT Help it-help@evil.com invited you to Docmore');
   });
 
   it('records the message when revoking an invitation', async () => {

@@ -77,7 +77,7 @@ export default function Connections() {
     prompted.current = true;
     modals.open({
       modalId: "connect-prompt",
-      title: t("Connect {{name}} to Docmost", { name: definition.name }),
+      title: t("Connect {{name}} to Docmore", { name: definition.name }),
       centered: true,
       // Mantine also calls onClose on unmount, and navigating then would bounce the user back here.
       onClose: () => {
@@ -158,7 +158,7 @@ export default function Connections() {
       {error === "identity_mismatch" && (
         <Alert color="red" mb="md">
           {t(
-            "The account you signed in with does not use your Docmost email address. Sign in to the provider with the account that matches your Docmost email and try again.",
+            "The account you signed in with does not use your Docmore email address. Sign in to the provider with the account that matches your Docmore email and try again.",
           )}
         </Alert>
       )}
@@ -166,7 +166,7 @@ export default function Connections() {
       {error === "tenant_mismatch" && (
         <Alert color="red" mb="md">
           {t(
-            "The Slack account you signed in with is not in the Slack workspace connected to Docmost. Sign in to Slack with your account in that workspace and try again.",
+            "The Slack account you signed in with is not in the Slack workspace connected to Docmore. Sign in to Slack with your account in that workspace and try again.",
           )}
         </Alert>
       )}
@@ -224,30 +224,30 @@ function ConnectPromptBody({
       {definition.type === "slack" ? (
         <>
           <Text size="sm">
-            {t("Link your Slack account to your Docmost account to:")}
+            {t("Link your Slack account to your Docmore account to:")}
           </Text>
           <List size="sm" spacing="xs">
             <List.Item>
-              {t("Search and open Docmost pages from Slack")}
+              {t("Search and open Docmore pages from Slack")}
             </List.Item>
             <List.Item>
-              {t("Create pages and save Slack messages to Docmost")}
+              {t("Create pages and save Slack messages to Docmore")}
             </List.Item>
             <List.Item>
               {t("Ask AI questions about your workspace docs")}
             </List.Item>
             <List.Item>
-              {t("Get your Docmost notifications as Slack DMs")}
+              {t("Get your Docmore notifications as Slack DMs")}
             </List.Item>
             <List.Item>
               {t(
-                "See previews of Docmost links in Slack and Slack links in Docmost",
+                "See previews of Docmore links in Slack and Slack links in Docmore",
               )}
             </List.Item>
           </List>
           <Text size="sm" c="dimmed">
             {t(
-              "You will sign in with Slack to confirm which Slack account is yours. It must use the same email as your Docmost account.",
+              "You will sign in with Slack to confirm which Slack account is yours. It must use the same email as your Docmore account.",
             )}
           </Text>
         </>

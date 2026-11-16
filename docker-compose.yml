@@ -1,26 +1,33 @@
+# Docmore homelab stack. Copy .env.docker.example to .env and fill the secrets,
+# then: docker compose up -d --build
 services:
-  docmost:
-    image: docmost/docmost:latest
+  docmore:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: docmore:latest
     depends_on:
       - db
       - redis
     environment:
-      APP_URL: 'http://localhost:3000'
-      APP_SECRET: 'REPLACE_WITH_LONG_SECRET'
-      DATABASE_URL: 'postgresql://docmost:STRONG_DB_PASSWORD@db:5432/docmost'
-      REDIS_URL: 'redis://redis:6379'
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env (openssl rand -hex 32)}
+      DATABASE_URL: postgresql://docmore:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/docmore
+      REDIS_URL: redis://redis:6379
+      DISABLE_TELEMETRY: 'true'
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Docmore}
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     restart: unless-stopped
     volumes:
-      - docmost:/app/data/storage
+      - docmore:/app/data/storage
 
   db:
     image: postgres:18
     environment:
-      POSTGRES_DB: docmost
-      POSTGRES_USER: docmost
-      POSTGRES_PASSWORD: STRONG_DB_PASSWORD
+      POSTGRES_DB: docmore
+      POSTGRES_USER: docmore
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql
@@ -33,6 +40,6 @@ services:
       - redis_data:/data
 
 volumes:
-  docmost:
+  docmore:
   db_data:
   redis_data:

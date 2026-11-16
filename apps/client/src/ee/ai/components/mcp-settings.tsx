@@ -52,7 +52,7 @@ export default function McpSettings() {
       {!hasAccess && (
         <Alert icon={<IconInfoCircle />} title={upgradeLabel} color="blue">
           {t(
-            "MCP is only available in the Docmost enterprise edition. Contact sales@docmost.com.",
+            "MCP is only available in the Docmore enterprise edition. Contact sales@docmost.com.",
           )}
         </Alert>
       )}
@@ -108,7 +108,7 @@ export default function McpSettings() {
             </CopyButton>
           </Group>
           <Text size="sm" c="dimmed" mt="xs">
-            {t("Connect AI assistants with your Docmost account via OAuth.")}
+            {t("Connect AI assistants with your Docmore account via OAuth.")}
           </Text>
 
           <McpEnforceOauthSetting />
@@ -192,7 +192,7 @@ function McpEnforceOauthSetting() {
         </Group>
         <Text size="sm" c="dimmed">
           {t(
-            "AI assistants must connect with a Docmost account via OAuth. API keys cannot be used with the MCP server.",
+            "AI assistants must connect with a Docmore account via OAuth. API keys cannot be used with the MCP server.",
           )}
         </Text>
       </div>
