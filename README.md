@@ -50,6 +50,18 @@ outside the `ee/` directories, so they are always on:
   are encrypted at rest with `APP_SECRET`. The provider is trusted on the
   email it reports, so only connect providers you control. Plain `http`
   issuers are accepted for private networks.
+- **Sharing, export and trash controls**: Settings > Security & SSO can
+  turn off public sharing for the whole workspace (existing public links
+  are removed), turn off export and printing for everyone including admins,
+  and set how long trashed pages are kept before they are deleted for good.
+  Each space has its own public-sharing and export switches under its
+  settings; the workspace rule wins when stricter.
+- **Viewer comments and resolved threads**: a space can let read-only
+  members comment. Anyone who may comment can resolve a thread or re-open
+  it; the inline highlight follows for everyone with the page open.
+- **Personal spaces**: once allowed in Settings > General, every member can
+  create one space of their own from the workspace menu. The creator is its
+  only admin; it cannot be archived.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

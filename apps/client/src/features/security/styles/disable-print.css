@@ -1,0 +1,12 @@
+/* useDisablePrint sets data-export-disabled on <body> while export is off.
+   The print stylesheet then drops the document and prints the reason. */
+@media print {
+  body[data-export-disabled] > * {
+    display: none !important;
+  }
+
+  body[data-export-disabled]::before {
+    content: attr(data-export-disabled);
+    font-family: sans-serif;
+  }
+}

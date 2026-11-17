@@ -30,7 +30,7 @@ import {
   useAddFavoriteMutation,
   useRemoveFavoriteMutation,
 } from "@/features/favorite/queries/favorite-query";
-import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled.ts";
+import { useExportDisabled } from "@/features/security/hooks/use-export-disabled.ts";
 
 import { treeDataAtom } from "@/features/page/tree/atoms/tree-data-atom.ts";
 import { treeModel } from "@/features/page/tree/model/tree-model";

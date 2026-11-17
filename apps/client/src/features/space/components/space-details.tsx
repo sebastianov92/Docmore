@@ -20,7 +20,7 @@ import {
   ResponsiveSettingsControl,
   ResponsiveSettingsRow,
 } from "@/components/ui/responsive-settings-row.tsx";
-import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled.ts";
+import { useExportDisabled } from "@/features/security/hooks/use-export-disabled.ts";
 
 
 interface SpaceDetailsProps {

@@ -13,6 +13,9 @@ import { ISsoProvider } from "@/features/sso/types/sso.types.ts";
 import EnforceSsoSetting from "@/features/sso/components/enforce-sso-setting.tsx";
 import AllowedDomainsSetting from "@/features/sso/components/allowed-domains-setting.tsx";
 import SsoProviderList from "@/features/sso/components/sso-provider-list.tsx";
+import DisablePublicSharingSetting from "@/features/security/components/disable-public-sharing-setting.tsx";
+import DisableExportSetting from "@/features/security/components/disable-export-setting.tsx";
+import TrashRetentionSetting from "@/features/security/components/trash-retention-setting.tsx";
 
 // Settings > Security & SSO. Two-factor enforcement stays under General.
 export default function Security() {
@@ -50,6 +53,19 @@ export default function Security() {
     <>
       <DocumentTitle title={t("Security & SSO")} />
       <SettingsTitle title={t("Security & SSO")} />
+
+      <Title order={4} my="lg">
+        {t("Sharing and export")}
+      </Title>
+
+      <DisablePublicSharingSetting />
+      <Divider my="lg" />
+
+      <DisableExportSetting />
+      <Divider my="lg" />
+
+      <TrashRetentionSetting />
+      <Divider my="xl" />
 
       <Title order={4} my="lg">
         {t("Single sign-on (SSO)")}

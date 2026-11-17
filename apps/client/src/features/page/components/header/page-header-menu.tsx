@@ -64,8 +64,8 @@ import {
   useWatchPageMutation,
   useUnwatchPageMutation,
 } from "@/features/page/queries/watcher-query";
-import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled.ts";
-import { usePrintBlockReason } from "@/ee/security/hooks/use-disable-print.ts";
+import { useExportDisabled } from "@/features/security/hooks/use-export-disabled.ts";
+import { usePrintBlockReason } from "@/features/security/hooks/use-disable-print.ts";
 
 interface PageHeaderMenuProps {
   readOnly?: boolean;

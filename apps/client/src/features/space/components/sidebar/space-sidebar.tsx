@@ -60,7 +60,7 @@ const TemplatePickerModal = React.lazy(
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { useUpgradeLabel } from "@/ee/hooks/use-upgrade-label";
 import { Feature } from "@/ee/features";
-import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled.ts";
+import { useExportDisabled } from "@/features/security/hooks/use-export-disabled.ts";
 import { ErrorBoundary } from "react-error-boundary";
 
 export function SpaceSidebar() {

@@ -8,12 +8,16 @@ import {
   createComment,
   deleteComment,
   getPageComments,
+  resolveComment,
   updateComment,
 } from "@/features/comment/services/comment-service";
 import {
   ICommentParams,
   IComment,
+  IResolveComment,
 } from "@/features/comment/types/comment.types";
+import { useAtomValue } from "jotai";
+import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
 import { notifications } from "@mantine/notifications";
 import { IPagination } from "@/lib/types.ts";
 import { useTranslation } from "react-i18next";
@@ -158,4 +162,80 @@ export function useDeleteCommentMutation(pageId?: string) {
   });
 }
 
-// EE: useResolveCommentMutation has been moved to @/ee/comment/queries/comment-query
+type CommentCache = InfiniteData<IPagination<IComment>>;
+
+function patchComment(
+  cache: CommentCache,
+  commentId: string,
+  patch: Partial<IComment>,
+): CommentCache {
+  return {
+    ...cache,
+    pages: cache.pages.map((page) => ({
+      ...page,
+      items: page.items.map((comment) =>
+        comment.id === commentId ? { ...comment, ...patch } : comment,
+      ),
+    })),
+  };
+}
+
+// Optimistic: the thread shows as resolved by the current user at once and
+// snaps back if the server says no.
+export function useResolveCommentMutation() {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const currentUser = useAtomValue(currentUserAtom);
+
+  return useMutation<
+    IComment,
+    Error,
+    IResolveComment,
+    { previous?: CommentCache }
+  >({
+    mutationFn: (data) => resolveComment(data),
+    onMutate: async ({ pageId, commentId, resolved }) => {
+      await queryClient.cancelQueries({ queryKey: RQ_KEY(pageId) });
+      const previous = queryClient.getQueryData<CommentCache>(RQ_KEY(pageId));
+      if (previous) {
+        const me = currentUser?.user;
+        queryClient.setQueryData(
+          RQ_KEY(pageId),
+          patchComment(previous, commentId, {
+            resolvedAt: resolved ? new Date() : null,
+            resolvedById: resolved ? me?.id : null,
+            resolvedBy: resolved ? me : null,
+          }),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, { pageId }, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(RQ_KEY(pageId), context.previous);
+      }
+      notifications.show({
+        message: t("Failed to resolve comment"),
+        color: "red",
+      });
+    },
+    onSuccess: (updated, { resolved }) => {
+      const cache = queryClient.getQueryData<CommentCache>(
+        RQ_KEY(updated.pageId),
+      );
+      if (cache) {
+        queryClient.setQueryData(
+          RQ_KEY(updated.pageId),
+          patchComment(cache, updated.id, {
+            resolvedAt: updated.resolvedAt,
+            resolvedById: updated.resolvedById,
+            resolvedBy: updated.resolvedBy,
+          }),
+        );
+      }
+      notifications.show({
+        message: resolved ? t("Comment resolved") : t("Comment re-opened"),
+      });
+    },
+  });
+}

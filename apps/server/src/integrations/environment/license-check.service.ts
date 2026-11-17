@@ -16,6 +16,13 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.PAGE_PERMISSIONS,
   Feature.SSO_CUSTOM,
   Feature.SECURITY_SETTINGS,
+  Feature.SHARING_CONTROLS,
+  Feature.EXPORT_CONTROLS,
+  Feature.RETENTION,
+  Feature.VIEWER_COMMENTS,
+  Feature.COMMENT_RESOLUTION,
+  Feature.PUBLIC_SPACE_APPEARANCE,
+  Feature.PERSONAL_SPACES,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {

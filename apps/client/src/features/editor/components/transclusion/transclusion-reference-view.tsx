@@ -23,8 +23,8 @@ import {
   useUnsyncReferenceMutation,
 } from "@/features/transclusion/queries/transclusion-query";
 import { buildPageUrl } from "@/features/page/page.utils";
-import { useExportDisabled } from "@/ee/security/hooks/use-export-disabled";
-import { useDisablePrint } from "@/ee/security/hooks/use-disable-print";
+import { useExportDisabled } from "@/features/security/hooks/use-export-disabled";
+import { useDisablePrint } from "@/features/security/hooks/use-disable-print";
 
 export default function TransclusionReferenceView(props: NodeViewProps) {
   const isEditable = props.editor.isEditable;

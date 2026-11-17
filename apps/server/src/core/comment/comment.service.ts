@@ -10,6 +10,7 @@ import { Queue } from 'bullmq';
 import { CreateCommentDto, yjsSelectionSchema } from './dto/create-comment.dto';
 import { CollaborationGateway } from '../../collaboration/collaboration.gateway';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { ResolveCommentDto } from './dto/resolve-comment.dto';
 import { CommentRepo } from '@docmost/db/repos/comment/comment.repo';
 import { Comment, Page, User } from '@docmost/db/types/entity.types';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
@@ -204,6 +205,66 @@ export class CommentService {
     });
 
     return comment;
+  }
+
+  // Marks a top-level comment resolved or re-opens it. Idempotent: asking for
+  // the state the comment is already in changes nothing.
+  async resolve(
+    comment: Comment,
+    page: Page,
+    dto: ResolveCommentDto,
+    authUser: User,
+  ): Promise<Comment> {
+    if (comment.parentCommentId) {
+      throw new BadRequestException('Only top-level comments can be resolved');
+    }
+
+    const alreadyResolved = comment.resolvedAt != null;
+    if (alreadyResolved === dto.resolved) {
+      return this.commentRepo.findById(comment.id, {
+        includeCreator: true,
+        includeResolvedBy: true,
+      });
+    }
+
+    const now = new Date();
+    await this.commentRepo.updateComment(
+      {
+        resolvedAt: dto.resolved ? now : null,
+        resolvedById: dto.resolved ? authUser.id : null,
+        updatedAt: now,
+      },
+      comment.id,
+    );
+
+    // Keep the inline highlight in step for everyone with the page open. The
+    // client that clicked also flips it locally, so a failure here only
+    // delays what the next load fixes.
+    try {
+      await this.collaborationGateway.handleYjsEvent(
+        'resolveCommentMark',
+        `page.${page.id}`,
+        { commentId: comment.id, resolved: dto.resolved, user: authUser },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to update comment mark for comment ${comment.id}`,
+        error,
+      );
+    }
+
+    const updated = await this.commentRepo.findById(comment.id, {
+      includeCreator: true,
+      includeResolvedBy: true,
+    });
+
+    this.wsService.emitCommentEvent(comment.spaceId, comment.pageId, {
+      operation: 'commentResolved',
+      pageId: comment.pageId,
+      comment: updated,
+    });
+
+    return updated;
   }
 
   private async queueCommentNotification(
