@@ -22,7 +22,7 @@ import DocsThemeToggle from "@/features/public-space/components/docs/docs-theme-
 import DocsFooterBranding from "@/features/public-space/components/docs/docs-footer-branding.tsx";
 import { MAIN_CONTENT_ID, SkipToMain } from "@/components/ui/skip-to-main.tsx";
 import { SearchMobileControl } from "@/features/search/components/search-control.tsx";
-import AnnouncementBanners from "@/ee/announcement/components/announcement-banners.tsx";
+import AnnouncementBanners from "@/features/announcements/components/announcement-banners";
 import styles from "./docs.module.css";
 
 const MemoizedDocsSidebarTree = React.memo(DocsSidebarTree);

@@ -1,0 +1,58 @@
+.root {
+  position: sticky;
+  top: 0;
+  z-index: 91;
+  max-height: 40svh;
+  overflow-y: auto;
+}
+
+.root[data-has-banners] {
+  border-bottom: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.2));
+}
+
+.bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.bar[data-dismissible] {
+  padding-inline: 44px;
+}
+
+.bar a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.bar :is(a, button):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.close {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 8px;
+  display: flex;
+  align-items: center;
+}
+
+@media print {
+  .root {
+    display: none;
+  }
+}

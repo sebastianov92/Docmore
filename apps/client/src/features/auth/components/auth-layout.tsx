@@ -1,7 +1,7 @@
 import React from "react";
 import { Group, Text } from "@mantine/core";
 import { MAIN_CONTENT_ID } from "@/components/ui/skip-to-main.tsx";
-import AnnouncementBanners from "@/ee/announcement/components/announcement-banners.tsx";
+import AnnouncementBanners from "@/features/announcements/components/announcement-banners";
 import classes from "./auth.module.css";
 
 type AuthLayoutProps = {

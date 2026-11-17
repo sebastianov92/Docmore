@@ -9,7 +9,7 @@ import { lazyWithPrefetch, prefetchLazyComponents } from "@/lib/lazy-prefetch.ts
 import { useTranslation } from "react-i18next";
 import { useRedirectToCloudSelect } from "@/ee/hooks/use-redirect-to-cloud-select.tsx";
 import { useTrackOrigin } from "@/hooks/use-track-origin";
-import AnnouncementBanners from "@/ee/announcement/components/announcement-banners.tsx";
+import AnnouncementBanners from "@/features/announcements/components/announcement-banners";
 
 
 const SetupWorkspace = lazyWithPrefetch(() => import("@/pages/auth/setup-workspace.tsx"));
@@ -80,7 +80,7 @@ const VerifiedPages = lazyWithPrefetch(
   () => import("@/features/page-verification/pages/verified-pages.tsx"),
 );
 const Announcements = lazyWithPrefetch(
-  () => import("@/ee/announcement/pages/announcements"),
+  () => import("@/features/announcements/pages/announcements-page"),
 );
 const TemplateList = lazyWithPrefetch(
   () => import("@/features/template/pages/template-list"),

@@ -14,6 +14,7 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.TEMPLATES,
   Feature.DOCX_EXPORT,
   Feature.PDF_EXPORT,
+  Feature.ANNOUNCEMENTS,
   Feature.PAGE_PERMISSIONS,
   Feature.SSO_CUSTOM,
   Feature.SECURITY_SETTINGS,

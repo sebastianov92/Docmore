@@ -145,6 +145,14 @@ outside the `ee/` directories, so they are always on:
   downloaded from the dialog, and kept for a day for anyone who may read
   the page. Needs `GOTENBERG_URL`; `PDF_RENDER_BASE_URL` is the address
   Chromium uses to reach the app (the compose file sets both).
+- **Announcements**: Settings > Announcements puts a banner over the app
+  for members, or over the login and public pages too. One line of text
+  with bold, italic, underline and links, a type with its icon, a color,
+  an optional start and end, and whether people may dismiss it (a
+  dismissed banner comes back if its text changes). One announcement shows
+  at a time: saving one that overlaps another lists the clash and offers
+  to replace it, which ends the earlier one when the new one starts.
+  Archived announcements can be restored while their window is open.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

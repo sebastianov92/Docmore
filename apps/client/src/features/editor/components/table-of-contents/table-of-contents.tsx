@@ -7,7 +7,7 @@ import { Box, Text, Title } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { useTranslation } from "react-i18next";
 import { useAtomValue } from "jotai";
-import { announcementBannersHeightAtom } from "@/ee/announcement/atoms/announcement-atoms";
+import { announcementBannersHeightAtom } from "@/features/announcements/atoms";
 import { HeadingLink, recalculateLinks } from "./table-of-contents.utils";
 
 type TableOfContentsProps = {

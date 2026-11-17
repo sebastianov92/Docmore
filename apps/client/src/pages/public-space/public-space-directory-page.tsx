@@ -15,7 +15,7 @@ import { Error404 } from "@/components/ui/error-404.tsx";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
 import { MAIN_CONTENT_ID, SkipToMain } from "@/components/ui/skip-to-main.tsx";
 import { AvatarIconType } from "@/features/attachments/types/attachment.types.ts";
-import AnnouncementBanners from "@/ee/announcement/components/announcement-banners.tsx";
+import AnnouncementBanners from "@/features/announcements/components/announcement-banners";
 import styles from "@/features/public-space/components/docs/docs-hub.module.css";
 
 const TILE_COLORS = [
