@@ -75,7 +75,8 @@ describe('VersionService.getVersion', () => {
     const refused = await service.getVersion();
     const next = await service.getVersion();
 
-    expect(refused).toBeUndefined();
+    expect(refused.currentVersion).toMatch(/^\d+\.\d+\.\d+/);
+    expect(refused.latestVersion).toBe(0);
     expect(next.latestVersion).toBe('9.9.9');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -88,5 +89,19 @@ describe('VersionService.getVersion', () => {
 
     expect(version.currentVersion).toMatch(/^\d+\.\d+\.\d+/);
     expect(version.latestVersion).toBe(0);
+  });
+
+  it('points at the Docmore fork, not upstream', async () => {
+    fetchMock.mockImplementation(async () => release('v9.9.9'));
+    const service = makeService();
+
+    const version = await service.getVersion();
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://api.github.com/repos/sebastianov92/Docmore/releases/latest',
+    );
+    expect(version.releaseUrl).toBe(
+      'https://github.com/sebastianov92/Docmore/releases',
+    );
   });
 });
