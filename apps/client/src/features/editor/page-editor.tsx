@@ -81,7 +81,7 @@ import { searchSpotlight } from "@/features/search/constants.ts";
 import { useEditorScroll } from "./hooks/use-editor-scroll";
 import { usePageYdoc } from "./hooks/use-page-ydoc";
 import { useDestroyEditorBeforeChildren } from "./hooks/use-destroy-editor-before-children";
-import { EditorAiMenu } from "@/ee/ai/components/editor/ai-menu/ai-menu";
+import { EditorAiMenu } from "@/features/ai/components/editor/ai-menu";
 import { usePageEditMode } from "@/features/page-verification/hooks/use-page-edit-mode";
 import { EditorLinkMenu } from "@/features/editor/components/link/link-menu";
 import ColumnsMenu from "@/features/editor/components/columns/columns-menu.tsx";

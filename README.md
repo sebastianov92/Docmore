@@ -101,6 +101,18 @@ outside the `ee/` directories, so they are always on:
   sections, status lozenges, task lists, page layouts (columns), tables,
   links between pages (turned into mentions or internal links) and
   attachments, including draw.io diagrams with their previews.
+- **AI, bring your own provider**: Settings > AI takes API keys for
+  OpenAI, Anthropic (Claude) and Google Gemini, the address of an Ollama
+  server, or any OpenAI-compatible endpoint (LM Studio, vLLM, LiteLLM,
+  OpenRouter). "Test and load models" checks the key and lists that
+  provider's models so you pick the writing and embedding models from real
+  lists. Keys are encrypted at rest with `APP_SECRET` and never returned.
+  With a writing model chosen and "Ask AI in the editor" on, members get
+  Ask AI from the selection toolbar: improve, fix, shorten, lengthen,
+  simplify, summarize, explain, continue, change tone, translate, or a
+  free request, streamed in and then replaced, inserted or copied. The
+  upstream `AI_DRIVER` environment variables still work as a fallback.
+  Semantic search and chat come next and reuse the same providers.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
