@@ -26,6 +26,7 @@ import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { SpaceRepo } from '@docmost/db/repos/space/space.repo';
 import { InjectQueue } from '@nestjs/bullmq';
 import { QueueJob, QueueName } from '../../../integrations/queue/constants';
+import { isIndexableExtension } from '../attachment-index.utils';
 import { Queue } from 'bullmq';
 import { streamMultipartFile } from '../../../common/helpers';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
@@ -155,8 +156,8 @@ export class AttachmentService {
         });
       }
 
-      // Only index PDF, DOCX and TXT files
-      if (['.pdf', '.docx', '.txt'].includes(attachment.fileExt.toLowerCase())) {
+      // Text goes to the search index for the file types we can read
+      if (isIndexableExtension(attachment.fileExt)) {
         await this.attachmentQueue.add(
           QueueJob.ATTACHMENT_INDEX_CONTENT,
           {

@@ -62,6 +62,13 @@ outside the `ee/` directories, so they are always on:
 - **Personal spaces**: once allowed in Settings > General, every member can
   create one space of their own from the workspace menu. The creator is its
   only admin; it cannot be archived.
+- **Search inside attachments**: PDF, Word (.docx), .txt, .md and .csv
+  files attached to pages are read in the background and indexed in
+  Postgres, so the search dialog's "Attachments" type finds them by content
+  as well as by file name, with a highlighted snippet. Files from before
+  the upgrade are indexed on the next start. Results follow page and space
+  access; files over 50 MB and images are not read. Admins can force a
+  full re-index with `POST /api/search-attachments/reindex`.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

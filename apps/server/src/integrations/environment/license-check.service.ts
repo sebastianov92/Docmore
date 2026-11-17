@@ -23,6 +23,7 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.COMMENT_RESOLUTION,
   Feature.PUBLIC_SPACE_APPEARANCE,
   Feature.PERSONAL_SPACES,
+  Feature.ATTACHMENT_INDEXING,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {
