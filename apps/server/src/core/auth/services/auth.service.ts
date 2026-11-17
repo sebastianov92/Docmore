@@ -110,6 +110,8 @@ export class AuthService {
     user.lastLoginAt = new Date();
     await this.userRepo.updateLastLogin(user.id, workspaceId);
 
+    // Login requests carry no session yet, so the actor is set by hand.
+    this.auditService.setActorId(user.id);
     this.auditService.log({
       event: AuditEvent.USER_LOGIN,
       resourceType: AuditResource.USER,

@@ -76,6 +76,13 @@ outside the `ee/` directories, so they are always on:
   layout allows) and their embedded JPEG and PNG images are placed after
   the text of their page. Scanned PDFs without a text layer are refused
   with a message asking for OCR first; the 30 MB import limit applies.
+- **Audit logs**: every action the server already reports (sign-ins,
+  members and roles, spaces, groups, pages, sharing, comments, API keys,
+  SSO, settings) is written to the `audit` table with who did it, from
+  which address and what changed. The workspace owner reads it under
+  Settings > Audit logs, filtered by event and date, newest first, with
+  the before/after of each change. Rows older than the retention period
+  (one year by default, adjustable on that page) are deleted daily.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

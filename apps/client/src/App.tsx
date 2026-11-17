@@ -75,7 +75,7 @@ const WorkspaceApiKeys = lazyWithPrefetch(
 );
 const AiSettings = lazyWithPrefetch(() => import("@/ee/ai/pages/ai-settings.tsx"));
 const BasePage = lazyWithPrefetch(() => import("@/ee/base/pages/base-page.tsx"));
-const AuditLogs = lazyWithPrefetch(() => import("@/ee/audit/pages/audit-logs.tsx"));
+const AuditLogs = lazyWithPrefetch(() => import("@/features/audit/pages/audit-logs.tsx"));
 const VerifiedPages = lazyWithPrefetch(
   () => import("@/ee/page-verification/pages/verified-pages.tsx"),
 );
@@ -227,10 +227,13 @@ export default function App() {
             <Route path={"ai"} element={<AiSettings />} />
             <Route path={"ai/mcp"} element={<AiSettings />} />
             <Route path={"audit"} element={<AuditLogs />} />
-            <Route path={"audit/siem"} element={<AuditLogs />} />
+            <Route
+              path={"audit/siem"}
+              element={<Navigate to="/settings/audit" replace />}
+            />
             <Route
               path={"siem"}
-              element={<Navigate to="/settings/audit/siem" replace />}
+              element={<Navigate to="/settings/audit" replace />}
             />
             <Route path={"verifications"} element={<VerifiedPages />} />
             <Route path={"integrations"} element={<Integrations />} />
