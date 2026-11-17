@@ -55,7 +55,7 @@ import { mobileSidebarAtom } from "@/components/layouts/global/hooks/atoms/sideb
 import { useToggleSidebar } from "@/components/layouts/global/hooks/hooks/use-toggle-sidebar.ts";
 import { searchSpotlight } from "@/features/search/constants";
 const TemplatePickerModal = React.lazy(
-  () => import("@/ee/template/components/template-picker-modal"),
+  () => import("@/features/template/components/template-picker-modal"),
 );
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { useUpgradeLabel } from "@/ee/hooks/use-upgrade-label";

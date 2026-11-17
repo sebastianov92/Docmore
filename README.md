@@ -28,6 +28,12 @@ outside the `ee/` directories, so they are always on:
   single-use backup codes, under Settings > Profile. Admins can require it
   for everyone from Settings > General; members without it set it up at
   their next login. Secrets are encrypted at rest with `APP_SECRET`.
+- **Templates**: reusable starting points for pages, workspace-wide or per
+  space, with a gallery at /templates, a picker in the page editor and the
+  space menu, and a preview before use. Admins manage them; members can
+  create templates in their spaces when Settings > General allows it.
+- **Word export**: any page exports to .docx from the export dialog, with
+  images embedded and page mentions turned into links.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

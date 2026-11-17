@@ -1,0 +1,68 @@
+.row {
+  position: relative;
+  border-radius: var(--mantine-radius-sm);
+
+  @mixin hover {
+    background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  }
+}
+
+.rowButton {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  width: 100%;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  padding-right: 72px;
+  border-radius: inherit;
+  text-align: left;
+}
+
+.icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.scope {
+  flex-shrink: 0;
+  font-size: var(--mantine-font-size-xs);
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+}
+
+.useButton {
+  position: absolute;
+  top: 50%;
+  right: var(--mantine-spacing-sm);
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 100ms ease;
+
+  .row:hover &,
+  .row:focus-within &,
+  &:focus-visible {
+    opacity: 1;
+  }
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mantine-spacing-xl);
+}

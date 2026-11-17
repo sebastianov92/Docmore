@@ -1,0 +1,70 @@
+.header {
+  height: 45px;
+  position: fixed;
+  z-index: 99;
+  top: var(--app-shell-header-offset, 0rem);
+  inset-inline-start: var(--app-shell-navbar-offset, 0rem);
+  inset-inline-end: var(--app-shell-aside-offset, 0rem);
+  padding: 0 var(--mantine-spacing-md);
+  background-color: var(--mantine-color-body);
+  border-bottom: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+
+  @media (max-width: $mantine-breakpoint-sm) {
+    padding: 0 var(--mantine-spacing-xs);
+  }
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+
+  @mixin hover {
+    color: light-dark(var(--mantine-color-gray-9), var(--mantine-color-gray-0));
+  }
+}
+
+.body {
+  margin: 56px auto 0;
+  padding: 8px 0;
+}
+
+.titleArea {
+  padding: 0 3rem;
+  margin-bottom: 1.5em;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.25em;
+}
+
+.iconButton button {
+  overflow: visible;
+}
+
+.icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.titleInput {
+  width: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+
+  &::placeholder {
+    color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+  }
+}

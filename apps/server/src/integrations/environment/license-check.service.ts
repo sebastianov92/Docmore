@@ -11,6 +11,8 @@ export const EE_PREVIEW_FEATURES: readonly string[] = Object.values(Feature);
 export const DOCMORE_FEATURES: readonly string[] = [
   Feature.API_KEYS,
   Feature.MFA,
+  Feature.TEMPLATES,
+  Feature.DOCX_EXPORT,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {
