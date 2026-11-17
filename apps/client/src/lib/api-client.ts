@@ -14,6 +14,7 @@ api.interceptors.response.use(
       "/api/pages/export",
       "/api/spaces/export",
       "/api/docx-export",
+      "/api/pdf-export/download",
       "/api/bases/export-csv",
     ];
     if (response.request.responseURL) {

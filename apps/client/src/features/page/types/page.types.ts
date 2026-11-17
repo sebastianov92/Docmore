@@ -104,4 +104,5 @@ export enum ExportFormat {
   HTML = "html",
   Markdown = "markdown",
   Docx = "docx",
+  Pdf = "pdf",
 }

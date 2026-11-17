@@ -44,7 +44,7 @@ const CreateWorkspace = lazyWithPrefetch(() => import("@/ee/pages/create-workspa
 const Security = lazyWithPrefetch(() => import("@/features/sso/pages/security.tsx"));
 const License = lazyWithPrefetch(() => import("@/ee/licence/pages/license.tsx"));
 const SharedPage = lazyWithPrefetch(() => import("@/pages/share/shared-page.tsx"));
-const PdfRenderPage = lazyWithPrefetch(() => import("@/ee/pdf-export/pdf-render-page.tsx"));
+const PdfRenderPage = lazyWithPrefetch(() => import("@/features/pdf-export/pdf-render-page.tsx"));
 const Shares = lazyWithPrefetch(() => import("@/pages/settings/shares/shares.tsx"));
 const ShareLayout = lazyWithPrefetch(
   () => import("@/features/share/components/share-layout.tsx"),

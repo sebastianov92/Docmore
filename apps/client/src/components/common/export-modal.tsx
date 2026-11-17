@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { Feature } from "@/ee/features";
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { useUpgradeLabel } from "@/ee/hooks/use-upgrade-label";
+import { exportPageToPdf } from "@/features/pdf-export/services";
 
 interface ExportModalProps {
   id: string;
@@ -43,8 +44,11 @@ export default function ExportModal({
   const { t } = useTranslation();
   const upgradeLabel = useUpgradeLabel();
   const isDocx = format === ExportFormat.Docx;
+  const isPdf = format === ExportFormat.Pdf;
   const docxEntitled = useHasFeature(Feature.DOCX_EXPORT);
-  const blockedByLicense = isDocx && !docxEntitled;
+  const pdfEntitled = useHasFeature("export:pdf");
+  const blockedByLicense = (isDocx && !docxEntitled) || (isPdf && !pdfEntitled);
+  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -52,6 +56,8 @@ export default function ExportModal({
       if (type === "page") {
         if (format === ExportFormat.Docx) {
           await exportPageToDocx({ pageId: id });
+        } else if (format === ExportFormat.Pdf) {
+          await exportPageToPdf(id, setPdfStatus);
         } else {
           await exportPage({
             pageId: id,
@@ -76,6 +82,7 @@ export default function ExportModal({
       console.error("export error", err);
     } finally {
       setIsExporting(false);
+      setPdfStatus(null);
     }
   };
 
@@ -110,10 +117,22 @@ export default function ExportModal({
               onChange={handleChange}
               includeDocx={type === "page"}
               docxEntitled={docxEntitled}
+              includePdf={type === "page"}
+              pdfEntitled={pdfEntitled}
             />
           </Group>
 
-          {type === "page" && !isDocx && (
+          {isPdf && (
+            <Text size="sm" c="dimmed" mt="sm">
+              {pdfStatus === "rendering"
+                ? t("Rendering the page…")
+                : pdfStatus === "downloading"
+                  ? t("Downloading…")
+                  : t("The page is printed on the server as it looks on screen. It can take a few seconds.")}
+            </Text>
+          )}
+
+          {type === "page" && !isDocx && !isPdf && (
             <>
               <Divider my="sm" />
 
@@ -187,12 +206,16 @@ interface ExportFormatSelection {
   onChange: (value: string) => void;
   includeDocx?: boolean;
   docxEntitled?: boolean;
+  includePdf?: boolean;
+  pdfEntitled?: boolean;
 }
 function ExportFormatSelection({
   format,
   onChange,
   includeDocx,
   docxEntitled,
+  includePdf,
+  pdfEntitled,
 }: ExportFormatSelection) {
   const { t } = useTranslation();
 
@@ -202,6 +225,7 @@ function ExportFormatSelection({
     ...(includeDocx
       ? [{ value: "docx", label: "Word (.docx)", disabled: !docxEntitled }]
       : []),
+    ...(includePdf ? [{ value: "pdf", label: "PDF", disabled: !pdfEntitled }] : []),
   ];
 
   return (
@@ -215,7 +239,7 @@ function ExportFormatSelection({
       withCheckIcon={false}
       aria-label={t("Select export format")}
       renderOption={({ option }) =>
-        option.value === "docx" && !docxEntitled ? (
+        (option.value === "docx" && !docxEntitled) || (option.value === "pdf" && !pdfEntitled) ? (
           <div>
             <Text size="sm" c="dimmed">
               {option.label}

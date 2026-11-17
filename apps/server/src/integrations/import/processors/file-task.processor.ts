@@ -8,6 +8,7 @@ import { StorageService } from '../../storage/storage.service';
 import { ModuleRef } from '@nestjs/core';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
+import { PdfExportService } from '../../export/pdf/pdf-export.service';
 
 @Processor(QueueName.FILE_TASK_QUEUE)
 export class FileTaskProcessor extends WorkerHost implements OnModuleDestroy {
@@ -41,12 +42,8 @@ export class FileTaskProcessor extends WorkerHost implements OnModuleDestroy {
     }
   }
 
-  private getPdfExportService() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const PdfExportModule = require('./../../../ee/pdf-export/pdf-export.service');
-    return this.moduleRef.get(PdfExportModule.PdfExportService, {
-      strict: false,
-    });
+  private getPdfExportService(): PdfExportService {
+    return this.moduleRef.get(PdfExportService, { strict: false });
   }
 
   private async processExportTask(fileTaskId: string): Promise<void> {

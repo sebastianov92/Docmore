@@ -93,6 +93,14 @@ export class EnvironmentService {
     return this.configService.get<string>('GOTENBERG_URL');
   }
 
+  // Where Gotenberg's Chromium reaches this app; in Docker that is the
+  // service name, not the public APP_URL.
+  getPdfRenderBaseUrl(): string {
+    return (
+      this.configService.get<string>('PDF_RENDER_BASE_URL') || this.getAppUrl()
+    );
+  }
+
   getStorageDriver(): string {
     return this.configService.get<string>('STORAGE_DRIVER', 'local');
   }

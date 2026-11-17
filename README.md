@@ -138,6 +138,13 @@ outside the `ee/` directories, so they are always on:
   model has to support them). "Workspace knowledge only" keeps answers to
   the pages. Chats are private to their author, searchable, renamable, and
   deleting one removes its files.
+- **PDF export**: the export dialog of a page offers PDF. The server asks
+  Gotenberg (a Chromium in its own container, in the compose file) to print
+  the page exactly as the app renders it, read-only and in print layout,
+  including images and diagrams; the file is ready in a few seconds and
+  downloaded from the dialog, and kept for a day for anyone who may read
+  the page. Needs `GOTENBERG_URL`; `PDF_RENDER_BASE_URL` is the address
+  Chromium uses to reach the app (the compose file sets both).
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
@@ -154,7 +161,8 @@ docker compose up -d --build
 ```
 
 The app listens on port 3000 (override with `PORT` in `.env`). Attachments are
-kept in the `docmore` volume, the database in `db_data`.
+kept in the `docmore` volume, the database in `db_data`. The `gotenberg`
+service only prints PDFs; leave it out and everything but PDF export works.
 
 ### Update
 

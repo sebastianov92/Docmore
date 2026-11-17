@@ -16,6 +16,9 @@ services:
       REDIS_URL: redis://redis:6379
       DISABLE_TELEMETRY: 'true'
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Docmore}
+      # PDF export: Gotenberg prints pages it fetches from this container
+      GOTENBERG_URL: http://gotenberg:3000
+      PDF_RENDER_BASE_URL: http://docmore:3000
     ports:
       - "${PORT:-3000}:3000"
     restart: unless-stopped
@@ -32,6 +35,11 @@ services:
     restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    command: ["gotenberg", "--api-timeout=90s", "--chromium-auto-start=true"]
+    restart: unless-stopped
 
   redis:
     image: redis:8
