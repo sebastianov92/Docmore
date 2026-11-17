@@ -38,6 +38,18 @@ outside the `ee/` directories, so they are always on:
   people and groups, as viewers or editors. Restrictions apply to the page
   and everything under it; the last editor can never be removed. Space
   admins and anyone who can edit the page manage its access.
+- **Single sign-on (OpenID Connect)**: Settings > Security & SSO takes any
+  OIDC provider (Authelia, Authentik, Keycloak, Pocket ID, Google, Entra):
+  issuer URL, client ID and secret, a callback URL to register with the
+  provider. Authorization code flow with PKCE. Accounts are matched by
+  email; "Allow signup" creates new members on first sign-in, limited by
+  the allowed email domains and honouring pending invitations. "Group sync"
+  adds members to the groups named in the provider's `groups` claim.
+  "Enforce SSO" turns off password login once a provider is active; the
+  last active provider cannot be disabled while enforced. Client secrets
+  are encrypted at rest with `APP_SECRET`. The provider is trusted on the
+  email it reports, so only connect providers you control. Plain `http`
+  issuers are accepted for private networks.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

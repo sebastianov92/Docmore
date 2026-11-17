@@ -8,6 +8,7 @@ export enum JwtType {
   PDF_RENDER = 'pdf_render',
   PDF_EXPORT_DOWNLOAD = 'pdf_export_download',
   OAUTH_ACCESS = 'oauth_access',
+  SSO_STATE = 'sso_state',
 }
 export type JwtPayload = {
   sub: string;
@@ -70,4 +71,16 @@ export type JwtOAuthPayload = {
   iss: string;
   jti: string;
   type: JwtType.OAUTH_ACCESS;
+};
+
+// Carried in a short-lived cookie between the redirect to the identity
+// provider and its callback (Docmore SSO).
+export type JwtSsoStatePayload = {
+  providerId: string;
+  workspaceId: string;
+  state: string;
+  nonce: string;
+  codeVerifier: string;
+  redirect: string | null;
+  type: 'sso_state';
 };

@@ -25,7 +25,8 @@ describe('LicenseCheckService without the EE module', () => {
     expect(service.resolveFeatures(null, null)).toEqual([...DOCMORE_FEATURES]);
     expect(service.hasFeature(null, 'mfa')).toBe(true);
     expect(service.hasFeature(null, 'api:keys')).toBe(true);
-    expect(service.hasFeature(null, 'sso:custom')).toBe(false);
+    expect(service.hasFeature(null, 'sso:custom')).toBe(true);
+    expect(service.hasFeature(null, 'scim')).toBe(false);
     expect(service.isValidEELicense(null)).toBe(false);
   });
 

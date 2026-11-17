@@ -8,7 +8,7 @@ import { getGroups } from "@/features/group/services/group-service.ts";
 import { QueryParams } from "@/lib/types.ts";
 import { getWorkspaceMembers } from "@/features/workspace/services/workspace-service.ts";
 import { getLicenseInfo } from "@/ee/licence/services/license-service.ts";
-import { getSsoProviders } from "@/ee/security/services/security-service.ts";
+import { getSsoProviders } from "@/features/sso/services/sso-service.ts";
 import { getShares } from "@/features/share/services/share-service.ts";
 import { getApiKeys } from "@/features/api-key/services/api-key-service.ts";
 import { API_KEY_LIST_KEY } from "@/features/api-key/queries/api-key-query.ts";

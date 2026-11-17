@@ -41,3 +41,6 @@ lerna-debug.log*
 .nx
 .nx/installation
 .nx/cache
+
+# Local compose overrides (test identity providers, dev-only switches)
+docker-compose.override.yml

@@ -15,6 +15,7 @@ import {
   JwtPayload,
   JwtPdfExportDownloadPayload,
   JwtPdfRenderPayload,
+  JwtSsoStatePayload,
   JwtType,
 } from '../dto/jwt-payload';
 import { User } from '@docmost/db/types/entity.types';
@@ -94,6 +95,14 @@ export class TokenService {
       type: JwtType.MFA_TOKEN,
     };
     return this.jwtService.sign(payload, { expiresIn: '5m' });
+  }
+
+  // Docmore SSO: binds the browser that started a login to the callback (state, nonce, PKCE).
+  async generateSsoStateToken(
+    payload: Omit<JwtSsoStatePayload, 'type'>,
+  ): Promise<string> {
+    const fullPayload: JwtSsoStatePayload = { ...payload, type: 'sso_state' };
+    return this.jwtService.sign(fullPayload, { expiresIn: '10m' });
   }
 
   async generateApiToken(opts: {
