@@ -34,6 +34,10 @@ outside the `ee/` directories, so they are always on:
   create templates in their spaces when Settings > General allows it.
 - **Word export**: any page exports to .docx from the export dialog, with
   images embedded and page mentions turned into links.
+- **Page permissions**: the Share dialog of a page can restrict it to chosen
+  people and groups, as viewers or editors. Restrictions apply to the page
+  and everything under it; the last editor can never be removed. Space
+  admins and anyone who can edit the page manage its access.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

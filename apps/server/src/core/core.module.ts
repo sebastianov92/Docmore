@@ -31,6 +31,7 @@ import { SessionModule } from './session/session.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import { MfaModule } from './mfa/mfa.module';
 import { TemplateModule } from './template/template.module';
+import { PagePermissionModule } from './page-permission/page-permission.module';
 import { ClsMiddleware } from 'nestjs-cls';
 
 @Module({
@@ -60,6 +61,7 @@ import { ClsMiddleware } from 'nestjs-cls';
     ApiKeyModule,
     MfaModule,
     TemplateModule,
+    PagePermissionModule,
   ],
 })
 export class CoreModule implements NestModule {

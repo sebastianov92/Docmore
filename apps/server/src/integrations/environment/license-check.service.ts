@@ -13,6 +13,7 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.MFA,
   Feature.TEMPLATES,
   Feature.DOCX_EXPORT,
+  Feature.PAGE_PERMISSIONS,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {
