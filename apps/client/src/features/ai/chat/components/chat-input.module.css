@@ -1,0 +1,97 @@
+.card,
+.flat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-lg);
+}
+
+.card {
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.card:focus-within,
+.flat:focus-within {
+  border-color: var(--mantine-primary-color-filled);
+}
+
+.editor :global(.ProseMirror) {
+  min-height: 24px;
+  max-height: 200px;
+  overflow-y: auto;
+  outline: none;
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.5;
+}
+
+.editor :global(.ProseMirror p) {
+  margin: 0;
+}
+
+.editor :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--mantine-color-placeholder);
+}
+
+.editor :global(.mention) {
+  color: var(--mantine-primary-color-filled);
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 3px 6px 3px 8px;
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  font-size: var(--mantine-font-size-xs);
+}
+
+.chip[data-uploading] {
+  opacity: 0.6;
+}
+
+.chipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipRemove {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--mantine-color-dimmed);
+  cursor: pointer;
+}
+
+.chipRemove:hover {
+  background: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}

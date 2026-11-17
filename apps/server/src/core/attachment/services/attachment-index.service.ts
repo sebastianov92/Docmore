@@ -163,7 +163,7 @@ export class AttachmentIndexService implements OnApplicationBootstrap {
 
     let text: string | null = null;
     try {
-      text = await this.extractText(buffer, ext);
+      text = await this.extractTextFromBuffer(buffer, ext);
     } catch (err: any) {
       // A corrupt or password-protected file is not worth retrying.
       this.logger.warn(
@@ -174,7 +174,8 @@ export class AttachmentIndexService implements OnApplicationBootstrap {
     await this.store(attachment.id, attachment.fileName, text);
   }
 
-  private async extractText(buffer: Buffer, ext: string): Promise<string> {
+  // Also used by the AI chat for files attached to a message.
+  async extractTextFromBuffer(buffer: Buffer, ext: string): Promise<string> {
     if (isPlainTextExtension(ext)) {
       return normalizeExtractedText(decodePlainText(buffer));
     }

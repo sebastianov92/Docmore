@@ -43,6 +43,7 @@ export default function AiSettings() {
 
   const generativeOn = workspace?.settings?.ai?.generative === true;
   const searchOn = workspace?.settings?.ai?.search === true;
+  const chatOn = workspace?.settings?.ai?.chat === true;
   const hasGenerationModel = Boolean(settings?.generation) || Boolean(settings?.envFallback?.model);
   const hasEmbeddingModel = Boolean(settings?.embedding) || Boolean(status?.model);
   const vectorStoreReady = status ? status.available : true;
@@ -61,6 +62,19 @@ export default function AiSettings() {
       const updated = await updateWorkspace({ aiSearch: value });
       setWorkspace(updated);
       queryClient.invalidateQueries({ queryKey: AI_EMBEDDING_STATUS_KEY });
+      queryClient.invalidateQueries({ queryKey: AI_CONFIG_KEY });
+    } catch (err) {
+      notifications.show({ message: getApiErrorMessage(err, t("Failed to update setting")), color: "red" });
+    }
+  };
+
+  const toggleChatFlag = async (
+    key: "aiChat" | "aiChatReadOnly" | "aiChatWorkspaceKnowledgeOnly",
+    value: boolean,
+  ) => {
+    try {
+      const updated = await updateWorkspace({ [key]: value } as any);
+      setWorkspace(updated);
       queryClient.invalidateQueries({ queryKey: AI_CONFIG_KEY });
     } catch (err) {
       notifications.show({ message: getApiErrorMessage(err, t("Failed to update setting")), color: "red" });
@@ -192,6 +206,60 @@ export default function AiSettings() {
           </ResponsiveSettingsControl>
         </ResponsiveSettingsRow>
         {searchOn && status && <IndexStatus status={status} onReindex={() => reindex.mutate()} busy={reindex.isPending} />}
+        <ResponsiveSettingsRow>
+          <ResponsiveSettingsContent>
+            <Text size="md">{t("AI chat")}</Text>
+            <Text size="sm" c="dimmed">
+              {hasGenerationModel
+                ? t("A chat at /ai and beside every page that searches, reads and, if you allow it, writes pages as the member asking.")
+                : t("Pick a writing model first.")}
+            </Text>
+          </ResponsiveSettingsContent>
+          <ResponsiveSettingsControl>
+            <Tooltip label={t("Pick a writing model first.")} disabled={hasGenerationModel || chatOn} refProp="rootRef">
+              <Switch
+                checked={chatOn}
+                onChange={(e) => toggleChatFlag("aiChat", e.currentTarget.checked)}
+                disabled={!hasGenerationModel && !chatOn}
+                aria-label={t("Toggle AI chat")}
+              />
+            </Tooltip>
+          </ResponsiveSettingsControl>
+        </ResponsiveSettingsRow>
+        {chatOn && (
+          <>
+            <ResponsiveSettingsRow>
+              <ResponsiveSettingsContent>
+                <Text size="md">{t("Chat is read-only")}</Text>
+                <Text size="sm" c="dimmed">
+                  {t("The chat can search and read pages but never create or change them.")}
+                </Text>
+              </ResponsiveSettingsContent>
+              <ResponsiveSettingsControl>
+                <Switch
+                  checked={workspace?.settings?.ai?.chatReadOnly === true}
+                  onChange={(e) => toggleChatFlag("aiChatReadOnly", e.currentTarget.checked)}
+                  aria-label={t("Toggle read-only chat")}
+                />
+              </ResponsiveSettingsControl>
+            </ResponsiveSettingsRow>
+            <ResponsiveSettingsRow>
+              <ResponsiveSettingsContent>
+                <Text size="md">{t("Workspace knowledge only")}</Text>
+                <Text size="sm" c="dimmed">
+                  {t("Answers come only from your pages; the model says so instead of using general knowledge.")}
+                </Text>
+              </ResponsiveSettingsContent>
+              <ResponsiveSettingsControl>
+                <Switch
+                  checked={workspace?.settings?.ai?.chatWorkspaceKnowledgeOnly === true}
+                  onChange={(e) => toggleChatFlag("aiChatWorkspaceKnowledgeOnly", e.currentTarget.checked)}
+                  aria-label={t("Toggle workspace knowledge only")}
+                />
+              </ResponsiveSettingsControl>
+            </ResponsiveSettingsRow>
+          </>
+        )}
       </Stack>
     </>
   );

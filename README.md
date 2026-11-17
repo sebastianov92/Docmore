@@ -126,6 +126,18 @@ outside the `ee/` directories, so they are always on:
   file uses the `pgvector/pgvector:pg18-trixie` image (plain Postgres 18 plus the
   extension, same data directory). Without it the switch stays off and
   everything else keeps working.
+- **AI chat**: with "AI chat" on in Settings > AI, members get a chat at
+  /ai (the header link, the prompt on the home page) and beside every page
+  (the AI Chat panel, with that page as context). The writing model answers
+  with tools: list spaces, search pages (semantic when AI search is on,
+  full-text otherwise), read a page, and, unless "Chat is read-only" is
+  set, create or update pages. Every tool runs as the member asking, with
+  their space membership and page permissions, and the steps are shown
+  under each answer. Messages can mention pages with @ and attach PDF,
+  Word, text, CSV, Markdown or images (sent to the model as images; the
+  model has to support them). "Workspace knowledge only" keeps answers to
+  the pages. Chats are private to their author, searchable, renamable, and
+  deleting one removes its files.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

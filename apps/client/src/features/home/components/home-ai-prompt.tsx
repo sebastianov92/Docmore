@@ -2,11 +2,8 @@ import { useAtomValue } from "jotai";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
-import ChatInput from "@/ee/ai-chat/components/chat-input";
-import type {
-  ChatAttachment,
-  PageMention,
-} from "@/ee/ai-chat/types/ai-chat.types";
+import ChatInput from "@/features/ai/chat/components/chat-input";
+import type { ChatAttachment, PageMention } from "@/features/ai/chat/types";
 import classes from "./home-ai-prompt.module.css";
 
 export type HomeAiPromptInitialState = {
@@ -51,7 +48,7 @@ export default function HomeAiPrompt() {
           isStreaming={false}
           onSend={handleSend}
           onStop={() => {}}
-          placeholder={t("Ask anything... Use @ to mention pages")}
+          placeholder={t("Ask anything. Type @ to mention a page.")}
           autofocus={false}
         />
       </div>

@@ -30,6 +30,7 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.PAGE_VERIFICATION,
   Feature.CONFLUENCE_IMPORT,
   Feature.AI,
+  Feature.AI_CONTROLS,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {
