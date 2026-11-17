@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { AccountMfaSection } from "@/features/user/components/account-mfa-section";
 import SessionList from "@/features/session/components/session-list";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
+import { ConnectedApps } from "@/features/oauth/components/connected-apps";
 
 export default function AccountSettings() {
   const { t } = useTranslation();
@@ -36,6 +37,10 @@ export default function AccountSettings() {
       <Divider my="lg" />
 
       <SessionList />
+
+      <Divider my="lg" />
+
+      <ConnectedApps />
     </>
   );
 }

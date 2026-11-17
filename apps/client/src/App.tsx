@@ -92,7 +92,7 @@ const FavoritesPage = lazyWithPrefetch(() => import("@/pages/favorites/favorites
 const AiChat = lazyWithPrefetch(() => import("@/features/ai/chat/pages/ai-chat-page.tsx"));
 const VerifyEmail = lazyWithPrefetch(() => import("@/ee/pages/verify-email.tsx"));
 const LabelPage = lazyWithPrefetch(() => import("@/pages/label/label-page"));
-const OAuthConsent = lazyWithPrefetch(() => import("@/ee/oauth/pages/oauth-consent.tsx"));
+const OAuthConsent = lazyWithPrefetch(() => import("@/features/oauth/pages/oauth-consent-page.tsx"));
 const Integrations = lazyWithPrefetch(
   () => import("@/features/integration/pages/integrations.tsx"),
 );

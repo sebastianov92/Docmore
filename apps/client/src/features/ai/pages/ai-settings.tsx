@@ -27,6 +27,7 @@ import { AI_PROVIDER_IDS, AiEmbeddingStatus } from "@/features/ai/types";
 import ProviderCard from "@/features/ai/components/provider-card";
 import ModelChoiceSelect from "@/features/ai/components/model-choice";
 import { formatDateTime } from "@/features/audit/lib/audit-time";
+import { McpSettings } from "@/features/ai/components/mcp-settings";
 
 // Settings > AI: connect providers, pick models, switch the features on.
 export default function AiSettings() {
@@ -261,6 +262,13 @@ export default function AiSettings() {
           </>
         )}
       </Stack>
+
+      <Divider my="xl" />
+
+      <Title order={4} mb="xs">
+        {t("MCP")}
+      </Title>
+      <McpSettings />
     </>
   );
 }

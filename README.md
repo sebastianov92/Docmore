@@ -163,6 +163,19 @@ outside the `ee/` directories, so they are always on:
   Share and public-space searches, browsing by label or creator, and any
   moment Typesense is unreachable fall back to the Postgres search. Set
   `SEARCH_DRIVER=database` to go without the container.
+- **MCP server with OAuth**: Settings > AI > MCP switches on a Model
+  Context Protocol server at `/mcp` (Streamable HTTP). Claude, Cursor,
+  ChatGPT and other assistants add it as a remote server, register
+  themselves, and send the member to a sign-in page here that asks what
+  they may do (read, or read and write). Tokens come from the built-in
+  OAuth 2.1 authorization server (authorization code with PKCE, rotating
+  refresh tokens, revocation, discovery under `/.well-known/`), and every
+  tool runs as that member with their space membership and page
+  permissions: `get_current_user`, `list_spaces`, `list_pages`,
+  `search_pages`, `get_page`, and with write access `create_page` and
+  `update_page`. Settings > My Profile lists the connected apps with a
+  revoke button. Unless "Sign-in only" is on, an API key also works as the
+  bearer token, with its own read or write scope.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

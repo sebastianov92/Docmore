@@ -12,6 +12,7 @@ import {
   JwtCollabPayload,
   JwtExchangePayload,
   JwtMfaTokenPayload,
+  JwtOAuthPayload,
   JwtPayload,
   JwtPdfExportDownloadPayload,
   JwtPdfRenderPayload,
@@ -124,6 +125,30 @@ export class TokenService {
     };
 
     return this.jwtService.sign(payload, { expiresIn });
+  }
+
+  // OAuth access token for MCP clients: issuer and audience come from the
+  // sign options so they override the module's default issuer.
+  async generateOAuthAccessToken(
+    payload: Omit<JwtOAuthPayload, 'iss' | 'aud'>,
+    opts: { issuer: string; audience: string; expiresInSeconds: number },
+  ): Promise<string> {
+    return this.jwtService.sign(payload, {
+      expiresIn: opts.expiresInSeconds,
+      issuer: opts.issuer,
+      audience: opts.audience,
+    });
+  }
+
+  // Verifies a token that may be one of several kinds (bearer on /mcp).
+  async verifyJwtOfTypes(token: string, types: string[]) {
+    const payload = await this.jwtService.verifyAsync(token, {
+      secret: this.environmentService.getAppSecret(),
+    });
+    if (!types.includes(payload?.type)) {
+      throw new UnauthorizedException('Invalid JWT token. Token type does not match.');
+    }
+    return payload;
   }
 
   async generatePdfRenderToken(

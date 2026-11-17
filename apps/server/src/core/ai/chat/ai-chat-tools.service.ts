@@ -4,6 +4,7 @@ import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { Page, User, Workspace } from '@docmost/db/types/entity.types';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
+import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import { SpaceCaslAction, SpaceCaslSubject } from '../../casl/interfaces/space-ability.type';
 import { PageAccessService } from '../../page/page-access/page-access.service';
@@ -21,6 +22,14 @@ export interface ToolContext {
   user: User;
   workspace: Workspace;
   readOnly: boolean;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  scope: 'read' | 'write';
+  schema: any;
+  execute: (args: any) => Promise<unknown>;
 }
 
 export interface PageRef {
@@ -43,6 +52,7 @@ export class AiChatToolsService {
     @InjectKysely() private readonly db: KyselyDB,
     private readonly pageRepo: PageRepo,
     private readonly spaceMemberRepo: SpaceMemberRepo,
+    private readonly pagePermissionRepo: PagePermissionRepo,
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly pageAccess: PageAccessService,
     private readonly pageService: PageService,
@@ -52,8 +62,10 @@ export class AiChatToolsService {
     @Inject(AUDIT_SERVICE) private readonly audit: IAuditService,
   ) {}
 
-  async build(ctx: ToolContext): Promise<Record<string, any>> {
-    const { tool } = await import('ai');
+  // The tools as plain definitions: the chat turns them into AI SDK tools,
+  // the MCP server registers them for outside assistants. Write tools are
+  // left out in read-only mode.
+  async definitions(ctx: ToolContext): Promise<ToolDefinition[]> {
     const { z } = await import('zod');
     const guard =
       <A, R>(name: string, fn: (args: A) => Promise<R>) =>
@@ -61,70 +73,145 @@ export class AiChatToolsService {
         try {
           return await fn(args);
         } catch (err: any) {
-          this.logger.debug(`chat tool ${name} failed: ${err?.message}`);
+          this.logger.debug(`tool ${name} failed: ${err?.message}`);
           return { error: friendly(err) };
         }
       };
 
-    const tools: Record<string, any> = {
-      list_spaces: tool({
+    const defs: ToolDefinition[] = [
+      {
+        name: 'get_current_user',
+        scope: 'read',
+        description: 'Who is connected: the user and the workspace these tools act in.',
+        schema: z.object({}),
+        execute: guard('get_current_user', async () => ({
+          user: { id: ctx.user.id, name: ctx.user.name, email: ctx.user.email },
+          workspace: { id: ctx.workspace.id, name: ctx.workspace.name },
+        })),
+      },
+      {
+        name: 'list_spaces',
+        scope: 'read',
         description:
           'List the spaces this user can read, with their ids. Use it to find a spaceId before searching one space or creating a page.',
-        inputSchema: z.object({}),
+        schema: z.object({}),
         execute: guard('list_spaces', async () => this.listSpaces(ctx)),
-      }),
-      search_pages: tool({
+      },
+      {
+        name: 'list_pages',
+        scope: 'read',
+        description: 'The most recently updated pages of a space, with ids and urls, newest first.',
+        schema: z.object({
+          spaceId: z.string().uuid(),
+          limit: z.number().int().min(1).max(100).default(25),
+        }),
+        execute: guard('list_pages', async ({ spaceId, limit }: { spaceId: string; limit?: number }) =>
+          this.listPages(ctx, spaceId, limit ?? 25),
+        ),
+      },
+      {
+        name: 'search_pages',
+        scope: 'read',
         description:
           'Find pages in the workspace by meaning or keywords. Returns the closest pages with an excerpt and a url; call get_page to read one in full before answering from it.',
-        inputSchema: z.object({
+        schema: z.object({
           query: z.string().min(1).max(500).describe('What to look for, as a question or keywords'),
           spaceId: z.string().uuid().optional().describe('Limit the search to this space'),
         }),
         execute: guard('search_pages', async ({ query, spaceId }: { query: string; spaceId?: string }) =>
           this.searchPages(ctx, query, spaceId),
         ),
-      }),
-      get_page: tool({
+      },
+      {
+        name: 'get_page',
+        scope: 'read',
         description: 'Read one page: its title, url and full content as Markdown. Takes the page id or slugId.',
-        inputSchema: z.object({
+        schema: z.object({
           pageId: z.string().min(1).max(100).describe('The page id or slugId'),
         }),
         execute: guard('get_page', async ({ pageId }: { pageId: string }) => this.getPage(ctx, pageId)),
-      }),
-    };
+      },
+    ];
 
     if (!ctx.readOnly) {
-      tools.create_page = tool({
-        description:
-          'Create a page with Markdown content in a space, optionally under a parent page. Only when the user asked for a page to be created; tell them the url afterwards.',
-        inputSchema: z.object({
-          spaceId: z.string().uuid(),
-          title: z.string().min(1).max(500),
-          content: z.string().max(100_000).describe('The page body as Markdown'),
-          parentPageId: z.string().uuid().optional(),
-        }),
-        execute: guard(
-          'create_page',
-          async (args: { spaceId: string; title: string; content: string; parentPageId?: string }) =>
-            this.createPage(ctx, args),
-        ),
-      });
-      tools.update_page = tool({
-        description:
-          'Change the content of an existing page: append to it, prepend, or replace all of it with new Markdown. Only when the user asked for the page to be edited.',
-        inputSchema: z.object({
-          pageId: z.string().min(1).max(100).describe('The page id or slugId'),
-          content: z.string().max(100_000).describe('Markdown to add or the new body'),
-          operation: z.enum(['append', 'prepend', 'replace']).default('append'),
-        }),
-        execute: guard(
-          'update_page',
-          async (args: { pageId: string; content: string; operation: 'append' | 'prepend' | 'replace' }) =>
-            this.updatePage(ctx, args),
-        ),
-      });
+      defs.push(
+        {
+          name: 'create_page',
+          scope: 'write',
+          description:
+            'Create a page with Markdown content in a space, optionally under a parent page. Only when the user asked for a page to be created; tell them the url afterwards.',
+          schema: z.object({
+            spaceId: z.string().uuid(),
+            title: z.string().min(1).max(500),
+            content: z.string().max(100_000).describe('The page body as Markdown'),
+            parentPageId: z.string().uuid().optional(),
+          }),
+          execute: guard(
+            'create_page',
+            async (args: { spaceId: string; title: string; content: string; parentPageId?: string }) =>
+              this.createPage(ctx, args),
+          ),
+        },
+        {
+          name: 'update_page',
+          scope: 'write',
+          description:
+            'Change the content of an existing page: append to it, prepend, or replace all of it with new Markdown. Only when the user asked for the page to be edited.',
+          schema: z.object({
+            pageId: z.string().min(1).max(100).describe('The page id or slugId'),
+            content: z.string().max(100_000).describe('Markdown to add or the new body'),
+            operation: z.enum(['append', 'prepend', 'replace']).default('append'),
+          }),
+          execute: guard(
+            'update_page',
+            async (args: { pageId: string; content: string; operation: 'append' | 'prepend' | 'replace' }) =>
+              this.updatePage(ctx, args),
+          ),
+        },
+      );
+    }
+    return defs;
+  }
+
+  async build(ctx: ToolContext): Promise<Record<string, any>> {
+    const { tool } = await import('ai');
+    const tools: Record<string, any> = {};
+    for (const def of await this.definitions(ctx)) {
+      if (def.name === 'get_current_user' || def.name === 'list_pages') continue;
+      tools[def.name] = tool({ description: def.description, inputSchema: def.schema, execute: def.execute });
     }
     return tools;
+  }
+
+  private async listPages(ctx: ToolContext, spaceId: string, limit: number) {
+    const member = await this.spaceMemberRepo.getUserSpaceIds(ctx.user.id);
+    if (!member.includes(spaceId)) return { error: 'You do not have access to that space' };
+    const rows = await this.db
+      .selectFrom('pages')
+      .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+      .select(['pages.id', 'pages.title', 'pages.slugId', 'pages.parentPageId', 'pages.updatedAt', 'spaces.slug as spaceSlug'])
+      .where('pages.spaceId', '=', spaceId)
+      .where('pages.workspaceId', '=', ctx.workspace.id)
+      .where('pages.deletedAt', 'is', null)
+      .orderBy('pages.updatedAt', 'desc')
+      .limit(limit)
+      .execute();
+    const accessible = new Set(
+      await this.pagePermissionRepo.filterAccessiblePageIds({
+        pageIds: rows.map((r) => r.id),
+        userId: ctx.user.id,
+        spaceId,
+      }),
+    );
+    return {
+      pages: rows.filter((r) => accessible.has(r.id)).map((r) => ({
+        id: r.id,
+        title: r.title || 'Untitled',
+        parentPageId: r.parentPageId,
+        updatedAt: r.updatedAt,
+        url: pageUrl(r.spaceSlug, r.slugId),
+      })),
+    };
   }
 
   // ---- reads --------------------------------------------------------------

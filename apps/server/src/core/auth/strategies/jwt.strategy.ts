@@ -15,6 +15,7 @@ import { SessionActivityService } from '../../session/session-activity.service';
 import { FastifyRequest } from 'fastify';
 import { extractBearerTokenFromHeader, isUserDisabled } from '../../../common/helpers';
 import { ModuleRef } from '@nestjs/core';
+import { OAuthService } from '../../oauth/oauth.service';
 import { ApiKeyService } from '../../api-key/api-key.service';
 
 @Injectable()
@@ -103,34 +104,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   private async validateOAuthToken(req: any, payload: JwtOAuthPayload) {
-    let OAuthStrategyModule: any;
-    let isOAuthModuleReady = false;
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      OAuthStrategyModule = require('./../../../ee/oauth/services/oauth-strategy.service');
-      isOAuthModuleReady = true;
-    } catch (err) {
-      this.logger.debug(
-        'OAuth module requested but enterprise module not bundled in this build',
-      );
-      isOAuthModuleReady = false;
-    }
-
-    if (isOAuthModuleReady) {
-      const OAuthStrategyService = this.moduleRef.get(
-        OAuthStrategyModule.OAuthStrategyService,
-        {
-          strict: false,
-        },
-      );
-
-      return OAuthStrategyService.validateOAuthToken(payload, {
-        workspaceId: req.raw.workspaceId,
-        host: req.raw.headers?.host ?? req.headers?.host,
-      });
-    }
-
-    throw new UnauthorizedException('Enterprise OAuth module missing');
+    // Docmore ships its own OAuth authorization server (AGPL).
+    const oauthService = this.moduleRef.get(OAuthService, { strict: false });
+    return oauthService.validateAccessToken(payload, {
+      workspaceId: req.raw.workspaceId,
+    });
   }
 }

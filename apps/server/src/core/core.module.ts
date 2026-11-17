@@ -36,6 +36,8 @@ import { SsoModule } from './sso/sso.module';
 import { PageVerificationModule } from './page/verification/page-verification.module';
 import { AiModule } from './ai/ai.module';
 import { AnnouncementModule } from './announcement/announcement.module';
+import { OAuthModule } from './oauth/oauth.module';
+import { McpModule } from './mcp/mcp.module';
 import { ClsMiddleware } from 'nestjs-cls';
 
 @Module({
@@ -70,6 +72,8 @@ import { ClsMiddleware } from 'nestjs-cls';
     PageVerificationModule,
     AiModule,
     AnnouncementModule,
+    OAuthModule,
+    McpModule,
   ],
 })
 export class CoreModule implements NestModule {

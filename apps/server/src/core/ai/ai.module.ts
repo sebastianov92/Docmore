@@ -33,6 +33,6 @@ import { StorageModule } from '../../integrations/storage/storage.module';
     AiChatToolsService,
     AiChatService,
   ],
-  exports: [AiSettingsService, AiProviderService, AiGenerateService, AiEmbeddingService, AiAnswersService],
+  exports: [AiSettingsService, AiProviderService, AiGenerateService, AiEmbeddingService, AiAnswersService, AiChatToolsService],
 })
 export class AiModule {}
