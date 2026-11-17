@@ -592,7 +592,8 @@ export function isAcceptableRedirectUri(uri: string): boolean {
   if (url.protocol === 'http:') {
     return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   }
-  if (/^(javascript|data|vbscript|file|blob):$/i.test(url.protocol)) return false;
+  // Custom schemes are for native apps; browser-ish and transport schemes are not app callbacks.
+  if (/^(javascript|data|vbscript|file|blob|ftp|ftps|ws|wss|mailto|tel):$/i.test(url.protocol)) return false;
   return /^[a-z][a-z0-9+.-]*:$/i.test(url.protocol);
 }
 

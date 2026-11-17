@@ -3,14 +3,14 @@ import {
   Body,
   Controller,
   Get,
-  Header,
   HttpCode,
   HttpStatus,
   Post,
   Req,
   UseGuards,
+  Res,
 } from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 import { RequireSessionAuth } from '../../common/decorators/require-session-auth.decorator';
@@ -35,12 +35,14 @@ export class OAuthController {
   constructor(private readonly oauth: OAuthService) {}
 
   // RFC 7591: MCP clients register themselves before the first login.
+  // The OAuth endpoints answer with the bare RFC bodies, not the app's
+  // {data, success, status} envelope, so they write the reply themselves.
   @Public()
-  @HttpCode(HttpStatus.CREATED)
   @Post('register')
-  async register(@Body() dto: RegisterClientDto, @AuthWorkspace() workspace: Workspace) {
+  async register(@Body() dto: RegisterClientDto, @AuthWorkspace() workspace: Workspace, @Res() res: FastifyReply) {
     try {
-      return await this.oauth.registerClient(workspace.id, dto);
+      const client = await this.oauth.registerClient(workspace.id, dto);
+      return res.status(HttpStatus.CREATED).send(client);
     } catch (err) {
       if (err instanceof OAuthRegistrationError) {
         throw new BadRequestException({ error: err.code, error_description: err.message, message: err.message });
@@ -66,20 +68,22 @@ export class OAuthController {
   }
 
   @Public()
-  @HttpCode(HttpStatus.OK)
-  @Header('Cache-Control', 'no-store')
-  @Header('Pragma', 'no-cache')
   @Post('token')
-  async token(@Body() dto: TokenRequestDto, @AuthWorkspace() workspace: Workspace, @Req() req: FastifyRequest) {
-    return this.oauth.token(workspace, dto, readBasicAuth(req));
+  async token(
+    @Body() dto: TokenRequestDto,
+    @AuthWorkspace() workspace: Workspace,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ) {
+    const tokens = await this.oauth.token(workspace, dto, readBasicAuth(req));
+    return res.status(HttpStatus.OK).header('Cache-Control', 'no-store').header('Pragma', 'no-cache').send(tokens);
   }
 
   @Public()
-  @HttpCode(HttpStatus.OK)
   @Post('revoke')
-  async revoke(@Body() dto: RevokeTokenDto, @AuthWorkspace() workspace: Workspace) {
+  async revoke(@Body() dto: RevokeTokenDto, @AuthWorkspace() workspace: Workspace, @Res() res: FastifyReply) {
     await this.oauth.revokeToken(workspace, dto.token);
-    return {};
+    return res.status(HttpStatus.OK).send({});
   }
 
   // Apps connected to the signed-in user's account.
@@ -108,20 +112,20 @@ export class OAuthMetadataController {
 
   @Public()
   @Get('oauth-authorization-server')
-  authorizationServer() {
-    return this.oauth.authorizationServerMetadata();
+  authorizationServer(@Res() res: FastifyReply) {
+    return res.send(this.oauth.authorizationServerMetadata());
   }
 
   @Public()
   @Get('oauth-protected-resource')
-  protectedResource() {
-    return this.oauth.protectedResourceMetadata();
+  protectedResource(@Res() res: FastifyReply) {
+    return res.send(this.oauth.protectedResourceMetadata());
   }
 
   @Public()
   @Get('oauth-protected-resource/mcp')
-  protectedResourceMcp() {
-    return this.oauth.protectedResourceMetadata();
+  protectedResourceMcp(@Res() res: FastifyReply) {
+    return res.send(this.oauth.protectedResourceMetadata());
   }
 }
 
