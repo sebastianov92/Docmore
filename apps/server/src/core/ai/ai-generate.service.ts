@@ -64,7 +64,7 @@ export class AiGenerateService {
   }
 
   // Provider errors are long and leak request bodies; keep the headline.
-  private explain(err: any): string {
+  explain(err: any): string {
     const status = err?.statusCode ?? err?.status;
     const message: string = err?.message ?? 'unknown error';
     this.logger.warn(`AI generation failed: ${message.slice(0, 300)}`);

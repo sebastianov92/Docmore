@@ -1,6 +1,9 @@
 import api from "@/lib/api-client";
 import {
+  AiAnswerSource,
+  AiAskParams,
   AiConfig,
+  AiEmbeddingStatus,
   AiGenerateRequest,
   AiModelInfo,
   AiProviderId,
@@ -37,29 +40,74 @@ export async function generateOnce(data: AiGenerateRequest): Promise<string> {
   return req.data.content;
 }
 
+export async function getEmbeddingStatus(): Promise<AiEmbeddingStatus> {
+  const req = await api.post<AiEmbeddingStatus>("/ai/embeddings/status", {});
+  return req.data;
+}
+
+export async function reindexEmbeddings(): Promise<AiEmbeddingStatus> {
+  const req = await api.post<AiEmbeddingStatus>("/ai/embeddings/reindex", {});
+  return req.data;
+}
+
 export interface StreamHandlers {
   onChunk: (text: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
 
-// Server-sent events over fetch; returns the controller that cancels it.
+// Ask AI in the editor: data: {"content"} chunks until [DONE].
 export function streamGeneration(data: AiGenerateRequest, handlers: StreamHandlers): AbortController {
+  return readEventStream("/api/ai/generate/stream", data, {
+    onEvent: (event) => {
+      if (typeof event.content === "string") handlers.onChunk(event.content);
+    },
+    onDone: handlers.onDone,
+    onError: handlers.onError,
+  });
+}
+
+export interface AnswerHandlers extends StreamHandlers {
+  onSources: (sources: AiAnswerSource[]) => void;
+}
+
+// AI Answers in search: the sources arrive first, then the answer streams.
+export function streamAnswer(params: AiAskParams, handlers: AnswerHandlers): AbortController {
+  return readEventStream("/api/ai/answers", params, {
+    onEvent: (event) => {
+      if (Array.isArray(event.sources)) handlers.onSources(event.sources as AiAnswerSource[]);
+      if (typeof event.content === "string") handlers.onChunk(event.content);
+    },
+    onDone: handlers.onDone,
+    onError: handlers.onError,
+  });
+}
+
+interface EventStreamHandlers {
+  onEvent: (event: Record<string, unknown>) => void;
+  onDone: () => void;
+  onError: (message: string) => void;
+}
+
+// Server-sent events over fetch, the server's `data: {...}` lines parsed
+// one by one. An `error` field ends the stream; so does [DONE]. Returns the
+// controller that cancels it.
+function readEventStream(url: string, body: unknown, handlers: EventStreamHandlers): AbortController {
   const controller = new AbortController();
   void (async () => {
     try {
-      const response = await fetch("/api/ai/generate/stream", {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(body),
         credentials: "include",
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
         let message = `The AI request failed (${response.status})`;
         try {
-          const body = await response.json();
-          message = body?.message ?? message;
+          const payload = await response.json();
+          message = payload?.message ?? message;
         } catch {
           /* keep the status text */
         }
@@ -85,13 +133,12 @@ export function streamGeneration(data: AiGenerateRequest, handlers: StreamHandle
             break;
           }
           try {
-            const parsed = JSON.parse(payload);
+            const parsed = JSON.parse(payload) as Record<string, unknown>;
             if (parsed.error) {
               handlers.onError(String(parsed.error));
-              finished = true;
-              break;
+              return;
             }
-            if (typeof parsed.content === "string") handlers.onChunk(parsed.content);
+            handlers.onEvent(parsed);
           } catch {
             /* partial or malformed line: skip */
           }

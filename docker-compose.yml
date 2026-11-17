@@ -23,7 +23,8 @@ services:
       - docmore:/app/data/storage
 
   db:
-    image: postgres:18
+    # Postgres 18 with the pgvector extension, needed by AI search
+    image: pgvector/pgvector:pg18-trixie
     environment:
       POSTGRES_DB: docmore
       POSTGRES_USER: docmore

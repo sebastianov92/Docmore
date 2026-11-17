@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { LanguageModel } from 'ai';
+import type { EmbeddingModel, LanguageModel } from 'ai';
 import { AiModelInfo, AiProviderId, PROVIDER_LABELS, PROVIDER_TIMEOUT_MS } from './ai.constants';
 import { AiSettingsService, ModelChoice } from './ai-settings.service';
 import {
@@ -113,6 +113,48 @@ export class AiProviderService {
           apiKey: creds.apiKey ?? undefined,
         }).chatModel(picked.model);
       }
+    }
+  }
+
+  // An embedding model for the chosen provider. Anthropic offers none.
+  async embeddingModel(workspaceId: string, choice?: ModelChoice | null): Promise<EmbeddingModel> {
+    const picked = choice ?? (await this.settings.embeddingChoice(workspaceId));
+    if (!picked) {
+      throw new BadRequestException('No embedding model is configured. An admin can pick one under Settings > AI.');
+    }
+    const creds = await this.settings.credentials(workspaceId, picked.provider);
+    switch (picked.provider) {
+      case 'openai': {
+        const { createOpenAI } = await import('@ai-sdk/openai');
+        return createOpenAI({ apiKey: creds.apiKey ?? '', baseURL: creds.baseUrl ?? undefined }).textEmbeddingModel(
+          picked.model,
+        );
+      }
+      case 'gemini': {
+        const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+        return createGoogleGenerativeAI({
+          apiKey: creds.apiKey ?? '',
+          baseURL: creds.baseUrl ?? undefined,
+        }).textEmbeddingModel(picked.model);
+      }
+      case 'ollama': {
+        const { createOllama } = await import('ai-sdk-ollama');
+        return createOllama({
+          baseURL: `${ollamaRoot(creds.baseUrl ?? 'http://localhost:11434')}/api`,
+        }).textEmbeddingModel(picked.model);
+      }
+      case 'compatible': {
+        const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible');
+        return createOpenAICompatible({
+          name: creds.name || 'compatible',
+          baseURL: creds.baseUrl ?? '',
+          apiKey: creds.apiKey ?? undefined,
+        }).textEmbeddingModel(picked.model);
+      }
+      default:
+        throw new BadRequestException(
+          `${PROVIDER_LABELS[picked.provider]} has no embedding models; pick another provider for embeddings`,
+        );
     }
   }
 

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -22,7 +23,9 @@ import { AI_ACTIONS, AiAction, AiProviderId } from './ai.constants';
 import { AiSettingsService } from './ai-settings.service';
 import { AiProviderService } from './ai-provider.service';
 import { AiGenerateService } from './ai-generate.service';
-import { GenerateDto, ListModelsDto, UpdateAiSettingsDto } from './dto/ai.dto';
+import { AiEmbeddingService } from './embeddings/ai-embedding.service';
+import { AiAnswersService } from './embeddings/ai-answers.service';
+import { AskDto, GenerateDto, ListModelsDto, UpdateAiSettingsDto } from './dto/ai.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
@@ -31,25 +34,95 @@ export class AiController {
     private readonly settings: AiSettingsService,
     private readonly providers: AiProviderService,
     private readonly generate: AiGenerateService,
+    private readonly embeddings: AiEmbeddingService,
+    private readonly answers: AiAnswersService,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
     private readonly workspaceRepo: WorkspaceRepo,
   ) {}
 
-  // What the editor needs to know: is Ask AI on and backed by a model.
+  // What the client needs to know: which AI features are on and backed by a model.
   @HttpCode(HttpStatus.OK)
   @Post('config')
   async config(@AuthWorkspace() workspace: Workspace) {
     const ws = await this.workspaceRepo.findById(workspace.id);
     const ai = ((ws?.settings as any)?.ai ?? {}) as Record<string, any>;
     const generation = await this.settings.generationChoice(workspace.id);
+    const embedding = await this.settings.embeddingChoice(workspace.id);
     return {
       configured: Boolean(generation),
       generative: ai.generative === true && Boolean(generation),
-      search: ai.search === true,
+      search: ai.search === true && Boolean(embedding) && this.embeddings.available,
       chat: ai.chat === true,
       model: generation,
+      embeddingModel: embedding,
+      vectorStore: this.embeddings.available,
       availableActions: AI_ACTIONS,
     };
+  }
+
+  // AI Answers in search. Server-sent events: data: {"sources": [...]} first,
+  // then data: {"content": "..."} per chunk, then [DONE].
+  @Post('answers')
+  async ask(
+    @Body() dto: AskDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ) {
+    await this.assertSearchOn(workspace);
+    if (!dto.query?.trim()) {
+      throw new BadRequestException('Ask a question first');
+    }
+    const raw = res.raw;
+    raw.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    const controller = new AbortController();
+    req.raw.on('close', () => controller.abort());
+    const send = (payload: unknown) => {
+      if (!raw.writableEnded) raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+    try {
+      for await (const event of this.answers.answer(
+        workspace.id,
+        user.id,
+        dto.query,
+        { spaceId: dto.spaceId, includeArchived: dto.includeArchived },
+        controller.signal,
+      )) {
+        send(event);
+      }
+      if (!raw.writableEnded) raw.write('data: [DONE]\n\n');
+    } catch (err: any) {
+      send({ error: err?.message ?? 'AI search failed' });
+    } finally {
+      if (!raw.writableEnded) raw.end();
+    }
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('embeddings/status')
+  @RequireSessionAuth()
+  async embeddingStatus(@AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
+    this.assertAdmin(user, workspace);
+    return this.embeddings.status(workspace.id);
+  }
+
+  // Drops the index and builds it again from every page.
+  @HttpCode(HttpStatus.OK)
+  @Post('embeddings/reindex')
+  @RequireSessionAuth()
+  async reindex(@AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
+    this.assertAdmin(user, workspace);
+    if (!this.embeddings.available) {
+      throw new BadRequestException('AI search needs the pgvector extension on the database');
+    }
+    await this.embeddings.requestReindex(workspace.id);
+    return this.embeddings.status(workspace.id);
   }
 
   @HttpCode(HttpStatus.OK)
@@ -146,6 +219,14 @@ export class AiController {
     const ai = ((ws?.settings as any)?.ai ?? {}) as Record<string, any>;
     if (ai.generative !== true) {
       throw new ForbiddenException('Ask AI is turned off for this workspace');
+    }
+  }
+
+  private async assertSearchOn(workspace: Workspace) {
+    const ws = await this.workspaceRepo.findById(workspace.id);
+    const ai = ((ws?.settings as any)?.ai ?? {}) as Record<string, any>;
+    if (ai.search !== true) {
+      throw new ForbiddenException('AI search is turned off for this workspace');
     }
   }
 }

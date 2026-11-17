@@ -62,7 +62,38 @@ export interface AiConfig {
   search: boolean;
   chat: boolean;
   model: ModelChoice | null;
+  embeddingModel: ModelChoice | null;
+  vectorStore: boolean;
   availableActions: AiAction[];
+}
+
+export interface AiAskParams {
+  query: string;
+  spaceId?: string;
+  includeArchived?: boolean;
+}
+
+export interface AiAnswerSource {
+  pageId: string;
+  title: string;
+  slugId: string;
+  spaceSlug: string;
+  spaceName: string;
+  similarity: number;
+  distance: number;
+  chunkIndex: number;
+  excerpt: string;
+}
+
+export interface AiEmbeddingStatus {
+  available: boolean;
+  enabled: boolean;
+  model: ModelChoice | null;
+  totalPages: number;
+  indexedPages: number;
+  pendingPages: number;
+  queuedJobs: number;
+  lastIndexedAt: string | null;
 }
 
 export interface AiGenerateRequest {

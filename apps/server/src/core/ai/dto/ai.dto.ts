@@ -5,10 +5,17 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import { AI_ACTIONS, AI_PROVIDERS, MAX_INPUT_CHARS, MAX_PROMPT_CHARS } from '../ai.constants';
+import {
+  AI_ACTIONS,
+  AI_PROVIDERS,
+  MAX_INPUT_CHARS,
+  MAX_PROMPT_CHARS,
+  MAX_QUESTION_CHARS,
+} from '../ai.constants';
 
 export class ProviderPatchDto {
   @IsOptional()
@@ -71,6 +78,20 @@ export class ListModelsDto {
   @IsString()
   @MaxLength(500)
   baseUrl?: string;
+}
+
+export class AskDto {
+  @IsString()
+  @MaxLength(MAX_QUESTION_CHARS)
+  query: string;
+
+  @IsOptional()
+  @IsUUID()
+  spaceId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  includeArchived?: boolean;
 }
 
 export class GenerateDto {

@@ -1,0 +1,33 @@
+.sparkle {
+  color: var(--mantine-primary-color-filled);
+}
+
+.answer {
+  font-size: var(--mantine-font-size-sm);
+}
+
+.answer p,
+.answer ul,
+.answer ol {
+  margin-bottom: 0.5em;
+}
+
+.answer :last-child {
+  margin-bottom: 0;
+}
+
+.source {
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.sourceIcon {
+  flex-shrink: 0;
+  color: var(--mantine-color-dimmed);
+}
+
+.sourceText {
+  min-width: 0;
+  flex: 1;
+}

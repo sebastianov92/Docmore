@@ -112,7 +112,20 @@ outside the `ee/` directories, so they are always on:
   simplify, summarize, explain, continue, change tone, translate, or a
   free request, streamed in and then replaced, inserted or copied. The
   upstream `AI_DRIVER` environment variables still work as a fallback.
-  Semantic search and chat come next and reuse the same providers.
+- **AI search (AI Answers)**: with an embedding model chosen and "AI
+  search" on in Settings > AI, every page is split into chunks, embedded
+  with that model and stored in Postgres with pgvector (`page_embeddings`).
+  The search dialog gets an "AI Answers" switch: a question is matched
+  against the chunks of the pages that member may read (space membership,
+  page permissions, nothing trashed, archived spaces left out), the
+  sources are shown, and the writing model answers from those excerpts
+  only, citing them. Edits are re-embedded in the background, trashed
+  pages drop out at once, changing the embedding model re-indexes
+  everything, and Settings > AI shows the index progress with a
+  "Re-index all pages" button. Needs the pgvector extension: the compose
+  file uses the `pgvector/pgvector:pg18-trixie` image (plain Postgres 18 plus the
+  extension, same data directory). Without it the switch stays off and
+  everything else keeps working.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
@@ -137,6 +150,12 @@ kept in the `docmore` volume, the database in `db_data`.
 git pull
 docker compose up -d --build
 ```
+
+Since the AI search release the database service uses the
+`pgvector/pgvector:pg18-trixie` image instead of `postgres:18`. It is the same
+Postgres 18 with one extension added, so the existing `db_data` volume is
+picked up as is; the update command above pulls it and recreates the
+container.
 
 ## Development
 

@@ -43,5 +43,6 @@ export const PROVIDER_LABELS: Record<AiProviderId, string> = {
 
 export const MAX_INPUT_CHARS = 60_000;
 export const MAX_PROMPT_CHARS = 2_000;
+export const MAX_QUESTION_CHARS = 500;
 export const MAX_OUTPUT_TOKENS = 4_096;
 export const PROVIDER_TIMEOUT_MS = 20_000;

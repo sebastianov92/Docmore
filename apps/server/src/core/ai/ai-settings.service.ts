@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { InjectKysely } from 'nestjs-kysely';
+import { QueueJob, QueueName } from '../../integrations/queue/constants';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { EncryptionPurpose, EncryptionService } from '../../integrations/encryption/encryption.service';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
@@ -60,6 +63,7 @@ export class AiSettingsService {
     @InjectKysely() private readonly db: KyselyDB,
     private readonly encryption: EncryptionService,
     private readonly environment: EnvironmentService,
+    @InjectQueue(QueueName.AI_QUEUE) private readonly aiQueue: Queue,
   ) {}
 
   async load(workspaceId: string): Promise<AiSettings> {
@@ -114,10 +118,31 @@ export class AiSettingsService {
     }
 
     const generation = dto.generation === undefined ? current.generation : this.readChoice(dto.generation, providers);
-    const embedding = dto.embedding === undefined ? current.embedding : this.readChoice(dto.embedding, providers);
+    const embedding =
+      dto.embedding === undefined ? current.embedding : this.readChoice(dto.embedding, providers, 'embedding');
 
     await this.save(workspaceId, { providers, generation, embedding });
+
+    // Vectors from one model mean nothing to another: start the index over.
+    if (dto.embedding !== undefined && !sameChoice(current.embedding, embedding)) {
+      await this.aiQueue.add(
+        QueueJob.WORKSPACE_RESET_EMBEDDINGS,
+        { workspaceId },
+        { removeOnComplete: true, removeOnFail: true },
+      );
+    }
     return this.view(workspaceId);
+  }
+
+  // The embedding model: the saved choice, else the env configuration.
+  async embeddingChoice(workspaceId: string): Promise<ModelChoice | null> {
+    const settings = await this.load(workspaceId);
+    if (settings.embedding) return settings.embedding;
+    const driver = this.environment.getAiDriver?.();
+    const model = this.environment.getAiEmbeddingModel?.();
+    if (!driver || !model) return null;
+    const provider = (driver === 'openai-compatible' ? 'compatible' : driver) as AiProviderId;
+    return AI_PROVIDERS.includes(provider) && provider !== 'anthropic' ? { provider, model } : null;
   }
 
   async rememberModels(workspaceId: string, provider: AiProviderId, models: AiModelInfo[]) {
@@ -184,9 +209,13 @@ export class AiSettingsService {
   private readChoice(
     choice: { provider: string; model: string } | null,
     providers: AiSettings['providers'],
+    kind: 'chat' | 'embedding' = 'chat',
   ): ModelChoice | null {
     if (!choice) return null;
     const provider = choice.provider as AiProviderId;
+    if (kind === 'embedding' && provider === 'anthropic') {
+      throw new BadRequestException('Anthropic has no embedding models; pick another provider for embeddings');
+    }
     const stored = providers[provider] ?? {};
     const configured = NEEDS_KEY[provider] ? Boolean(stored.apiKey) || Boolean(this.envApiKey(provider)) : true;
     if (!configured) {
@@ -244,6 +273,10 @@ export class AiSettingsService {
         return null;
     }
   }
+}
+
+function sameChoice(a: ModelChoice | null, b: ModelChoice | null): boolean {
+  return (a?.provider ?? null) === (b?.provider ?? null) && (a?.model ?? null) === (b?.model ?? null);
 }
 
 // jsonb comes back parsed; rows written as a JSON string by an older build
