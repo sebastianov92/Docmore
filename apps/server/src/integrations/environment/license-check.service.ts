@@ -27,6 +27,7 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.DOCX_IMPORT,
   Feature.PDF_IMPORT,
   Feature.AUDIT_LOGS,
+  Feature.PAGE_VERIFICATION,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {

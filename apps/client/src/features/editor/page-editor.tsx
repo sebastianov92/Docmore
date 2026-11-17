@@ -82,7 +82,7 @@ import { useEditorScroll } from "./hooks/use-editor-scroll";
 import { usePageYdoc } from "./hooks/use-page-ydoc";
 import { useDestroyEditorBeforeChildren } from "./hooks/use-destroy-editor-before-children";
 import { EditorAiMenu } from "@/ee/ai/components/editor/ai-menu/ai-menu";
-import { usePageEditMode } from "@/ee/page-verification/hooks/use-page-edit-mode";
+import { usePageEditMode } from "@/features/page-verification/hooks/use-page-edit-mode";
 import { EditorLinkMenu } from "@/features/editor/components/link/link-menu";
 import ColumnsMenu from "@/features/editor/components/columns/columns-menu.tsx";
 import { IntegrationPasteMenu } from "@/features/editor/components/integration-link/integration-paste-menu.tsx";

@@ -32,6 +32,7 @@ describe('LicenseCheckService without the EE module', () => {
     expect(service.hasFeature(null, 'import:docx')).toBe(true);
     expect(service.hasFeature(null, 'import:pdf')).toBe(true);
     expect(service.hasFeature(null, 'audit:logs')).toBe(true);
+    expect(service.hasFeature(null, 'page:verification')).toBe(true);
     expect(service.hasFeature(null, 'siem')).toBe(false);
     expect(service.hasFeature(null, 'import:confluence')).toBe(false);
     expect(service.hasFeature(null, 'scim')).toBe(false);

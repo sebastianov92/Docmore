@@ -1,0 +1,57 @@
+.chooser {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--mantine-spacing-sm);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: var(--mantine-spacing-md);
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  text-align: left;
+  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-6));
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--mantine-primary-color-filled);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-5));
+  outline: none;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.cardText {
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  line-height: 1.4;
+}
+
+.section {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mantine-color-dimmed);
+  margin-bottom: 6px;
+}
+
+.statusLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--mantine-radius-md);
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+}

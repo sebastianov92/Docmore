@@ -33,6 +33,7 @@ import { MfaModule } from './mfa/mfa.module';
 import { TemplateModule } from './template/template.module';
 import { PagePermissionModule } from './page-permission/page-permission.module';
 import { SsoModule } from './sso/sso.module';
+import { PageVerificationModule } from './page/verification/page-verification.module';
 import { ClsMiddleware } from 'nestjs-cls';
 
 @Module({
@@ -64,6 +65,7 @@ import { ClsMiddleware } from 'nestjs-cls';
     TemplateModule,
     PagePermissionModule,
     SsoModule,
+    PageVerificationModule,
   ],
 })
 export class CoreModule implements NestModule {

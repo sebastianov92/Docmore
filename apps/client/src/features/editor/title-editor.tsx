@@ -27,7 +27,7 @@ import localEmitter from "@/lib/local-emitter.ts";
 import { PageEditMode } from "@/features/user/types/user.types.ts";
 import { searchSpotlight } from "@/features/search/constants.ts";
 import { platformModifierKey } from "@/lib";
-import { usePageEditMode } from "@/ee/page-verification/hooks/use-page-edit-mode";
+import { usePageEditMode } from "@/features/page-verification/hooks/use-page-edit-mode";
 import { splitTitleIntoPage } from "@/features/editor/title-editor.utils";
 
 export interface TitleEditorProps {

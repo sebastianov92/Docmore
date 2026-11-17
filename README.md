@@ -83,6 +83,16 @@ outside the `ee/` directories, so they are always on:
   Settings > Audit logs, filtered by event and date, newest first, with
   the before/after of each change. Rows older than the retention period
   (one year by default, adjustable on that page) are deleted daily.
+- **Page verification**: from a page's menu, "Add verification" offers two
+  workflows. Recurring verification: named verifiers confirm the page and
+  it stays verified for a period, until a date or indefinitely; verifiers
+  are notified a week before it expires and when it does. Approval
+  workflow: the page moves draft → in approval → approved → obsolete, with
+  approvers who approve or return it with a comment. Either way, an edit
+  to a verified or approved page flags it (recurring) or sends it back to
+  draft (approval), and "Review changes" shows the diff against the last
+  verified or returned version. Verified and approved pages open read-only
+  until you choose to edit. Settings > Verified pages lists them all.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

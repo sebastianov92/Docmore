@@ -21,7 +21,7 @@ import {
   PageVerificationBadge,
   usePageEditLockSync,
   usePageEditMode,
-} from "@/ee/page-verification";
+} from "@/features/page-verification";
 import { useTranslation } from "react-i18next";
 import { IContributor } from "@/features/page/types/page.types.ts";
 import { FixedToolbar } from "@/features/editor/components/fixed-toolbar/fixed-toolbar";

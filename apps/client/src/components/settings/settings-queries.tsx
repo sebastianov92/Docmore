@@ -13,7 +13,7 @@ import { getShares } from "@/features/share/services/share-service.ts";
 import { getApiKeys } from "@/features/api-key/services/api-key-service.ts";
 import { API_KEY_LIST_KEY } from "@/features/api-key/queries/api-key-query.ts";
 import { getAuditLogs } from "@/features/audit/services/audit-service";
-import { getVerificationList } from "@/ee/page-verification/services/page-verification-service";
+import { getVerificationList } from "@/features/page-verification/services";
 import { getScimTokens } from "@/ee/scim/services/scim-token-service";
 
 export const prefetchWorkspaceMembers = () => {
