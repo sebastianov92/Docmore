@@ -69,6 +69,13 @@ outside the `ee/` directories, so they are always on:
   the upgrade are indexed on the next start. Results follow page and space
   access; files over 50 MB and images are not read. Admins can force a
   full re-index with `POST /api/search-attachments/reindex`.
+- **Word and PDF import**: the Import dialog of a space takes .docx and
+  .pdf files next to Markdown and HTML. Word keeps headings, lists,
+  tables, links, bold/italic, quotes and code; embedded images become page
+  attachments. PDFs are read page by page (headings and tables where the
+  layout allows) and their embedded JPEG and PNG images are placed after
+  the text of their page. Scanned PDFs without a text layer are refused
+  with a message asking for OCR first; the 30 MB import limit applies.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

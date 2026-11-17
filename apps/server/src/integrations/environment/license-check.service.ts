@@ -24,6 +24,8 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.PUBLIC_SPACE_APPEARANCE,
   Feature.PERSONAL_SPACES,
   Feature.ATTACHMENT_INDEXING,
+  Feature.DOCX_IMPORT,
+  Feature.PDF_IMPORT,
 ];
 
 function withDocmoreFeatures(features: readonly string[]): string[] {
