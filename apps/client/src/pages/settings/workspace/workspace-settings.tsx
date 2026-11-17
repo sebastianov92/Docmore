@@ -10,6 +10,7 @@ import WorkspaceDefaultPageEditMode from "@/features/workspace/components/settin
 import WorkspaceDefaultLanguage from "@/features/workspace/components/settings/components/workspace-default-language.tsx";
 import PersonalSpacesSetting from "@/ee/personal-space/components/personal-spaces-setting.tsx";
 import AllowPublicSpaces from "@/features/workspace/components/settings/components/allow-public-spaces.tsx";
+import EnforceMfaSetting from "@/features/workspace/components/settings/components/enforce-mfa-setting.tsx";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
 
 export default function WorkspaceSettings() {
@@ -20,6 +21,9 @@ export default function WorkspaceSettings() {
       <SettingsTitle title={t("General")} />
       <WorkspaceIcon />
       <WorkspaceNameForm />
+
+      <Divider my="md" />
+      <EnforceMfaSetting />
 
       <Divider my="md" />
       <AllowMemberTemplates />

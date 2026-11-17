@@ -460,9 +460,19 @@ export class WorkspaceService {
       }
 
       if (
+        typeof updateWorkspaceDto.restrictApiToAdmins !== 'undefined' &&
+        !this.licenseCheckService.hasFeature(
+          ws.licenseKey,
+          Feature.API_KEYS,
+          ws.plan,
+        )
+      ) {
+        throw new ForbiddenException('This feature requires a valid license');
+      }
+
+      if (
         typeof updateWorkspaceDto.disablePublicSharing !== 'undefined' ||
         typeof updateWorkspaceDto.trashRetentionDays !== 'undefined' ||
-        typeof updateWorkspaceDto.restrictApiToAdmins !== 'undefined' ||
         typeof updateWorkspaceDto.allowMemberTemplates !== 'undefined'
       ) {
         if (!this.licenseCheckService.hasFeature(ws.licenseKey, Feature.SECURITY_SETTINGS, ws.plan)) {

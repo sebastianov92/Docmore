@@ -28,6 +28,8 @@ import { FigmaModule } from './integration/providers/figma/figma.module';
 import { LinearModule } from './integration/providers/linear/linear.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { SessionModule } from './session/session.module';
+import { ApiKeyModule } from './api-key/api-key.module';
+import { MfaModule } from './mfa/mfa.module';
 import { ClsMiddleware } from 'nestjs-cls';
 
 @Module({
@@ -54,6 +56,8 @@ import { ClsMiddleware } from 'nestjs-cls';
     FigmaModule,
     LinearModule,
     SessionModule,
+    ApiKeyModule,
+    MfaModule,
   ],
 })
 export class CoreModule implements NestModule {

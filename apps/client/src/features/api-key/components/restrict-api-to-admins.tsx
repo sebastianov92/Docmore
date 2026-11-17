@@ -1,0 +1,52 @@
+import { Switch, Text } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
+import { useAtom } from "jotai";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
+import { updateWorkspace } from "@/features/workspace/services/workspace-service.ts";
+import {
+  ResponsiveSettingsContent,
+  ResponsiveSettingsControl,
+  ResponsiveSettingsRow,
+} from "@/components/ui/responsive-settings-row";
+
+export function RestrictApiToAdmins() {
+  const { t } = useTranslation();
+  const [workspace, setWorkspace] = useAtom(workspaceAtom);
+  const [checked, setChecked] = useState(
+    workspace?.settings?.api?.restrictToAdmins === true,
+  );
+
+  const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.currentTarget.checked;
+    try {
+      const updated = await updateWorkspace({ restrictApiToAdmins: value });
+      setChecked(value);
+      setWorkspace(updated);
+    } catch (err) {
+      notifications.show({
+        message: (err as any)?.response?.data?.message,
+        color: "red",
+      });
+    }
+  };
+
+  return (
+    <ResponsiveSettingsRow>
+      <ResponsiveSettingsContent>
+        <Text size="md">{t("Only admins can create API keys")}</Text>
+        <Text size="sm" c="dimmed">
+          {t("Members keep the keys they already have, but cannot create new ones.")}
+        </Text>
+      </ResponsiveSettingsContent>
+      <ResponsiveSettingsControl>
+        <Switch
+          checked={checked}
+          onChange={handleChange}
+          aria-label={t("Toggle only admins can create API keys")}
+        />
+      </ResponsiveSettingsControl>
+    </ResponsiveSettingsRow>
+  );
+}

@@ -13,6 +13,28 @@ single self-hosted instance: no upstream telemetry, image built from source,
 secrets read from `.env`. Everything else (editor, spaces, permissions,
 comments, history, search, imports/exports) is upstream Docmost.
 
+## Built-in features
+
+Docmost keeps some features behind an enterprise license whose server code
+is not public. Docmore re-implements the ones a homelab needs under AGPL,
+outside the `ee/` directories, so they are always on:
+
+- **API keys**: personal keys under Settings > API keys, every key in the
+  workspace under Settings > API management. Read-only or read-and-write,
+  expiry up to three years, revocable. Send them as
+  `Authorization: Bearer <key>`. An admin-only switch limits key creation
+  to admins.
+- **Two-factor authentication**: TOTP with any authenticator app plus ten
+  single-use backup codes, under Settings > Profile. Admins can require it
+  for everyone from Settings > General; members without it set it up at
+  their next login. Secrets are encrypted at rest with `APP_SECRET`.
+
+For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
+every enterprise feature as licensed so the upstream enterprise screens
+render. Their endpoints are not in this repository, so they fail on use,
+and the enterprise client code is licensed for development and testing
+only. Never set it on a real instance.
+
 ## Run with Docker Compose
 
 ```bash

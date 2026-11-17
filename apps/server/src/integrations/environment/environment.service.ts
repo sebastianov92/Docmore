@@ -232,6 +232,19 @@ export class EnvironmentService {
     return !this.isCloud();
   }
 
+  /**
+   * Docmore: report every EE feature as licensed so the EE screens render.
+   * Development and testing only. The client code under apps/client/src/ee is
+   * licensed for production use only with a Docmost subscription, and the EE
+   * server endpoints are not in this repository, so those screens fail on use.
+   */
+  isEePreview(): boolean {
+    const value = this.configService
+      .get<string>('DOCMORE_PREVIEW_EE', 'false')
+      .toLowerCase();
+    return value === 'true';
+  }
+
   getStripePublishableKey(): string {
     return this.configService.get<string>('STRIPE_PUBLISHABLE_KEY');
   }

@@ -66,6 +66,13 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto, workspaceId: string) {
+    const user = await this.authenticate(loginDto, workspaceId);
+    return this.completeLogin(user, workspaceId);
+  }
+
+  // Checks the credentials only. The MFA flow calls this first and finishes the
+  // login with completeLogin once the second factor has been verified.
+  async authenticate(loginDto: LoginDto, workspaceId: string): Promise<User> {
     const user = await this.userRepo.findByEmail(loginDto.email, workspaceId, {
       includePassword: true,
     });
@@ -92,6 +99,14 @@ export class AuthService {
       appSecret: this.environmentService.getAppSecret(),
     });
 
+    return user;
+  }
+
+  async completeLogin(
+    user: User,
+    workspaceId: string,
+    source = 'password',
+  ): Promise<string> {
     user.lastLoginAt = new Date();
     await this.userRepo.updateLastLogin(user.id, workspaceId);
 
@@ -99,7 +114,7 @@ export class AuthService {
       event: AuditEvent.USER_LOGIN,
       resourceType: AuditResource.USER,
       resourceId: user.id,
-      metadata: { source: 'password' },
+      metadata: { source },
     });
 
     return this.sessionService.createSessionAndToken(user);

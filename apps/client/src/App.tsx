@@ -60,20 +60,18 @@ const PublicSpaceDirectoryPage = lazyWithPrefetch(
   () => import("@/pages/public-space/public-space-directory-page.tsx"),
 );
 const SpacesPage = lazyWithPrefetch(() => import("@/pages/spaces/spaces.tsx"));
-const MfaChallengePage = lazyWithPrefetch(() =>
-  import("@/ee/mfa/pages/mfa-challenge-page").then((m) => ({
-    default: m.MfaChallengePage,
-  })),
+const MfaChallengePage = lazyWithPrefetch(
+  () => import("@/features/mfa/pages/mfa-challenge-page"),
 );
-const MfaSetupRequiredPage = lazyWithPrefetch(() =>
-  import("@/ee/mfa/pages/mfa-setup-required-page").then((m) => ({
-    default: m.MfaSetupRequiredPage,
-  })),
+const MfaSetupRequiredPage = lazyWithPrefetch(
+  () => import("@/features/mfa/pages/mfa-setup-required-page"),
 );
 const SpaceTrash = lazyWithPrefetch(() => import("@/pages/space/space-trash.tsx"));
-const UserApiKeys = lazyWithPrefetch(() => import("@/ee/api-key/pages/user-api-keys"));
+const UserApiKeys = lazyWithPrefetch(
+  () => import("@/features/api-key/pages/user-api-keys"),
+);
 const WorkspaceApiKeys = lazyWithPrefetch(
-  () => import("@/ee/api-key/pages/workspace-api-keys"),
+  () => import("@/features/api-key/pages/workspace-api-keys"),
 );
 const AiSettings = lazyWithPrefetch(() => import("@/ee/ai/pages/ai-settings.tsx"));
 const BasePage = lazyWithPrefetch(() => import("@/ee/base/pages/base-page.tsx"));
