@@ -6,6 +6,7 @@ import { FileImportTaskService } from './services/file-import-task.service';
 import { FileTaskProcessor } from './processors/file-task.processor';
 import { ImportAttachmentService } from './services/import-attachment.service';
 import { DocumentImportService } from './services/document-import.service';
+import { ConfluenceImportService } from './services/confluence-import.service';
 import { FileTaskController } from './file-task.controller';
 import { PageModule } from '../../core/page/page.module';
 
@@ -16,6 +17,7 @@ import { PageModule } from '../../core/page/page.module';
     FileTaskProcessor,
     ImportAttachmentService,
     DocumentImportService,
+    ConfluenceImportService,
   ],
   exports: [ImportService, ImportAttachmentService],
   controllers: [ImportController, FileTaskController],

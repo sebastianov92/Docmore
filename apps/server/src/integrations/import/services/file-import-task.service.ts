@@ -31,7 +31,11 @@ import {
 } from '../utils/import.utils';
 import { executeTx } from '@docmost/db/utils';
 import { BacklinkRepo } from '@docmost/db/repos/backlink/backlink.repo';
-import { ImportAttachmentService } from './import-attachment.service';
+import {
+  AttachmentInfo,
+  ImportAttachmentService,
+} from './import-attachment.service';
+import { ConfluenceImportService } from './confluence-import.service';
 import { ModuleRef } from '@nestjs/core';
 import { PageService } from '../../../core/page/services/page.service';
 import { ImportPageNode } from '../dto/file-task-dto';
@@ -116,21 +120,12 @@ export class FileImportTaskService {
       }
 
       if (fileTask.source === FileImportSource.Confluence) {
-        let ConfluenceModule: any;
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          ConfluenceModule = require('./../../../ee/confluence-import/confluence-import.service');
-        } catch (err) {
-          this.logger.error(
-            'Confluence import requested but EE module not bundled in this build',
-          );
-          return;
-        }
+        // Resolved lazily: the Confluence importer uses this service's
+        // page tree importer, so a constructor dependency would be circular.
         const confluenceImportService = this.moduleRef.get(
-          ConfluenceModule.ConfluenceImportService,
+          ConfluenceImportService,
           { strict: false },
         );
-
         await confluenceImportService.processConfluenceImport({
           extractDir: tmpExtractDir,
           fileTask,
@@ -399,6 +394,33 @@ export class FileImportTaskService {
       }
     });
 
+    await this.importPageTree({
+      extractDir,
+      fileTask,
+      pagesMap,
+      attachmentCandidates,
+      spaceSlug: space?.slug,
+    });
+  }
+
+  // Stores an already laid out page tree: reads each file, lets the caller
+  // adjust the HTML, uploads attachments, rewrites links, inserts pages level
+  // by level and records backlinks and audit rows. Generic, Notion and
+  // Confluence imports all end here.
+  async importPageTree(opts: {
+    extractDir: string;
+    fileTask: FileTask;
+    pagesMap: Map<string, ImportPageNode>;
+    attachmentCandidates: Map<string, string>;
+    spaceSlug?: string;
+    prepareHtml?: (
+      page: ImportPageNode,
+      html: string,
+    ) => Promise<{ html: string; attachments?: AttachmentInfo[] }>;
+  }): Promise<void> {
+    const { extractDir, fileTask, pagesMap, attachmentCandidates } = opts;
+    const space = { slug: opts.spaceSlug };
+
     // internal page links
     const filePathToPageMetaMap = new Map<
       string,
@@ -495,6 +517,13 @@ export class FileImportTaskService {
               }
             }
 
+            let pageAttachments: AttachmentInfo[] | undefined;
+            if (opts.prepareHtml) {
+              const prepared = await opts.prepareHtml(page, content);
+              content = prepared.html;
+              pageAttachments = prepared.attachments;
+            }
+
             const htmlContent =
               await this.importAttachmentService.processAttachments({
                 html: content,
@@ -503,6 +532,9 @@ export class FileImportTaskService {
                 pageId: page.id,
                 fileTask,
                 attachmentCandidates,
+                pageAttachments,
+                isConfluenceImport:
+                  fileTask.source === FileImportSource.Confluence,
               });
 
             const { html, backlinks, pageIcon } = await formatImportHtml({

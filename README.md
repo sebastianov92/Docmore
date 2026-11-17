@@ -93,6 +93,14 @@ outside the `ee/` directories, so they are always on:
   draft (approval), and "Review changes" shows the diff against the last
   verified or returned version. Verified and approved pages open read-only
   until you choose to edit. Settings > Verified pages lists them all.
+- **Confluence import**: the Import dialog accepts the HTML export of a
+  Confluence space (Server, Data Center or Cloud) as a zip. The page tree
+  and order come from the export's index, titles from the page headers,
+  and the body is converted: info/note/warning/tip panels become callouts,
+  code macros keep their language, expand macros become collapsible
+  sections, status lozenges, task lists, page layouts (columns), tables,
+  links between pages (turned into mentions or internal links) and
+  attachments, including draw.io diagrams with their previews.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
