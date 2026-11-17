@@ -153,6 +153,16 @@ outside the `ee/` directories, so they are always on:
   at a time: saving one that overlaps another lists the clash and offers
   to replace it, which ends the earlier one when the new one starts.
   Archived announcements can be restored while their window is open.
+- **Typesense search**: with `SEARCH_DRIVER=typesense` (the compose
+  default, with its own `typesense` container) page search tolerates
+  typos, matches prefixes and ranks titles above bodies, with the same
+  visibility rules as before: space membership, page permissions, nothing
+  trashed, archived spaces left out. Every page is indexed on start and
+  kept current from the page events; `POST /api/search-index/status` shows
+  the index and `POST /api/search-index/reindex` rebuilds it (admins).
+  Share and public-space searches, browsing by label or creator, and any
+  moment Typesense is unreachable fall back to the Postgres search. Set
+  `SEARCH_DRIVER=database` to go without the container.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

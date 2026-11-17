@@ -17,6 +17,7 @@ import { StaticModule } from './integrations/static/static.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './integrations/health/health.module';
 import { ExportModule } from './integrations/export/export.module';
+import { TypesenseModule } from './integrations/typesense/typesense.module';
 import { ImportModule } from './integrations/import/import.module';
 import { SecurityModule } from './integrations/security/security.module';
 import { TelemetryModule } from './integrations/telemetry/telemetry.module';
@@ -91,6 +92,7 @@ try {
     HealthModule,
     ImportModule,
     ExportModule,
+    TypesenseModule,
     StorageModule.forRootAsync({
       imports: [EnvironmentModule],
     }),

@@ -19,6 +19,11 @@ services:
       # PDF export: Gotenberg prints pages it fetches from this container
       GOTENBERG_URL: http://gotenberg:3000
       PDF_RENDER_BASE_URL: http://docmore:3000
+      # Page search: typesense (typo-tolerant, fast) or database (Postgres only)
+      SEARCH_DRIVER: ${SEARCH_DRIVER:-typesense}
+      TYPESENSE_URL: http://typesense:8108
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-docmore-typesense}
+      TYPESENSE_LOCALE: ${TYPESENSE_LOCALE:-en}
     ports:
       - "${PORT:-3000}:3000"
     restart: unless-stopped
@@ -36,6 +41,13 @@ services:
     volumes:
       - db_data:/var/lib/postgresql
 
+  typesense:
+    image: typesense/typesense:28.0
+    command: ["--data-dir", "/data", "--api-key", "${TYPESENSE_API_KEY:-docmore-typesense}"]
+    restart: unless-stopped
+    volumes:
+      - typesense_data:/data
+
   gotenberg:
     image: gotenberg/gotenberg:8
     command: ["gotenberg", "--api-timeout=90s", "--chromium-auto-start=true"]
@@ -52,3 +64,4 @@ volumes:
   docmore:
   db_data:
   redis_data:
+  typesense_data:

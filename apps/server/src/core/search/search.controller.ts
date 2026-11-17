@@ -30,6 +30,7 @@ import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { Public } from 'src/common/decorators/public.decorator';
 import { EnvironmentService } from '../../integrations/environment/environment.service';
 import { ModuleRef } from '@nestjs/core';
+import { PageSearchService } from '../../integrations/typesense/page-search.service';
 import { PublicSpaceService } from '../public-space/public-space.service';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { ShareService } from '../share/share.service';
@@ -172,29 +173,12 @@ export class SearchController {
     },
   ) {
     const { userId, workspaceId, publicPageIds } = opts;
-    let TypesenseModule: any;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      TypesenseModule = require('./../../ee/typesense/services/page-search.service');
-
-      const PageSearchService = this.moduleRef.get(
-        TypesenseModule.PageSearchService,
-        {
-          strict: false,
-        },
-      );
-
-      return PageSearchService.searchPage(searchParams, {
-        userId: userId,
-        workspaceId,
-        publicPageIds,
-      });
-    } catch (err) {
-      this.logger.debug(
-        'Typesense module requested but enterprise module not bundled in this build',
-      );
-    }
-
-    throw new BadRequestException('Enterprise Typesense search module missing');
+    // The fork's Typesense search; it falls back to Postgres by itself.
+    const pageSearch = this.moduleRef.get(PageSearchService, { strict: false });
+    return pageSearch.searchPage(searchParams, {
+      userId: userId,
+      workspaceId,
+      publicPageIds,
+    });
   }
 }
