@@ -15,6 +15,8 @@ type GridHeaderProps = {
   onPropertyCreated?: () => void;
   getColumnOrder: () => string[];
   onColumnReorder?: (columnId: string, finishIndex: number) => void;
+  // Hidden for readers who cannot change the base.
+  canAddProperty?: boolean;
 };
 
 export const GridHeader = memo(function GridHeader({
@@ -29,6 +31,7 @@ export const GridHeader = memo(function GridHeader({
   onPropertyCreated,
   getColumnOrder,
   onColumnReorder,
+  canAddProperty = true,
 }: GridHeaderProps) {
   const headerGroups = table.getHeaderGroups();
   const propertyById = useMemo(() => {
@@ -50,11 +53,13 @@ export const GridHeader = memo(function GridHeader({
           onColumnReorder={onColumnReorder}
         />
       ))}
-      <CreatePropertyPopover
-        pageId={pageId}
-        properties={properties}
-        onPropertyCreated={onPropertyCreated}
-      />
+      {canAddProperty && (
+        <CreatePropertyPopover
+          pageId={pageId}
+          properties={properties}
+          onPropertyCreated={onPropertyCreated}
+        />
+      )}
     </div>
   );
 });

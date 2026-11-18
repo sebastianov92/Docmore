@@ -130,13 +130,16 @@ export function SearchResultItem({
         component={Link}
         ref={makeActionTabbable}
         //@ts-ignore
-        to={buildPageUrl(
-          pageResult.space.slug,
-          pageResult.slugId,
-          pageResult.title,
-          undefined,
-          pageResult.matchedText,
-          pageResult.wholeWord
+        to={withRow(
+          buildPageUrl(
+            pageResult.space.slug,
+            pageResult.slugId,
+            pageResult.title,
+            undefined,
+            pageResult.isBaseRow ? undefined : pageResult.matchedText,
+            pageResult.wholeWord
+          ),
+          pageResult.rowId
         )}
         style={{ userSelect: "none" }}
       >
@@ -181,4 +184,12 @@ export function SearchResultItem({
       </Spotlight.Action>
     );
   }
+}
+
+// A base row hit opens the row's detail modal on the base page.
+function withRow(url: string, rowId?: string): string {
+  if (!rowId) return url;
+  const [path, hash] = url.split("#");
+  const joiner = path.includes("?") ? "&" : "?";
+  return `${path}${joiner}row=${rowId}${hash ? `#${hash}` : ""}`;
 }

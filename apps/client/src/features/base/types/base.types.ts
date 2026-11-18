@@ -166,9 +166,22 @@ export type ViewConfig = {
   propertyOrder?: string[];
   // Kanban
   groupByPropertyId?: string;
+  // Calendar
+  calendarPropertyId?: string;
   hiddenChoiceIds?: string[];
   choiceOrder?: string[];
 };
+
+export type ReferenceUser = { id: string; name: string | null; avatarUrl: string | null };
+export type ReferencePage = {
+  id: string;
+  slugId: string;
+  title: string | null;
+  icon: string | null;
+  spaceId: string;
+  space: { id: string; slug: string; name: string } | null;
+};
+export type RowReferences = { users: Record<string, ReferenceUser>; pages: Record<string, ReferencePage> };
 
 export type IBaseView = {
   id: string;

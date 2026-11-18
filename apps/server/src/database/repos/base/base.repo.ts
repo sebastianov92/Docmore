@@ -19,6 +19,37 @@ export type BasePage = Page & {
 export class BaseRepo {
   constructor(@InjectKysely() private readonly db: KyselyDB) {}
 
+  // Copies a base's schema, views and rows onto another page (page
+  // duplication). Property ids are kept: they are unique per base, and
+  // formulas and view configs refer to them.
+  async copyBaseData(
+    fromPageId: string,
+    toPageId: string,
+    userId: string,
+    trx?: KyselyTransaction,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, trx);
+    await sql`
+      insert into base_properties (id, page_id, name, type, position, type_options, is_primary, schema_version, workspace_id)
+      select id, ${toPageId}::uuid, name, type, position, type_options, is_primary, schema_version, workspace_id
+      from base_properties where page_id = ${fromPageId}::uuid and deleted_at is null
+    `.execute(db);
+    await sql`
+      insert into base_views (page_id, name, type, position, config, workspace_id, creator_id)
+      select ${toPageId}::uuid, name, type, position, config, workspace_id, ${userId}::uuid
+      from base_views where page_id = ${fromPageId}::uuid
+    `.execute(db);
+    await sql`
+      insert into base_rows (page_id, cells, position, creator_id, last_updated_by_id, workspace_id)
+      select ${toPageId}::uuid, cells, position, ${userId}::uuid, ${userId}::uuid, workspace_id
+      from base_rows where page_id = ${fromPageId}::uuid and deleted_at is null
+    `.execute(db);
+    await sql`
+      update pages set base_schema_version = (select base_schema_version from pages where id = ${fromPageId}::uuid)
+      where id = ${toPageId}::uuid
+    `.execute(db);
+  }
+
   // The "base id" is the page id of an is_base=true page.
   async findById(
     pageId: string,

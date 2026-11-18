@@ -17,6 +17,9 @@ export interface IPageSearch {
   matchedText: string[];
   wholeWord: boolean;
   space: Partial<ISpace>;
+  // Set on hits that are rows of a base: the link opens that row.
+  rowId?: string;
+  isBaseRow?: boolean;
 }
 
 export interface SearchSuggestionParams {

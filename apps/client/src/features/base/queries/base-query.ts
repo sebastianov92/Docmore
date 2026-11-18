@@ -9,6 +9,7 @@ import {
   updateBase,
   deleteBase,
   convertPageToBase,
+  getPublicBaseInfo,
 } from "@/features/base/services/base-service";
 import {
   IBase,
@@ -19,20 +20,22 @@ import {
 import { notifications } from "@mantine/notifications";
 import { queryClient } from "@/main";
 import { useTranslation } from "react-i18next";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { IPage } from "@/features/page/types/page.types";
 import { treeDataAtom } from "@/features/page/tree/atoms/tree-data-atom";
 import { treeModel } from "@/features/page/tree/model/tree-model";
 import { SpaceTreeNode } from "@/features/page/tree/types";
 import { socketAtom } from "@/features/websocket/atoms/socket-atom";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 
 export function useBaseQuery(
   pageId: string | undefined,
 ): UseQueryResult<IBase, Error> {
+  const publicCtx = useAtomValue(basePublicContextAtom);
   return useQuery({
-    queryKey: ["bases", pageId],
-    queryFn: () => getBaseInfo(pageId!),
+    queryKey: publicCtx ? ["bases", pageId, "public", publicCtx.shareId ?? "space"] : ["bases", pageId],
+    queryFn: () => (publicCtx ? getPublicBaseInfo(pageId!, publicCtx) : getBaseInfo(pageId!)),
     enabled: !!pageId,
     staleTime: 5 * 60 * 1000,
   });

@@ -35,6 +35,7 @@ import { PublicSpaceService } from '../public-space/public-space.service';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { ShareService } from '../share/share.service';
 import { ShareRepo } from '@docmost/db/repos/share/share.repo';
+import { BaseRowSearchService } from '../base/search/base-row-search.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('search')
@@ -73,17 +74,45 @@ export class SearchController {
       }
     }
 
-    if (this.environmentService.getSearchDriver() === 'typesense') {
-      return this.searchTypesense(searchDto, {
-        userId: user.id,
-        workspaceId: workspace.id,
-      });
-    }
+    const results =
+      this.environmentService.getSearchDriver() === 'typesense'
+        ? await this.searchTypesense(searchDto, {
+            userId: user.id,
+            workspaceId: workspace.id,
+          })
+        : await this.searchService.searchPage(searchDto, {
+            userId: user.id,
+            workspaceId: workspace.id,
+          });
+    return this.withBaseRows(results, searchDto, user.id, workspace.id);
+  }
 
-    return this.searchService.searchPage(searchDto, {
-      userId: user.id,
-      workspaceId: workspace.id,
-    });
+  // Rows of bases whose cells match join the page hits (members only).
+  private async withBaseRows(
+    results: unknown,
+    searchDto: SearchDTO,
+    userId: string,
+    workspaceId: string,
+  ) {
+    if (!searchDto.query?.trim() || searchDto.titleOnly) {
+      return results;
+    }
+    // The page search answers {items: [...]} (or a bare array on older paths).
+    const asList = Array.isArray(results)
+      ? results
+      : Array.isArray((results as any)?.items)
+        ? (results as any).items
+        : null;
+    if (!asList) return results;
+    try {
+      const rowSearch = this.moduleRef.get(BaseRowSearchService, { strict: false });
+      const hits = await rowSearch.search(searchDto.query, userId, workspaceId, searchDto.spaceId);
+      if (hits.length === 0) return results;
+      const merged = [...asList, ...hits];
+      return Array.isArray(results) ? merged : { ...(results as any), items: merged };
+    } catch {
+      return results;
+    }
   }
 
   @HttpCode(HttpStatus.OK)

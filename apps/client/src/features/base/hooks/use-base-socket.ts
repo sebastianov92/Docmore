@@ -11,6 +11,7 @@ import { selectedRowIdsAtomFamily } from "@/features/base/atoms/base-atoms";
 import { formulaRecomputeAtom } from "@/features/base/atoms/formula-recompute-atom";
 import { IPagination } from "@/lib/types";
 import { importProgressAtomFamily } from "@/features/base/atoms/import-progress-atom";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 
 type BaseRowCreated = {
   operation: "base:row:created";
@@ -143,9 +144,10 @@ export function useBaseSocket(pageId: string | undefined): void {
   const socket = useAtomValue(socketAtom);
   const queryClient = useQueryClient();
   const store = useStore();
+  const publicCtx = useAtomValue(basePublicContextAtom);
 
   useEffect(() => {
-    if (!socket || !pageId) return;
+    if (!socket || !pageId || publicCtx) return;
 
     socket.emit("message", { operation: "base:subscribe", pageId });
 
@@ -410,5 +412,5 @@ export function useBaseSocket(pageId: string | undefined): void {
       socket.off("connect", resubscribe);
       socket.emit("message", { operation: "base:unsubscribe", pageId });
     };
-  }, [socket, pageId, queryClient, store]);
+  }, [socket, pageId, queryClient, store, publicCtx]);
 }

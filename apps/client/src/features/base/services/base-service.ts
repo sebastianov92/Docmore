@@ -26,10 +26,12 @@ import {
   CountRowsInput,
   CountRowsResult,
   BaseTemplate,
+  RowReferences,
 } from "@/features/base/types/base.types";
 import { IPagination } from "@/lib/types";
 import { ImportSpec } from "@/features/base/csv-import/csv-import.types";
 import { IFileTask } from "@/features/file-task/types/file-task.types";
+import { BasePublicContext } from "@/features/base/atoms/public-context-atom";
 
 // --- Bases ---
 
@@ -163,6 +165,30 @@ export async function deleteRows(data: DeleteRowsInput): Promise<void> {
   await api.post("/bases/rows/delete-many", data);
 }
 
+// Public readers (share link or published space) read through these.
+export async function getPublicBaseInfo(
+  pageId: string,
+  ctx: BasePublicContext,
+): Promise<IBase> {
+  const req = await api.post<IBase>("/bases/public/info", { pageId, shareId: ctx.shareId });
+  return req.data;
+}
+
+export async function listPublicRows(
+  pageId: string,
+  ctx: BasePublicContext,
+  params?: {
+    cursor?: string;
+    limit?: number;
+    filter?: FilterNode;
+    sorts?: ViewSortConfig[];
+    search?: SearchSpec;
+  },
+): Promise<IPagination<IBaseRow> & { references?: RowReferences }> {
+  const req = await api.post("/bases/public/rows", { pageId, shareId: ctx.shareId, ...params });
+  return req.data;
+}
+
 export async function listRows(
   pageId: string,
   params?: {
@@ -173,7 +199,7 @@ export async function listRows(
     sorts?: ViewSortConfig[];
     search?: SearchSpec;
   },
-): Promise<IPagination<IBaseRow>> {
+): Promise<IPagination<IBaseRow> & { references?: RowReferences }> {
   const req = await api.post("/bases/rows", { pageId, ...params });
   return req.data;
 }

@@ -201,6 +201,7 @@ export function BaseView({
   });
 
   const isKanban = effectiveView?.type === "kanban";
+  const isCalendar = effectiveView?.type === "calendar";
 
   const handleCellUpdate = useCallback(
     (rowId: string, propertyId: string, value: unknown) => {
@@ -224,13 +225,22 @@ export function BaseView({
     [setActiveViewId],
   );
 
-  const handleAddView = useCallback(() => {
-    createViewMutation.mutate({
-      pageId,
-      name: t("New view"),
-      type: "table",
-    });
-  }, [pageId, createViewMutation, t]);
+  const handleAddView = useCallback(
+    (type: "table" | "kanban" | "calendar" = "table") => {
+      const names = { table: t("Table"), kanban: t("Kanban"), calendar: t("Calendar") };
+      const config: Record<string, unknown> = {};
+      if (type === "kanban") {
+        const groupable = base?.properties.find((p) => p.type === "select" || p.type === "status");
+        if (groupable) config.groupByPropertyId = groupable.id;
+      }
+      if (type === "calendar") {
+        const dated = base?.properties.find((p) => p.type === "date" || p.type === "createdAt" || p.type === "lastEditedAt");
+        if (dated) config.calendarPropertyId = dated.id;
+      }
+      createViewMutation.mutate({ pageId, name: names[type], type, config });
+    },
+    [pageId, createViewMutation, t, base?.properties],
+  );
 
   const handleColumnReorder = useCallback(
     (columnId: string, finishIndex: number) => {
@@ -361,7 +371,7 @@ export function BaseView({
       views={views}
       table={table}
       onViewChange={handleViewChange}
-      onAddView={handleAddView}
+      onAddView={canSave ? handleAddView : undefined}
       onPersistViewConfig={persistViewConfig}
       onDraftSortsChange={handleDraftSortsChange}
       onDraftFiltersChange={handleDraftFiltersChange}
@@ -384,7 +394,7 @@ export function BaseView({
           isFetchingNextPage={isFetchingNextPage}
           onFetchNextPage={fetchNextPage}
           onCellUpdate={handleCellUpdate}
-          onAddRow={handleAddRow}
+          onAddRow={canSave ? handleAddRow : undefined}
           onColumnReorder={handleColumnReorder}
           onResizeEnd={handleResizeEnd}
           onRowReorder={handleRowReorder}
@@ -420,7 +430,7 @@ export function BaseView({
         {titleSlot}
         {banner}
         {toolbar}
-        {isKanban ? (
+        {isKanban || isCalendar ? (
           <div
             ref={setScrollportEl}
             style={{
@@ -441,13 +451,14 @@ export function BaseView({
               isFetchingNextPage={isFetchingNextPage}
               onFetchNextPage={fetchNextPage}
               onCellUpdate={handleCellUpdate}
-              onAddRow={handleAddRow}
+              onAddRow={canSave ? handleAddRow : undefined}
               onColumnReorder={handleColumnReorder}
               onResizeEnd={handleResizeEnd}
               onRowReorder={handleRowReorder}
               onCardClick={handleCardClick}
               persistViewConfig={persistViewConfig}
               scrollportEl={scrollportEl}
+              editable={canSave}
             />
           </div>
         ) : (
@@ -463,13 +474,14 @@ export function BaseView({
               isFetchingNextPage={isFetchingNextPage}
               onFetchNextPage={fetchNextPage}
               onCellUpdate={handleCellUpdate}
-              onAddRow={handleAddRow}
+              onAddRow={canSave ? handleAddRow : undefined}
               onColumnReorder={handleColumnReorder}
               onResizeEnd={handleResizeEnd}
               onRowReorder={handleRowReorder}
               onCardClick={handleCardClick}
               persistViewConfig={persistViewConfig}
               scrollportEl={scrollportEl}
+              editable={canSave}
             />
           </div>
         )}

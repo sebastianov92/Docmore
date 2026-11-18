@@ -77,6 +77,7 @@ import { UnsplashService } from '../../../integrations/unsplash/unsplash.service
 import { AttachmentType } from '../../attachment/attachment.constants';
 import { PageVerificationInvalidationService } from '../verification/page-verification-invalidation.service';
 import { isSameTitle } from '../verification/page-verification-invalidation.utils';
+import { BaseRepo } from '@docmost/db/repos/base/base.repo';
 
 @Injectable()
 export class PageService {
@@ -101,6 +102,7 @@ export class PageService {
     private readonly shareService: ShareService,
     private readonly unsplashService: UnsplashService,
     private readonly pageVerificationInvalidationService: PageVerificationInvalidationService,
+    private readonly baseRepo: BaseRepo,
   ) {}
 
   async findById(
@@ -889,6 +891,16 @@ export class PageService {
 
           // Remap transclusion-reference source pages to their copies when
           // the source page is also being duplicated in the same operation.
+          // An embedded base that is itself part of the copied tree points
+          // at its copy; one outside the tree stays shared.
+          if (node.type.name === 'base') {
+            const basePageId = node.attrs.pageId;
+            if (basePageId && pageMap.has(basePageId)) {
+              (node.attrs as Record<string, unknown>).pageId =
+                pageMap.get(basePageId).newPageId;
+            }
+          }
+
           if (node.type.name === 'transclusionReference') {
             const sourcePageId = node.attrs.sourcePageId;
             if (sourcePageId && pageMap.has(sourcePageId)) {
@@ -934,6 +946,7 @@ export class PageService {
           id: pageFromMap.newPageId,
           slugId: pageFromMap.newSlugId,
           title: title,
+          isBase: page.isBase ?? false,
           icon: page.icon,
           coverPhoto,
           coverPosition: page.coverPosition,
@@ -960,6 +973,16 @@ export class PageService {
 
     const copiedRestrictions = await executeTx(this.db, async (trx) => {
       await trx.insertInto('pages').values(insertablePages).execute();
+      for (const page of pages) {
+        if (page.isBase) {
+          await this.baseRepo.copyBaseData(
+            page.id,
+            pageMap.get(page.id).newPageId,
+            authUser.id,
+            trx,
+          );
+        }
+      }
       await this.labelRepo.copyLabelsToPages(
         new Map([...pageMap].map(([oldId, entry]) => [oldId, entry.newPageId])),
         trx,
@@ -1380,6 +1403,23 @@ export class PageService {
     workspaceId: string,
   ): Promise<void> {
     await this.pageRepo.removePage(pageId, userId, workspaceId);
+    // Readers of a base in the trash (and of bases under it) stop getting
+    // live updates.
+    try {
+      const subtree = await this.pageRepo.getPageAndDescendants(pageId, {
+        includeContent: false,
+      });
+      const baseIds = subtree
+        .filter((p: any) => p.isBase)
+        .map((p: any) => p.id);
+      if (baseIds.length > 0) {
+        await this.wsService.removeBaseSubscribersWithoutAccess(baseIds);
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `could not drop base subscribers of ${pageId}: ${err?.message}`,
+      );
+    }
   }
 
   private async parseProsemirrorContent(

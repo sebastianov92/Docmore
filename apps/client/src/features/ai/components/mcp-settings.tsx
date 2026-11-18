@@ -88,12 +88,12 @@ export function McpSettings() {
             <List size="sm" spacing={2}>
               <List.Item>
                 <Text size="sm" c="dimmed" span>
-                  get_current_user, list_spaces, list_pages, search_pages, get_page
+                  get_current_user, list_spaces, list_pages, search_pages, get_page, list_bases, get_base, list_base_rows
                 </Text>
               </List.Item>
               <List.Item>
                 <Text size="sm" c="dimmed" span>
-                  create_page, update_page ({t("only with write access, and never while the chat is read-only")})
+                  create_page, update_page, create_base_row, update_base_row ({t("only with write access, and never while the chat is read-only")})
                 </Text>
               </List.Item>
             </List>

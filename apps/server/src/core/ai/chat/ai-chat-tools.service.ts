@@ -17,6 +17,7 @@ import { jsonToMarkdown } from '../../../collaboration/collaboration.util';
 import { AiEmbeddingService } from '../embeddings/ai-embedding.service';
 import { AiSettingsService } from '../ai-settings.service';
 import { MAX_TOOL_PAGE_CHARS } from './ai-chat.constants';
+import { AiBaseToolsService } from './ai-base-tools.service';
 
 export interface ToolContext {
   user: User;
@@ -60,6 +61,7 @@ export class AiChatToolsService {
     private readonly embeddings: AiEmbeddingService,
     private readonly settings: AiSettingsService,
     @Inject(AUDIT_SERVICE) private readonly audit: IAuditService,
+    private readonly baseTools: AiBaseToolsService,
   ) {}
 
   // The tools as plain definitions: the chat turns them into AI SDK tools,
@@ -170,6 +172,7 @@ export class AiChatToolsService {
         },
       );
     }
+    defs.push(...this.baseTools.definitions(ctx, guard));
     return defs;
   }
 

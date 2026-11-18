@@ -428,6 +428,8 @@ export const viewConfigSchema = z
     // `z.string()` (not `z.uuid()`) because the NO_VALUE_CHOICE_ID
     // sentinel ('__no_value') lives in the same array as choice uuids.
     groupByPropertyId: basePropertyIdSchema.optional(),
+    // Calendar-only: the date property rows are placed by.
+    calendarPropertyId: basePropertyIdSchema.optional(),
     hiddenChoiceIds: z.array(z.string()).optional(),
     choiceOrder: z.array(z.string()).optional(),
   })

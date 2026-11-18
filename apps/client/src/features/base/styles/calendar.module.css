@@ -1,0 +1,116 @@
+.calendar {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 0 12px;
+}
+
+.header {
+  padding: 4px 4px 8px;
+}
+
+.monthLabel {
+  text-transform: capitalize;
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.weekday {
+  padding: 4px 8px;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  text-transform: capitalize;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(96px, auto);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--mantine-color-default-border);
+}
+
+.day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-right: 1px solid var(--mantine-color-default-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  min-width: 0;
+}
+
+.day:hover .dayAdd {
+  opacity: 1;
+}
+
+.dayOutside {
+  background: var(--mantine-color-default-hover);
+}
+
+.dayOutside .dayNumber {
+  color: var(--mantine-color-dimmed);
+}
+
+.dayToday .dayNumber {
+  background: var(--mantine-primary-color-filled);
+  color: var(--mantine-primary-color-contrast);
+  border-radius: 999px;
+}
+
+.dayHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 20px;
+}
+
+.dayNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+}
+
+.dayAdd {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card {
+  width: 100%;
+  padding: 2px 6px;
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-blue-light);
+  color: var(--mantine-color-text);
+  text-align: left;
+}
+
+.card:hover {
+  background: var(--mantine-color-blue-light-hover);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+}

@@ -17,7 +17,8 @@ type BaseTableProps = {
   isFetchingNextPage: boolean;
   onFetchNextPage: () => void;
   onCellUpdate: (rowId: string, propertyId: string, value: unknown) => void;
-  onAddRow: () => void;
+  onAddRow?: () => void;
+  editable?: boolean;
   onColumnReorder: (columnId: string, finishIndex: number) => void;
   onResizeEnd: () => void;
   onRowReorder: (
@@ -41,6 +42,7 @@ export function BaseTable({
   onFetchNextPage,
   onCellUpdate,
   onAddRow,
+  editable,
   onColumnReorder,
   onResizeEnd,
   onRowReorder,
@@ -53,6 +55,7 @@ export function BaseTable({
       properties={base.properties}
       onCellUpdate={onCellUpdate}
       onAddRow={onAddRow}
+      canAddProperty={editable !== false}
       pageId={pageId}
       onColumnReorder={onColumnReorder}
       onResizeEnd={onResizeEnd}

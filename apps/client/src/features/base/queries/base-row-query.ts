@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import {
   useInfiniteQuery,
   useMutation,
@@ -12,6 +13,7 @@ import {
   listRows,
   reorderRow,
   countRows,
+  listPublicRows,
 } from "@/features/base/services/base-service";
 import {
   IBaseRow,
@@ -30,6 +32,7 @@ import { queryClient } from "@/main";
 import { useTranslation } from "react-i18next";
 import { IPagination } from "@/lib/types";
 import { markRequestIdOutbound } from "@/features/base/hooks/use-base-socket";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 
 type RowCacheContext = {
   snapshots: [readonly unknown[], InfiniteData<IPagination<IBaseRow>> | undefined][];
@@ -67,17 +70,20 @@ export function useBaseRowsQuery(
   const activeFilter = normalizeFilter(filter);
   const activeSorts = sorts?.length ? sorts : undefined;
   const activeSearch = search?.query ? search : undefined;
+  const publicCtx = useAtomValue(basePublicContextAtom);
 
   return useInfiniteQuery({
-    queryKey: ["base-rows", pageId, activeFilter, activeSorts, activeSearch],
-    queryFn: ({ pageParam }) =>
-      listRows(pageId!, {
+    queryKey: ["base-rows", pageId, activeFilter, activeSorts, activeSearch, publicCtx?.shareId ?? (publicCtx ? "public" : "")],
+    queryFn: ({ pageParam }) => {
+      const params = {
         cursor: pageParam,
         limit: 100,
         filter: activeFilter,
         sorts: activeSorts,
         search: activeSearch,
-      }),
+      };
+      return publicCtx ? listPublicRows(pageId!, publicCtx, params) : listRows(pageId!, params);
+    },
     enabled: !!pageId,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: IPagination<IBaseRow>) =>
@@ -297,6 +303,7 @@ export function useBaseRowsCountQuery(
 ) {
   const activeFilter = normalizeFilter(filter);
   const activeSearch = search?.query ? search : undefined;
+  const publicCtx = useAtomValue(basePublicContextAtom);
 
   return useQuery<CountRowsResult>({
     queryKey: ["base-rows-count", pageId, activeFilter, activeSearch, exact],
@@ -307,7 +314,7 @@ export function useBaseRowsCountQuery(
         search: activeSearch,
         exact,
       }),
-    enabled: !!pageId,
+    enabled: !!pageId && !publicCtx,
     staleTime: 30 * 1000,
   });
 }

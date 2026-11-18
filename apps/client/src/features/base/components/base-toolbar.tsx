@@ -23,10 +23,13 @@ import { ViewSortConfigPopover } from "@/features/base/components/views/view-sor
 import { ViewFilterConfigPopover } from "@/features/base/components/views/view-filter-config";
 import { ViewFieldVisibility } from "@/features/base/components/views/view-field-visibility";
 import { KanbanGroupByPicker } from "@/features/base/components/views/kanban/kanban-group-by-picker";
+import { CalendarDatePicker } from "@/features/base/components/views/calendar/calendar-date-picker";
 import { useUpdateViewMutation } from "@/features/base/queries/base-view-query";
 import { useTranslation } from "react-i18next";
 import classes from "@/features/base/styles/grid.module.css";
 import { CsvImportModal } from "@/features/base/csv-import/csv-import-modal";
+import { useAtomValue } from "jotai";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 
 type BaseToolbarProps = {
   base: IBase;
@@ -38,7 +41,7 @@ type BaseToolbarProps = {
   views: IBaseView[];
   table: Table<IBaseRow>;
   onViewChange: (viewId: string) => void;
-  onAddView?: () => void;
+  onAddView?: (type?: "table" | "kanban" | "calendar") => void;
   onPersistViewConfig: () => void;
   onDraftSortsChange: (sorts: ViewSortConfig[] | undefined) => void;
   onDraftFiltersChange: (filter: FilterGroup | undefined) => void;
@@ -64,6 +67,7 @@ export function BaseToolbar({
   const [fieldsOpened, setFieldsOpened] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importOpened, setImportOpened] = useState(false);
+  const publicCtx = useAtomValue(basePublicContextAtom);
   const toolbarRightRef = useRef<HTMLDivElement>(null);
 
   // Mantine `<Popover>`'s built-in dismiss handlers don't fire reliably
@@ -146,6 +150,7 @@ export function BaseToolbar({
 
   const updateViewMutation = useUpdateViewMutation();
   const isKanban = activeView?.type === "kanban";
+  const isCalendar = activeView?.type === "calendar";
 
   const handleGroupByChange = useCallback(
     (propertyId: string) => {
@@ -154,6 +159,18 @@ export function BaseToolbar({
         viewId: activeView.id,
         pageId: base.id,
         config: { ...activeView.config, groupByPropertyId: propertyId },
+      });
+    },
+    [activeView, base.id, updateViewMutation],
+  );
+
+  const handleCalendarPropertyChange = useCallback(
+    (propertyId: string) => {
+      if (!activeView) return;
+      updateViewMutation.mutate({
+        viewId: activeView.id,
+        pageId: base.id,
+        config: { ...activeView.config, calendarPropertyId: propertyId },
       });
     },
     [activeView, base.id, updateViewMutation],
@@ -199,19 +216,29 @@ export function BaseToolbar({
           size="xs"
         />
       )}
+      {isCalendar && (
+        <CalendarDatePicker
+          properties={base.properties}
+          value={activeView?.config?.calendarPropertyId ?? null}
+          onChange={handleCalendarPropertyChange}
+          size="xs"
+        />
+      )}
 
       <div className={classes.toolbarRight} ref={toolbarRightRef}>
-        <Tooltip label={t("Export CSV")}>
-          <ActionIcon
-            variant="subtle"
-            size="sm"
-            color="gray"
-            loading={exporting}
-            onClick={handleExport}
-          >
-            <IconDownload size={16} />
-          </ActionIcon>
-        </Tooltip>
+        {!publicCtx && (
+          <Tooltip label={t("Export CSV")}>
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              color="gray"
+              loading={exporting}
+              onClick={handleExport}
+            >
+              <IconDownload size={16} />
+            </ActionIcon>
+          </Tooltip>
+        )}
         {canEdit && (
           <Tooltip label={t("Import CSV")}>
             <ActionIcon

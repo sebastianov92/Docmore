@@ -39,6 +39,7 @@ type GridContainerProps = {
   properties: IBaseProperty[];
   onCellUpdate: (rowId: string, propertyId: string, value: unknown) => void;
   onAddRow?: () => void;
+  canAddProperty?: boolean;
   pageId: string;
   onColumnReorder?: (columnId: string, finishIndex: number) => void;
   onResizeEnd?: () => void;
@@ -66,6 +67,7 @@ export function GridContainer({
   properties,
   onCellUpdate,
   onAddRow,
+  canAddProperty = true,
   pageId,
   onColumnReorder,
   onResizeEnd,
@@ -323,6 +325,7 @@ export function GridContainer({
             properties={properties}
             loadedRowIds={rowIds}
             onPropertyCreated={handlePropertyCreated}
+            canAddProperty={canAddProperty}
             getColumnOrder={getColumnOrder}
             onColumnReorder={onColumnReorder}
           />
@@ -369,7 +372,7 @@ export function GridContainer({
           {paddingBottom > 0 && (
             <div style={{ height: paddingBottom, gridColumn: "1 / -1" }} />
           )}
-          <AddRowButton onClick={handleAddRow} />
+          {onAddRow && <AddRowButton onClick={handleAddRow} />}
           {pageId && <SelectionActionBar pageId={pageId} />}
         </div>
     </div>

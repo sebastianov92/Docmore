@@ -22,12 +22,18 @@ import { BaseAuditListener } from './listeners/base-audit.listener';
 import { NotificationModule } from '../notification/notification.module';
 import { BaseCsvImportService } from './import/base-csv-import.service';
 import { BaseImportProcessor } from './processors/base-import.processor';
+import { ShareModule } from '../share/share.module';
+import { PublicSpaceModule } from '../public-space/public-space.module';
+import { BasePublicController } from './controllers/base-public.controller';
+import { BaseRowSearchService } from './search/base-row-search.service';
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: QueueName.BASE_QUEUE }),
     BullModule.registerQueue({ name: QueueName.BASE_IMPORT_QUEUE }),
     NotificationModule,
+    ShareModule,
+    PublicSpaceModule,
     PageModule,
   ],
   controllers: [
@@ -35,6 +41,7 @@ import { BaseImportProcessor } from './processors/base-import.processor';
     BasePropertyController,
     BaseRowController,
     BaseViewController,
+    BasePublicController,
   ],
   providers: [
     BaseService,
@@ -52,8 +59,10 @@ import { BaseImportProcessor } from './processors/base-import.processor';
     BaseAuditListener,
     BaseCsvImportService,
     BaseImportProcessor,
+    BaseRowSearchService,
   ],
   exports: [
+    BaseRowSearchService,
     BaseService,
     BasePropertyService,
     BaseRowService,

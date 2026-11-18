@@ -10,6 +10,7 @@ import { useWorkspaceMembersQuery } from "@/features/workspace/queries/workspace
 import { CustomAvatar } from "@/components/ui/custom-avatar";
 import cellClasses from "@/features/base/styles/cells.module.css";
 import { useListKeyboardNav } from "@/features/base/hooks/use-list-keyboard-nav";
+import { useBaseRowReferences } from "@/features/base/hooks/use-base-row-references";
 
 type CellPersonProps = {
   value: unknown;
@@ -48,11 +49,17 @@ export function CellPerson({
 
   const { data: membersData } = useWorkspaceMembersQuery({ limit: 100 });
   const members = membersData?.items ?? [];
+  const references = useBaseRowReferences(property.pageId);
   const memberMap = useMemo(() => {
     const map = new Map<string, (typeof members)[0]>();
     for (const m of members) map.set(m.id, m);
+    for (const u of Object.values(references.users)) {
+      if (!map.has(u.id)) {
+        map.set(u.id, { id: u.id, name: u.name ?? "", email: "", avatarUrl: u.avatarUrl } as (typeof members)[0]);
+      }
+    }
     return map;
-  }, [members]);
+  }, [members, references.users]);
 
   const filteredMembers = search
     ? members.filter(

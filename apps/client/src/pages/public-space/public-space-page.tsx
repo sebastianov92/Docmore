@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useSetAtom } from "jotai";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Skeleton, Stack, Text } from "@mantine/core";
@@ -13,10 +15,16 @@ import { CustomAvatar } from "@/components/ui/custom-avatar.tsx";
 import { timeAgo } from "@/lib/time.ts";
 import styles from "@/features/public-space/components/docs/docs.module.css";
 import { PublicPageCover } from "@/features/page-cover/components/public-page-cover.tsx";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 
 export default function PublicSpacePage() {
   const { t } = useTranslation();
   const { spaceSlug, pageSlug } = useParams();
+  const setBasePublicContext = useSetAtom(basePublicContextAtom);
+  useEffect(() => {
+    setBasePublicContext({ publicSpace: true });
+    return () => setBasePublicContext(null);
+  }, [setBasePublicContext]);
 
   const { data, isLoading, isError, error } = usePublicSpacePageQuery({
     spaceSlug,

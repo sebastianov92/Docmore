@@ -9,8 +9,9 @@ import {
   Popover,
   Stack,
   Divider,
+  Menu,
 } from "@mantine/core";
-import { IconPlus, IconPencil, IconTrash, IconTable } from "@tabler/icons-react";
+import { IconPlus, IconPencil, IconTrash, IconTable, IconLayoutKanban, IconCalendar } from "@tabler/icons-react";
 import { IBaseView } from "@/features/base/types/base.types";
 import {
   useUpdateViewMutation,
@@ -24,7 +25,7 @@ type ViewTabsProps = {
   activeViewId: string | undefined;
   pageId: string;
   onViewChange: (viewId: string) => void;
-  onAddView?: () => void;
+  onAddView?: (type?: "table" | "kanban" | "calendar") => void;
 };
 
 export function ViewTabs({
@@ -108,16 +109,26 @@ export function ViewTabs({
         />
       ))}
       {onAddView && (
-        <Tooltip label={t("Add view")}>
-          <ActionIcon
-            variant="subtle"
-            size="sm"
-            color="gray"
-            onClick={onAddView}
-          >
-            <IconPlus size={14} />
-          </ActionIcon>
-        </Tooltip>
+        <Menu position="bottom-start" withinPortal shadow="md" width={180}>
+          <Menu.Target>
+            <Tooltip label={t("Add view")}>
+              <ActionIcon variant="subtle" size="sm" color="gray" aria-label={t("Add view")}>
+                <IconPlus size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item leftSection={<IconTable size={14} />} onClick={() => onAddView("table")}>
+              {t("Table")}
+            </Menu.Item>
+            <Menu.Item leftSection={<IconLayoutKanban size={14} />} onClick={() => onAddView("kanban")}>
+              {t("Kanban")}
+            </Menu.Item>
+            <Menu.Item leftSection={<IconCalendar size={14} />} onClick={() => onAddView("calendar")}>
+              {t("Calendar")}
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       )}
     </Group>
   );

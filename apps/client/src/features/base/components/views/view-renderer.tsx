@@ -6,6 +6,7 @@ import {
 } from "@/features/base/types/base.types";
 import { BaseTable } from "@/features/base/components/base-table";
 import { BaseKanban } from "@/features/base/components/views/kanban/base-kanban";
+import { BaseCalendar } from "@/features/base/components/views/calendar/base-calendar";
 
 type ViewRendererProps = {
   base: IBase;
@@ -18,7 +19,7 @@ type ViewRendererProps = {
   isFetchingNextPage: boolean;
   onFetchNextPage: () => void;
   onCellUpdate: (rowId: string, propertyId: string, value: unknown) => void;
-  onAddRow: () => void;
+  onAddRow?: () => void;
   onColumnReorder: (columnId: string, finishIndex: number) => void;
   onResizeEnd: () => void;
   onRowReorder: (
@@ -30,10 +31,22 @@ type ViewRendererProps = {
   persistViewConfig: () => void;
   scrollportEl: HTMLDivElement | null;
   stickyBandPrelude?: React.ReactNode;
+  editable?: boolean;
 };
 
 export function ViewRenderer(props: ViewRendererProps) {
   const viewType = props.effectiveView?.type ?? "table";
+
+  if (viewType === "calendar") {
+    return (
+      <BaseCalendar
+        base={props.base}
+        effectiveView={props.effectiveView}
+        editable={Boolean(props.editable)}
+        onCardClick={props.onCardClick}
+      />
+    );
+  }
 
   if (viewType === "kanban") {
     return (

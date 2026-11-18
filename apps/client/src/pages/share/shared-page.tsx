@@ -6,7 +6,7 @@ import React, { useEffect } from "react";
 import ReadonlyPageEditor from "@/features/editor/readonly-page-editor.tsx";
 import { extractPageSlugId } from "@/lib";
 import { Error404 } from "@/components/ui/error-404.tsx";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { sharedTreeDataAtom } from "@/features/share/atoms/shared-page-atom.ts";
 import { isPageInTree } from "@/features/share/utils.ts";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
@@ -14,6 +14,7 @@ import DocsBreadcrumbs from "@/features/public-space/components/docs/docs-breadc
 import DocsPageNav from "@/features/public-space/components/docs/docs-page-nav.tsx";
 import DocsFooterBranding from "@/features/public-space/components/docs/docs-footer-branding.tsx";
 import { PublicPageCover } from "@/features/page-cover/components/public-page-cover.tsx";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 
 export default function SharedPage() {
   const { t } = useTranslation();
@@ -26,6 +27,12 @@ export default function SharedPage() {
   });
 
   const sharedTreeData = useAtomValue(sharedTreeDataAtom);
+  const setBasePublicContext = useSetAtom(basePublicContextAtom);
+  useEffect(() => {
+    if (!data?.share?.key) return;
+    setBasePublicContext({ shareId: data.share.key });
+    return () => setBasePublicContext(null);
+  }, [data?.share?.key, setBasePublicContext]);
 
   useEffect(() => {
     if (shareId && data) {

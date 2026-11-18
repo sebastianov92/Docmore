@@ -1,6 +1,6 @@
 # Bases en Docmore — especificación
 
-Estado: aprobado y ejecutado (2026-11-18/19). F0-F4 hechas: port del servidor y del cliente desde `origin/base-kan`, paquete `@docmore/base-formula`, convert/plantilla kanban, `longText`, token de conversión, parches de vista, auditoría, scopes, import CSV (servidor + modal). Verificado por batería API (`scratchpad/bases-cases.sh`, 100+ casos incl. websocket) y en navegador (convert, kanban, tabla, propiedades, fórmula, conversión de tipo, embed inline, filtros con borrador, import CSV). Pendiente v2: §4.
+Estado: aprobado y ejecutado (2026-11-18/19). F0-F4 hechas: port del servidor y del cliente desde `origin/base-kan`, paquete `@docmore/base-formula`, convert/plantilla kanban, `longText`, token de conversión, parches de vista, auditoría, scopes, import CSV (servidor + modal). Verificado por batería API (`scratchpad/bases-cases.sh`, 100+ casos incl. websocket) y en navegador (convert, kanban, tabla, propiedades, fórmula, conversión de tipo, embed inline, filtros con borrador, import CSV). v2 hecha (2026-11-19): duplicar página copia la base y remapea embeds, papelera corta las suscripciones, tools MCP de bases, vista calendario, bases de solo lectura en páginas compartidas/espacios publicados (`/api/bases/public/*`), filas en la búsqueda del workspace y `references` (personas/páginas) en el listado de filas. Fuera: caché DuckDB, relaciones entre bases, comentarios por fila, formularios.
 
 ## 1. Qué es
 

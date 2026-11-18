@@ -184,7 +184,11 @@ outside the `ee/` directories, so they are always on:
   kanban views with filters, sorts and per-user drafts, a row detail
   modal, type conversion with a background job for large tables, realtime
   updates, CSV export and CSV import (map columns to existing or new
-  properties; options and people are resolved by name). The code comes
+  properties; options and people are resolved by name), a calendar view by
+  any date property, duplicating a page copies its bases, bases on shared
+  pages and published spaces are readable without an account, rows show up
+  in workspace search, and the MCP server exposes `list_bases`, `get_base`,
+  `list_base_rows`, `create_base_row` and `update_base_row`. The code comes
   from upstream's AGPL base-kan branch, before the feature moved to the
   enterprise tree, adapted to the current schema; the formula engine is
   the AGPL copy in `packages/base-formula-core`.

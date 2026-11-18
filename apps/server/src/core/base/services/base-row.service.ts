@@ -29,7 +29,7 @@ import {
 } from '../base.schemas';
 import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
-import { BaseProperty } from '@docmost/db/types/entity.types';
+import { BaseProperty, BaseRow } from '@docmost/db/types/entity.types';
 import {
   Condition,
   FilterNode,
@@ -252,7 +252,7 @@ export class BaseRowService {
       direction: s.direction,
     }));
 
-    return this.baseRowRepo.list({
+    const result = await this.baseRowRepo.list({
       pageId: dto.pageId,
       workspaceId,
       filter,
@@ -261,6 +261,79 @@ export class BaseRowService {
       schema,
       pagination,
     });
+    const references = await this.collectReferences(
+      result.items as BaseRow[],
+      properties,
+      workspaceId,
+    );
+    return { ...result, references };
+  }
+
+  // Names behind the ids in a page of rows, so readers (public ones have
+  // no member list) can show people and linked pages.
+  private async collectReferences(
+    rows: BaseRow[],
+    properties: BaseProperty[],
+    workspaceId: string,
+  ) {
+    const personIds = new Set(
+      properties
+        .filter((p) => p.type === BasePropertyType.PERSON)
+        .map((p) => p.id),
+    );
+    const pageIds = new Set(
+      properties
+        .filter((p) => p.type === BasePropertyType.PAGE)
+        .map((p) => p.id),
+    );
+    const userIds = new Set<string>();
+    const linkedPageIds = new Set<string>();
+    for (const row of rows) {
+      if (row.creatorId) userIds.add(row.creatorId);
+      if (row.lastUpdatedById) userIds.add(row.lastUpdatedById);
+      const cells = (row.cells ?? {}) as Record<string, unknown>;
+      for (const [propertyId, value] of Object.entries(cells)) {
+        if (personIds.has(propertyId)) {
+          for (const id of Array.isArray(value) ? value : [value]) {
+            if (typeof id === 'string') userIds.add(id);
+          }
+        } else if (pageIds.has(propertyId) && typeof value === 'string') {
+          linkedPageIds.add(value);
+        }
+      }
+    }
+    const users: Record<string, { id: string; name: string | null; avatarUrl: string | null }> = {};
+    if (userIds.size > 0) {
+      const found = await this.db
+        .selectFrom('users')
+        .select(['id', 'name', 'avatarUrl'])
+        .where('workspaceId', '=', workspaceId)
+        .where('id', 'in', [...userIds])
+        .execute();
+      for (const u of found) users[u.id] = { id: u.id, name: u.name, avatarUrl: u.avatarUrl };
+    }
+    const pages: Record<string, { id: string; slugId: string; title: string | null; icon: string | null; spaceId: string; space: { id: string; slug: string; name: string } | null }> = {};
+    if (linkedPageIds.size > 0) {
+      const found = await this.db
+        .selectFrom('pages')
+        .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+        .select(['pages.id', 'pages.slugId', 'pages.title', 'pages.icon', 'pages.spaceId', 'spaces.slug as spaceSlug', 'spaces.name as spaceName'])
+        .where('pages.workspaceId', '=', workspaceId)
+        .where('pages.deletedAt', 'is', null)
+        .where('pages.id', 'in', [...linkedPageIds])
+        .execute();
+      for (const pg of found) {
+        pages[pg.id] = {
+          id: pg.id,
+          slugId: pg.slugId,
+          title: pg.title,
+          icon: pg.icon,
+          spaceId: pg.spaceId,
+          space: { id: pg.spaceId, slug: pg.spaceSlug, name: pg.spaceName },
+        };
+      }
+    }
+    return { users, pages };
   }
 
   async count(dto: CountRowsDto, workspaceId: string) {
