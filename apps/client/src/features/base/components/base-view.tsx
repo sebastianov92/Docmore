@@ -395,6 +395,7 @@ export function BaseView({
           onFetchNextPage={fetchNextPage}
           onCellUpdate={handleCellUpdate}
           onAddRow={canSave ? handleAddRow : undefined}
+          editable={canSave}
           onColumnReorder={handleColumnReorder}
           onResizeEnd={handleResizeEnd}
           onRowReorder={handleRowReorder}
