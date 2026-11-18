@@ -36,6 +36,10 @@ import { WatcherRepo } from '@docmost/db/repos/watcher/watcher.repo';
 import { LabelRepo } from '@docmost/db/repos/label/label.repo';
 import { FavoriteRepo } from '@docmost/db/repos/favorite/favorite.repo';
 import { TemplateRepo } from '@docmost/db/repos/template/template.repo';
+import { BaseRepo } from '@docmost/db/repos/base/base.repo';
+import { BasePropertyRepo } from '@docmost/db/repos/base/base-property.repo';
+import { BaseRowRepo } from '@docmost/db/repos/base/base-row.repo';
+import { BaseViewRepo } from '@docmost/db/repos/base/base-view.repo';
 import { ApiKeyRepo } from '@docmost/db/repos/api-key/api-key.repo';
 import { UserMfaRepo } from '@docmost/db/repos/mfa/user-mfa.repo';
 import { AuthProviderRepo } from './repos/auth-provider/auth-provider.repo';
@@ -108,6 +112,10 @@ import { DatabaseModuleOptions } from './database.types';
     WatcherRepo,
     LabelRepo,
     TemplateRepo,
+    BaseRepo,
+    BasePropertyRepo,
+    BaseRowRepo,
+    BaseViewRepo,
     ApiKeyRepo,
     UserMfaRepo,
     AuthProviderRepo,
@@ -138,6 +146,10 @@ import { DatabaseModuleOptions } from './database.types';
     WatcherRepo,
     LabelRepo,
     TemplateRepo,
+    BaseRepo,
+    BasePropertyRepo,
+    BaseRowRepo,
+    BaseViewRepo,
     ApiKeyRepo,
     UserMfaRepo,
     AuthProviderRepo,

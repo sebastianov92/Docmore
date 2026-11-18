@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import ReadonlyPageEditor from "@/features/editor/readonly-page-editor.tsx";
-import { BaseView } from "@/ee/base/components/base-view";
+import { BaseView } from "@/features/base/components/base-view";
 import { usePageQuery } from "@/features/page/queries/page-query.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import { userAtom } from "@/features/user/atoms/current-user-atom.ts";

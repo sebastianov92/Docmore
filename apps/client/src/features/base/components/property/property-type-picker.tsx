@@ -1,0 +1,116 @@
+import { UnstyledButton, Group, Text, TextInput } from "@mantine/core";
+import {
+  IconLetterT,
+  IconHash,
+  IconCircleDot,
+  IconProgressCheck,
+  IconTags,
+  IconCalendar,
+  IconUser,
+  IconPaperclip,
+  IconFileDescription,
+  IconCheckbox,
+  IconLink,
+  IconMail,
+  IconClockPlus,
+  IconClockEdit,
+  IconUserEdit,
+  IconCheck,
+  IconSearch,
+  IconMathFunction,
+  IconAlignLeft,
+} from "@tabler/icons-react";
+import { BasePropertyType } from "@/features/base/types/base.types";
+import { useTranslation } from "react-i18next";
+import { useState, useRef, useEffect } from "react";
+import classes from "@/features/base/styles/cells.module.css";
+
+const propertyTypes: {
+  type: BasePropertyType;
+  icon: typeof IconLetterT;
+  labelKey: string;
+}[] = [
+  { type: "text", icon: IconLetterT, labelKey: "Text" },
+  { type: "longText", icon: IconAlignLeft, labelKey: "Long text" },
+  { type: "number", icon: IconHash, labelKey: "Number" },
+  { type: "select", icon: IconCircleDot, labelKey: "Select" },
+  { type: "status", icon: IconProgressCheck, labelKey: "Status" },
+  { type: "multiSelect", icon: IconTags, labelKey: "Multi-select" },
+  { type: "date", icon: IconCalendar, labelKey: "Date" },
+  { type: "person", icon: IconUser, labelKey: "Person" },
+  { type: "file", icon: IconPaperclip, labelKey: "File" },
+  { type: "page", icon: IconFileDescription, labelKey: "Page" },
+  { type: "checkbox", icon: IconCheckbox, labelKey: "Checkbox" },
+  { type: "url", icon: IconLink, labelKey: "URL" },
+  { type: "email", icon: IconMail, labelKey: "Email" },
+  { type: "createdAt", icon: IconClockPlus, labelKey: "Created at" },
+  { type: "lastEditedAt", icon: IconClockEdit, labelKey: "Last edited at" },
+  { type: "lastEditedBy", icon: IconUserEdit, labelKey: "Last edited by" },
+  { type: "formula", icon: IconMathFunction, labelKey: "Formula" },
+];
+
+type PropertyTypePickerProps = {
+  onSelect: (type: BasePropertyType) => void;
+  currentType?: BasePropertyType;
+  excludeTypes?: Set<BasePropertyType>;
+  showSearch?: boolean;
+};
+
+export function PropertyTypePicker({
+  onSelect,
+  currentType,
+  excludeTypes,
+  showSearch,
+}: PropertyTypePickerProps) {
+  const { t } = useTranslation();
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchRef.current?.focus(), 0);
+    }
+  }, [showSearch]);
+
+  const types = propertyTypes
+    .filter(({ type }) => !excludeTypes?.has(type))
+    .filter(({ labelKey }) =>
+      !search || t(labelKey).toLowerCase().includes(search.toLowerCase())
+    );
+
+  return (
+    <>
+      {showSearch && (
+        <TextInput
+          ref={searchRef}
+          size="xs"
+          placeholder={t("Find a field type")}
+          leftSection={<IconSearch size={14} />}
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+          mx="sm"
+          mt="sm"
+          mb={4}
+        />
+      )}
+      {types.map(({ type, icon: Icon, labelKey }) => (
+        <UnstyledButton
+          key={type}
+          className={classes.menuItem}
+          onClick={() => onSelect(type)}
+          style={{
+            fontWeight: type === currentType ? 600 : 400,
+          }}
+        >
+          <Group gap={8} wrap="nowrap" style={{ flex: 1 }}>
+            <Icon size={14} />
+            <Text size="sm">{t(labelKey)}</Text>
+          </Group>
+          {type === currentType && <IconCheck size={14} />}
+        </UnstyledButton>
+      ))}
+    </>
+  );
+}
+
+export { propertyTypes };

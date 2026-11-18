@@ -1,0 +1,192 @@
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { BaseRowService } from '../services/base-row.service';
+import { BaseRepo } from '@docmost/db/repos/base/base.repo';
+import { CreateRowDto } from '../dto/create-row.dto';
+import {
+  UpdateRowDto,
+  DeleteRowDto,
+  DeleteRowsDto,
+  RowIdDto,
+  ListRowsDto,
+  ReorderRowDto,
+  CountRowsDto,
+} from '../dto/update-row.dto';
+import { AuthUser } from '../../../common/decorators/auth-user.decorator';
+import { AuthWorkspace } from '../../../common/decorators/auth-workspace.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
+import { User, Workspace } from '@docmost/db/types/entity.types';
+import { PageAccessService } from '../../page/page-access/page-access.service';
+import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
+import { OAuthScope } from '../../../common/decorators/oauth-scope.decorator';
+
+@UseGuards(JwtAuthGuard)
+@Controller('bases/rows')
+export class BaseRowController {
+  constructor(
+    private readonly baseRowService: BaseRowService,
+    private readonly baseRepo: BaseRepo,
+    private readonly pageAccessService: PageAccessService,
+  ) {}
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('write')
+  @OAuthScope('write')
+  @Post('create')
+  async create(
+    @Body() dto: CreateRowDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanEdit(base, user);
+
+    return this.baseRowService.create(user.id, workspace.id, dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('read')
+  @OAuthScope('read')
+  @Post('info')
+  async getRow(
+    @Body() dto: RowIdDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanView(base, user);
+
+    return this.baseRowService.getRowInfo(dto.rowId, dto.pageId, workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('write')
+  @OAuthScope('write')
+  @Post('update')
+  async update(
+    @Body() dto: UpdateRowDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanEdit(base, user);
+
+    return this.baseRowService.update(dto, workspace.id, user.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('write')
+  @OAuthScope('write')
+  @Post('delete')
+  async delete(
+    @Body() dto: DeleteRowDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanEdit(base, user);
+
+    await this.baseRowService.delete(dto, workspace.id, user.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('write')
+  @OAuthScope('write')
+  @Post('delete-many')
+  async deleteMany(
+    @Body() dto: DeleteRowsDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanEdit(base, user);
+
+    await this.baseRowService.deleteMany(dto, workspace.id, user.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('read')
+  @OAuthScope('read')
+  @Post()
+  async list(
+    @Body() dto: ListRowsDto,
+    @Body() pagination: PaginationOptions,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanView(base, user);
+
+    return this.baseRowService.list(dto, pagination, workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('read')
+  @OAuthScope('read')
+  @Post('count')
+  async count(
+    @Body() dto: CountRowsDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanView(base, user);
+
+    return this.baseRowService.count(dto, workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('write')
+  @OAuthScope('write')
+  @Post('reorder')
+  async reorder(
+    @Body() dto: ReorderRowDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const base = await this.baseRepo.findById(dto.pageId);
+    if (!base) {
+      throw new NotFoundException('Base not found');
+    }
+
+    await this.pageAccessService.validateCanEdit(base, user);
+
+    await this.baseRowService.reorder(dto, workspace.id, user.id);
+  }
+}

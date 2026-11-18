@@ -1,0 +1,193 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BaseViewRepo } from '@docmost/db/repos/base/base-view.repo';
+import { CreateViewDto } from '../dto/create-view.dto';
+import { UpdateViewDto, DeleteViewDto } from '../dto/update-view.dto';
+import { viewConfigSchema } from '../base.schemas';
+import { generateJitteredKeyBetween } from 'fractional-indexing-jittered';
+import { EventName } from '../../../common/events/event.contants';
+import {
+  BaseViewCreatedEvent,
+  BaseViewDeletedEvent,
+  BaseViewUpdatedEvent,
+} from '../events/base-events';
+import { BasePropertyRepo } from '@docmost/db/repos/base/base-property.repo';
+import { BasePropertyType } from '../base.schemas';
+
+@Injectable()
+export class BaseViewService {
+  constructor(
+    private readonly baseViewRepo: BaseViewRepo,
+    private readonly basePropertyRepo: BasePropertyRepo,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  // Kanban columns come from a choice property; anything else cannot be
+  // grouped.
+  private async assertGroupable(
+    pageId: string,
+    config: Record<string, unknown> | undefined,
+  ) {
+    const groupBy = config?.groupByPropertyId;
+    if (typeof groupBy !== 'string') return;
+    const property = await this.basePropertyRepo.findById(groupBy);
+    if (!property || property.pageId !== pageId) {
+      throw new BadRequestException(
+        'groupByPropertyId is not a property of this base',
+      );
+    }
+    if (
+      property.type !== BasePropertyType.SELECT &&
+      property.type !== BasePropertyType.STATUS
+    ) {
+      throw new BadRequestException(
+        'Kanban views can only be grouped by a select or status property',
+      );
+    }
+  }
+
+  async create(userId: string, workspaceId: string, dto: CreateViewDto) {
+    let validatedConfig = {};
+    if (dto.config) {
+      const result = viewConfigSchema.safeParse(dto.config);
+      if (!result.success) {
+        throw new BadRequestException({
+          message: 'Invalid view config',
+          errors: result.error.issues.map((i) => i.message),
+        });
+      }
+      validatedConfig = result.data;
+    }
+    await this.assertGroupable(dto.pageId, validatedConfig);
+
+    const lastPosition = await this.baseViewRepo.getLastPosition(dto.pageId, {
+      workspaceId,
+    });
+    const position = generateJitteredKeyBetween(lastPosition, null);
+
+    const created = await this.baseViewRepo.insertView({
+      pageId: dto.pageId,
+      name: dto.name,
+      type: dto.type ?? 'table',
+      position,
+      config: validatedConfig as any,
+      workspaceId,
+      creatorId: userId,
+    });
+
+    const event: BaseViewCreatedEvent = {
+      pageId: dto.pageId,
+      workspaceId,
+      actorId: userId,
+      requestId: null,
+      view: created,
+    };
+    this.eventEmitter.emit(EventName.BASE_VIEW_CREATED, event);
+
+    return created;
+  }
+
+  async update(dto: UpdateViewDto, workspaceId: string, userId?: string) {
+    const view = await this.baseViewRepo.findById(dto.viewId, { workspaceId });
+    if (!view) {
+      throw new NotFoundException('View not found');
+    }
+
+    if (view.pageId !== dto.pageId) {
+      throw new BadRequestException('View does not belong to this base');
+    }
+
+    let validatedConfig = undefined;
+    if (dto.config !== undefined) {
+      const result = viewConfigSchema.safeParse(
+        applyConfigPatch(view.config as Record<string, unknown>, dto.config),
+      );
+      if (!result.success) {
+        throw new BadRequestException({
+          message: 'Invalid view config',
+          errors: result.error.issues.map((i) => i.message),
+        });
+      }
+      validatedConfig = result.data;
+    }
+    await this.assertGroupable(dto.pageId, validatedConfig);
+
+    await this.baseViewRepo.updateView(
+      dto.viewId,
+      {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.type !== undefined && { type: dto.type }),
+        ...(validatedConfig !== undefined && { config: validatedConfig as any }),
+      },
+      { workspaceId },
+    );
+
+    const updated = await this.baseViewRepo.findById(dto.viewId, {
+      workspaceId,
+    });
+
+    if (updated) {
+      const event: BaseViewUpdatedEvent = {
+        pageId: dto.pageId,
+        workspaceId,
+        actorId: userId ?? null,
+        requestId: null,
+        view: updated,
+      };
+      this.eventEmitter.emit(EventName.BASE_VIEW_UPDATED, event);
+    }
+
+    return updated;
+  }
+
+  async delete(dto: DeleteViewDto, workspaceId: string, userId?: string) {
+    const view = await this.baseViewRepo.findById(dto.viewId, { workspaceId });
+    if (!view) {
+      throw new NotFoundException('View not found');
+    }
+
+    if (view.pageId !== dto.pageId) {
+      throw new BadRequestException('View does not belong to this base');
+    }
+
+    const viewCount = await this.baseViewRepo.countByPageId(dto.pageId, {
+      workspaceId,
+    });
+    if (viewCount <= 1) {
+      throw new BadRequestException('Cannot delete the last view');
+    }
+
+    await this.baseViewRepo.deleteView(dto.viewId, { workspaceId });
+
+    const event: BaseViewDeletedEvent = {
+      pageId: dto.pageId,
+      workspaceId,
+      actorId: userId ?? null,
+      requestId: null,
+      viewId: dto.viewId,
+    };
+    this.eventEmitter.emit(EventName.BASE_VIEW_DELETED, event);
+  }
+
+  async listByBaseId(pageId: string, workspaceId: string) {
+    return this.baseViewRepo.findByPageId(pageId, { workspaceId });
+  }
+}
+
+// A config update is a patch: a null key deletes it, a missing key keeps
+// the stored value, anything else replaces it.
+function applyConfigPatch(
+  current: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...(current ?? {}) };
+  for (const [key, value] of Object.entries(patch ?? {})) {
+    if (value === null) delete merged[key];
+    else merged[key] = value;
+  }
+  return merged;
+}

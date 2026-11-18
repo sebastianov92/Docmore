@@ -28,6 +28,12 @@
       ],
       "@docmost/base-formula/client": [
         "../../packages/base-formula/dist/index.client.d.ts"
+      ],
+      "@docmore/base-formula/server": [
+        "../../packages/base-formula-core/dist/index.server.d.ts"
+      ],
+      "@docmore/base-formula/client": [
+        "../../packages/base-formula-core/dist/index.client.d.ts"
       ]
     }
   }

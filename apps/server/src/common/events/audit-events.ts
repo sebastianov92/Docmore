@@ -128,6 +128,19 @@ export const AuditEvent = {
   TEMPLATE_CREATED: 'template.created',
   TEMPLATE_DELETED: 'template.deleted',
 
+  // Bases
+  BASE_CREATED: 'base.created',
+  BASE_CONVERTED: 'base.converted',
+  BASE_PROPERTY_CREATED: 'base.property.created',
+  BASE_PROPERTY_UPDATED: 'base.property.updated',
+  BASE_PROPERTY_DELETED: 'base.property.deleted',
+  BASE_VIEW_CREATED: 'base.view.created',
+  BASE_VIEW_UPDATED: 'base.view.updated',
+  BASE_VIEW_DELETED: 'base.view.deleted',
+  BASE_ROWS_DELETED: 'base.rows.deleted',
+  BASE_EXPORTED: 'base.exported',
+  BASE_IMPORTED: 'base.imported',
+
   // Announcement
   ANNOUNCEMENT_CREATED: 'announcement.created',
   ANNOUNCEMENT_UPDATED: 'announcement.updated',
@@ -166,6 +179,7 @@ export const AuditResource = {
   LICENSE: 'license',
   SIEM_DESTINATION: 'siem_destination',
   TEMPLATE: 'template',
+  BASE: 'base',
   ANNOUNCEMENT: 'announcement',
 } as const;
 

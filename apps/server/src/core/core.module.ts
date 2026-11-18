@@ -31,6 +31,7 @@ import { SessionModule } from './session/session.module';
 import { ApiKeyModule } from './api-key/api-key.module';
 import { MfaModule } from './mfa/mfa.module';
 import { TemplateModule } from './template/template.module';
+import { BaseModule } from './base/base.module';
 import { PagePermissionModule } from './page-permission/page-permission.module';
 import { SsoModule } from './sso/sso.module';
 import { PageVerificationModule } from './page/verification/page-verification.module';
@@ -67,6 +68,7 @@ import { ClsMiddleware } from 'nestjs-cls';
     ApiKeyModule,
     MfaModule,
     TemplateModule,
+    BaseModule,
     PagePermissionModule,
     SsoModule,
     PageVerificationModule,

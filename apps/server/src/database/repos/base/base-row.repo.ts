@@ -1,0 +1,472 @@
+import { Injectable } from '@nestjs/common';
+import { InjectKysely } from 'nestjs-kysely';
+import { KyselyDB, KyselyTransaction } from '../../types/kysely.types';
+import { dbOrTx } from '../../utils';
+import {
+  BaseRow,
+  InsertableBaseRow,
+} from '@docmost/db/types/entity.types';
+import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
+import {
+  CursorPaginationResult,
+  executeWithCursorPagination,
+} from '@docmost/db/pagination/cursor-pagination';
+import { CompiledQuery, sql, SqlBool } from 'kysely';
+import {
+  FilterNode,
+  PropertySchema,
+  SearchSpec,
+  SortSpec,
+  buildSearch,
+  buildWhere,
+  runListQuery,
+} from '../../../core/base/engine';
+
+type RepoOpts = { trx?: KyselyTransaction };
+type WorkspaceOpts = { workspaceId: string } & RepoOpts;
+
+// Columns that make up the public `BaseRow` shape.
+// `search_text` and `search_tsv` are internal fulltext-index columns
+// maintained by a trigger — they must never leak into API responses or
+// socket payloads. Every SELECT/RETURNING path in this repo references
+// this constant.
+const BASE_ROW_COLUMNS = [
+  'id',
+  'pageId',
+  'cells',
+  'position',
+  'creatorId',
+  'lastUpdatedById',
+  'workspaceId',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+] as const;
+
+@Injectable()
+export class BaseRowRepo {
+  constructor(@InjectKysely() private readonly db: KyselyDB) {}
+
+  async findById(
+    rowId: string,
+    opts: WorkspaceOpts,
+  ): Promise<BaseRow | undefined> {
+    const db = dbOrTx(this.db, opts.trx);
+    return (await db
+      .selectFrom('baseRows')
+      .select(BASE_ROW_COLUMNS)
+      .where('id', '=', rowId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .executeTakeFirst()) as BaseRow | undefined;
+  }
+
+  async findByIds(
+    rowIds: string[],
+    opts: WorkspaceOpts,
+  ): Promise<BaseRow[]> {
+    if (rowIds.length === 0) return [];
+    const db = dbOrTx(this.db, opts.trx);
+    return (await db
+      .selectFrom('baseRows')
+      .select(BASE_ROW_COLUMNS)
+      .where('id', 'in', rowIds)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .execute()) as BaseRow[];
+  }
+
+  async list(opts: {
+    pageId: string;
+    workspaceId: string;
+    filter?: FilterNode;
+    sorts?: SortSpec[];
+    search?: SearchSpec;
+    schema: PropertySchema;
+    pagination: PaginationOptions;
+    trx?: KyselyTransaction;
+  }): Promise<CursorPaginationResult<BaseRow>> {
+    const db = dbOrTx(this.db, opts.trx);
+
+    const base = db
+      .selectFrom('baseRows')
+      .select(BASE_ROW_COLUMNS)
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null);
+
+    const hasFilterSortSearch =
+      !!opts.filter || (opts.sorts && opts.sorts.length > 0) || !!opts.search;
+
+    if (!hasFilterSortSearch) {
+      // Fast path: keyset-paginated list ordered by (position COLLATE "C", id)
+      // to match idx_base_rows_base_alive. Without the collation hint the
+      // planner falls back to a Sort node on every page.
+      return executeWithCursorPagination(base as any, {
+        perPage: opts.pagination.limit,
+        cursor: opts.pagination.cursor,
+        beforeCursor: opts.pagination.beforeCursor,
+        fields: [
+          {
+            expression: sql`position COLLATE "C"`,
+            direction: 'asc',
+            key: 'position',
+          },
+          { expression: 'id', direction: 'asc', key: 'id' },
+        ],
+        parseCursor: (c) => ({
+          position: c.position,
+          id: c.id,
+        }),
+      } as any) as unknown as Promise<CursorPaginationResult<BaseRow>>;
+    }
+
+    return runListQuery(base as any, {
+      filter: opts.filter,
+      sorts: opts.sorts,
+      search: opts.search,
+      schema: opts.schema,
+      pagination: opts.pagination,
+    });
+  }
+
+  /*
+   * EXPLAIN-based row estimate for the same predicate shape `list` uses.
+   * Doesn't execute the query — ~1ms even on large bases. Returns `null`
+   * when the plan JSON is unexpected. Caller treats the number as
+   * approximate; planner accuracy depends on fresh stats (ANALYZE).
+   */
+  async countEstimate(opts: {
+    pageId: string;
+    workspaceId: string;
+    filter?: FilterNode;
+    search?: SearchSpec;
+    schema: PropertySchema;
+    trx?: KyselyTransaction;
+  }): Promise<number | null> {
+    const db = dbOrTx(this.db, opts.trx);
+
+    let qb = db
+      .selectFrom('baseRows')
+      .select(sql<number>`1`.as('x'))
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null);
+
+    if (opts.search) {
+      const spec = opts.search;
+      qb = qb.where((eb) => buildSearch(eb, spec));
+    }
+    if (opts.filter) {
+      const filter = opts.filter;
+      const schema = opts.schema;
+      qb = qb.where((eb) => buildWhere(eb, filter, schema));
+    }
+
+    // Embedding `qb` inside a `sql` template would wrap it in parens as a
+    // subquery, which PG rejects after EXPLAIN. Splice the raw SQL + reuse
+    // the compiled parameters via a hand-built CompiledQuery instead.
+    const compiled = qb.compile();
+    const explain: CompiledQuery = {
+      ...compiled,
+      sql: `EXPLAIN (FORMAT JSON) ${compiled.sql}`,
+    };
+    const res = await db.executeQuery<{ 'QUERY PLAN': unknown }>(explain);
+
+    // `QUERY PLAN` is a json column — postgres.js auto-parses it into an
+    // array. Fall back to JSON.parse for drivers that return it as text.
+    let plan = (res.rows[0] as any)?.['QUERY PLAN'];
+    if (typeof plan === 'string') {
+      try {
+        plan = JSON.parse(plan);
+      } catch {
+        return null;
+      }
+    }
+    const n = Array.isArray(plan) ? plan[0]?.Plan?.['Plan Rows'] : undefined;
+    return typeof n === 'number' ? Math.max(0, Math.round(n)) : null;
+  }
+
+  /*
+   * Capped exact count. Wraps the filtered scan in a `LIMIT cap + 1`
+   * subquery so PG stops touching rows once we've proven the filter
+   * matches more than `cap` — callers render "cap+" in the UI instead.
+   */
+  async countExact(opts: {
+    pageId: string;
+    workspaceId: string;
+    filter?: FilterNode;
+    search?: SearchSpec;
+    schema: PropertySchema;
+    cap: number;
+    trx?: KyselyTransaction;
+  }): Promise<{ value: number; capped: boolean }> {
+    const db = dbOrTx(this.db, opts.trx);
+
+    let inner = db
+      .selectFrom('baseRows')
+      .select(sql<number>`1`.as('x'))
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null);
+
+    if (opts.search) {
+      const spec = opts.search;
+      inner = inner.where((eb) => buildSearch(eb, spec));
+    }
+    if (opts.filter) {
+      const filter = opts.filter;
+      const schema = opts.schema;
+      inner = inner.where((eb) => buildWhere(eb, filter, schema));
+    }
+
+    inner = inner.limit(opts.cap + 1);
+    const compiled = inner.compile();
+    const wrapped: CompiledQuery = {
+      ...compiled,
+      sql: `SELECT count(*)::text AS n FROM (${compiled.sql}) AS t`,
+    };
+    const res = await db.executeQuery<{ n: string }>(wrapped);
+
+    const n = Number(res.rows[0]?.n ?? 0);
+    if (n > opts.cap) return { value: opts.cap, capped: true };
+    return { value: n, capped: false };
+  }
+
+  async getLastPosition(
+    pageId: string,
+    opts: WorkspaceOpts,
+  ): Promise<string | null> {
+    const db = dbOrTx(this.db, opts.trx);
+    const result = await db
+      .selectFrom('baseRows')
+      .select('position')
+      .where('pageId', '=', pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .orderBy(sql`position COLLATE "C"`, 'desc')
+      .limit(1)
+      .executeTakeFirst();
+    return result?.position ?? null;
+  }
+
+  async insertRow(
+    row: InsertableBaseRow,
+    opts?: RepoOpts,
+  ): Promise<BaseRow> {
+    const db = dbOrTx(this.db, opts?.trx);
+    return (await db
+      .insertInto('baseRows')
+      .values(row)
+      .returning(BASE_ROW_COLUMNS)
+      .executeTakeFirstOrThrow()) as BaseRow;
+  }
+
+  /*
+   * Merges `patch` into the row's cells via `jsonb_set_many` and returns
+   * the updated row (public columns only — search_text/search_tsv are
+   * excluded from RETURNING). Single round-trip; replaces the old
+   * "updateCells + findById" two-query dance.
+   */
+  async updateCells(
+    rowId: string,
+    patch: Record<string, unknown>,
+    opts: {
+      pageId: string;
+      workspaceId: string;
+      actorId?: string;
+      position?: string;
+      trx?: KyselyTransaction;
+    },
+  ): Promise<BaseRow | undefined> {
+    const db = dbOrTx(this.db, opts.trx);
+    // Cast through text because postgres.js auto-detects a JSON-shaped
+    // string as jsonb and re-encodes it, producing a jsonb *string* instead
+    // of an object — which `jsonb_set_many` then treats as a no-op.
+    const patchJson = JSON.stringify(patch);
+    return (await db
+      .updateTable('baseRows')
+      .set({
+        cells: sql`jsonb_set_many(cells, ${patchJson}::text::jsonb)`,
+        ...(opts.position !== undefined && { position: opts.position }),
+        updatedAt: new Date(),
+        lastUpdatedById: opts.actorId ?? null,
+      })
+      .where('id', '=', rowId)
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .returning(BASE_ROW_COLUMNS)
+      .executeTakeFirst()) as BaseRow | undefined;
+  }
+
+  async updatePosition(
+    rowId: string,
+    position: string,
+    opts: {
+      pageId: string;
+      workspaceId: string;
+      trx?: KyselyTransaction;
+    },
+  ): Promise<void> {
+    const db = dbOrTx(this.db, opts.trx);
+    await db
+      .updateTable('baseRows')
+      .set({ position, updatedAt: new Date() })
+      .where('id', '=', rowId)
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .execute();
+  }
+
+  async softDelete(
+    rowId: string,
+    opts: {
+      pageId: string;
+      workspaceId: string;
+      trx?: KyselyTransaction;
+    },
+  ): Promise<void> {
+    const db = dbOrTx(this.db, opts.trx);
+    await db
+      .updateTable('baseRows')
+      .set({ deletedAt: new Date() })
+      .where('id', '=', rowId)
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .execute();
+  }
+
+  async softDeleteMany(
+    rowIds: string[],
+    opts: {
+      pageId: string;
+      workspaceId: string;
+      trx?: KyselyTransaction;
+    },
+  ): Promise<void> {
+    if (rowIds.length === 0) return;
+    const db = dbOrTx(this.db, opts.trx);
+    await db
+      .updateTable('baseRows')
+      .set({ deletedAt: new Date() })
+      .where('id', 'in', rowIds)
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .where('deletedAt', 'is', null)
+      .execute();
+  }
+
+  async removeCellKey(
+    pageId: string,
+    propertyId: string,
+    opts: WorkspaceOpts,
+  ): Promise<void> {
+    const db = dbOrTx(this.db, opts.trx);
+    await db
+      .updateTable('baseRows')
+      .set({
+        cells: sql`cells - ${propertyId}::text`,
+        updatedAt: new Date(),
+      })
+      .where('pageId', '=', pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .execute();
+  }
+
+  /*
+   * Streams every live row of a base in deterministic order via keyset
+   * pagination so async jobs (type-conversion, cell-gc, export) can process
+   * large bases without loading the full set into memory.
+   *
+   * `withCellKey` restricts the scan to rows whose cell jsonb contains
+   * that top-level key. Type-conversion callers pass the property ID so
+   * we don't drag 100k empty rows through Node just to rewrite a dozen.
+   */
+  async *streamByPageId(
+    pageId: string,
+    opts: {
+      workspaceId: string;
+      chunkSize?: number;
+      trx?: KyselyTransaction;
+      withCellKey?: string;
+    },
+  ): AsyncGenerator<BaseRow[], void, void> {
+    const chunkSize = opts.chunkSize ?? 1000;
+    const db = dbOrTx(this.db, opts.trx);
+    let afterPosition: string | null = null;
+    let afterId: string | null = null;
+
+    while (true) {
+      let qb = db
+        .selectFrom('baseRows')
+        .select(BASE_ROW_COLUMNS)
+        .where('pageId', '=', pageId)
+        .where('workspaceId', '=', opts.workspaceId)
+        .where('deletedAt', 'is', null)
+        .orderBy(sql`position COLLATE "C"`, 'asc')
+        .orderBy('id', 'asc')
+        .limit(chunkSize);
+
+      if (opts.withCellKey) {
+        qb = qb.where(sql<SqlBool>`cells ? ${opts.withCellKey}`);
+      }
+
+      if (afterPosition !== null && afterId !== null) {
+        qb = qb.where((eb) =>
+          eb.or([
+            eb(sql`position COLLATE "C"`, '>', afterPosition!),
+            eb.and([
+              eb(sql`position COLLATE "C"`, '=', afterPosition!),
+              eb('id', '>', afterId!),
+            ]),
+          ]),
+        );
+      }
+
+      const chunk = (await qb.execute()) as BaseRow[];
+      if (chunk.length === 0) return;
+      yield chunk;
+      if (chunk.length < chunkSize) return;
+      const last = chunk[chunk.length - 1];
+      afterPosition = last.position;
+      afterId = last.id;
+    }
+  }
+
+  /*
+   * Real batch: one `UPDATE ... FROM (SELECT unnest($ids), unnest($patches))`
+   * per call. Callers chunk (typically 1000 per call) from inside a BullMQ
+   * job. `cells` is merged via `jsonb_set_many` so only touched subtrees
+   * rewrite.
+   */
+  async batchUpdateCells(
+    updates: Array<{ id: string; patch: Record<string, unknown> }>,
+    opts: {
+      pageId: string;
+      workspaceId: string;
+      actorId?: string;
+      trx?: KyselyTransaction;
+    },
+  ): Promise<void> {
+    if (updates.length === 0) return;
+    const db = dbOrTx(this.db, opts.trx);
+
+    const ids = updates.map((u) => u.id);
+    const patches = updates.map((u) => JSON.stringify(u.patch));
+
+    await sql`
+      UPDATE base_rows AS r
+      SET cells              = jsonb_set_many(r.cells, u.patch::jsonb),
+          updated_at         = now(),
+          last_updated_by_id = coalesce(${opts.actorId ?? null}, r.last_updated_by_id)
+      FROM unnest(${ids}::uuid[], ${patches}::text[]) AS u(row_id, patch)
+      WHERE r.id = u.row_id
+        AND r.page_id = ${opts.pageId}
+        AND r.workspace_id = ${opts.workspaceId}
+        AND r.deleted_at IS NULL
+    `.execute(db);
+  }
+}

@@ -1,0 +1,654 @@
+.tableScrollport {
+  /* Standalone-only vertical scrollport that wraps the StickyBand and
+   * BodyGrid. Inline embeds skip this wrapper entirely — the page is
+   * the vertical scroll container in that mode. Owns the panel frame
+   * (border + radius), which used to live on .grid. */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-anchor: none;
+  padding-left: 6px;
+  /* Bottom breathing room so the last row doesn't sit flush against
+   * the panel border. The horizontal scrollbar that needs clearance
+   * lives on .bodyGrid (also with padding-bottom: 6px). */
+  padding-bottom: 6px;
+  border: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-sm);
+}
+
+.stickyBand {
+  /* The single sticky element. Anchors automatically — to the
+   * .tableScrollport in standalone, to the page in inline. The
+   * --sticky-band-top var is set on inline embed wrappers to clear
+   * the fixed PageHeader; standalone leaves it unset (resolves to 0
+   * relative to the scrollport).
+   *
+   * Background uses --mantine-color-body (the doc bg) rather than the
+   * gray-0 token. The headers themselves carry their own gray bg via
+   * .headerCell, so the band looks like: doc-color strip behind
+   * banner+toolbar (matches the surrounding doc in inline mode), gray
+   * row at the headers. The band still needs its own bg so rows don't
+   * show through the 1-px gaps between header cells when scrolling. */
+  position: sticky;
+  top: var(--sticky-band-top, 0);
+  z-index: 10;
+  background-color: var(--mantine-color-body);
+  border-bottom: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.headerGrid {
+  /* Display grid sized to the parent container; the explicit
+   * gridTemplateColumns string from grid-container.tsx may total wider
+   * than the container, in which case the tracks overflow horizontally.
+   * overflow-x: hidden clips them; scrollLeft is set programmatically
+   * by useHorizontalScrollSync to mirror the body. Inline embeds extend
+   * the visible width into the AppShell margins via --embed-extend-*;
+   * standalone leaves those vars unset (calc resolves to 0). */
+  /* No `min-width: max-content`: this element IS the horizontal
+   * scrollport (overflow-x: hidden, scrollLeft mirrored via JS), so we
+   * want its own width to follow the parent. If `min-width: max-content`
+   * were set here, the grid box itself would grow to fit all tracks
+   * and propagate width up to AppShell, triggering page-level
+   * horizontal scroll. Tracks wider than the box are handled by the
+   * grid's own overflow-x. */
+  display: grid;
+  overflow-x: hidden;
+  margin-left: calc(-1 * var(--embed-extend-l, 0px));
+  margin-right: calc(-1 * var(--embed-extend-r, 0px));
+  padding-left: var(--embed-grid-pad-left, 0);
+  padding-right: var(--embed-grid-pad-right, 0);
+}
+
+.bodyGrid {
+  /* Same shape as .headerGrid, but overflow-x: auto so the horizontal
+   * scrollbar lives here. Vertical scroll is owned by .tableScrollport
+   * (standalone) or the page (inline) — there's no internal vertical
+   * scroll on .bodyGrid in either mode. Same `min-width` argument
+   * applies as in .headerGrid: leave it unset so this element's box
+   * matches its parent and tracks-overflow is contained by the grid's
+   * own overflow-x: auto. */
+  display: grid;
+  overflow-x: auto;
+  margin-left: calc(-1 * var(--embed-extend-l, 0px));
+  margin-right: calc(-1 * var(--embed-extend-r, 0px));
+  padding-left: var(--embed-grid-pad-left, 0);
+  padding-right: var(--embed-grid-pad-right, 0);
+  /* Bottom-padding so the AddRowButton keeps clear of the horizontal
+   * scrollbar that lives on this element. */
+  padding-bottom: 6px;
+  /* Slim down the horizontal scrollbar — the browser default is too
+   * heavy for an inline embed sitting in a document and competes
+   * visually with the table content. Firefox honors scrollbar-width;
+   * Chrome/Safari/Edge style the WebKit pseudo-elements. */
+  scrollbar-width: thin;
+}
+
+.bodyGrid::-webkit-scrollbar {
+  height: 8px;
+}
+
+.bodyGrid::-webkit-scrollbar-thumb {
+  background-color: light-dark(
+    var(--mantine-color-gray-4),
+    var(--mantine-color-dark-4)
+  );
+  border-radius: 4px;
+}
+
+.bodyGrid::-webkit-scrollbar-thumb:hover {
+  background-color: light-dark(
+    var(--mantine-color-gray-5),
+    var(--mantine-color-dark-3)
+  );
+}
+
+.bodyGrid::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.headerRow {
+  /* `display: contents` removes the wrapper from layout while keeping the
+   * `role="row"` for accessibility. Header cells become direct grid
+   * items of `.headerGrid`, so they pick up its column tracks. */
+  display: contents;
+}
+
+.headerCell {
+  /* Containing block for absolutely-positioned children: the
+   * .resizeHandle (right: 0) at the cell edge, and the Popover.Target
+   * (inset: 0) used to anchor the property menu. Without this, both
+   * resolve up to .stickyBand and (a) all the resize handles stack at
+   * the band's right edge with only one visible, (b) every property
+   * menu opens at the same band-relative spot regardless of which
+   * column was clicked. .headerCellPinned overrides with position:
+   * sticky which also establishes a containing block, so pinned cells
+   * (e.g. the primary Title) kept working without this rule. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 8px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  border-right: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+.headerCell:last-child {
+  border-right: none;
+}
+
+.headerCellPinned {
+  /* Pinned header cells stick within .headerGrid's scrollport. The
+   * `left` value is the sticky anchor relative to the scrollport's
+   * content edge.
+   *
+   * Match Notion's freeze behavior: at scrollLeft=0, the pinned column
+   * sits at its natural position (the page-content edge); as the user
+   * scrolls horizontally, the column scrolls along with the rest of
+   * the grid; once it reaches the AppShell-margin edge (the scrollport
+   * padding edge) it stops and stays there while non-pinned columns
+   * keep scrolling past behind it.
+   *
+   * To make the column travel that --embed-grid-pad-left distance
+   * before sticking, we anchor at `-padding-left` from the natural
+   * sticky position. In standalone the var is unset → calc collapses
+   * to `var(--pin-offset, 0px)` and the column sticks immediately at
+   * its track position, which is what standalone wants since there's
+   * no extension to travel through. --pin-offset is set inline by
+   * GridHeaderCell from TanStack's column.getStart("left"), giving
+   * each pinned column its accumulated-width offset. */
+  position: sticky;
+  left: calc(-1 * var(--embed-grid-pad-left, 0px) + var(--pin-offset, 0px));
+  z-index: 2;
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+}
+
+.headerCellContent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.headerCellName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerTypeIcon {
+  flex-shrink: 0;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+}
+
+.headerConvertingSpinner {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.resizeHandle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 3;
+}
+
+.resizeHandle::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background-color: transparent;
+  transition: background-color 150ms ease;
+}
+
+.resizeHandle:hover::after,
+.resizeHandleActive::after {
+  background-color: var(--mantine-color-blue-5);
+}
+
+.rowContainer {
+  display: contents;
+}
+
+.row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.row:hover .cell {
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-7)
+  );
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: var(--mantine-font-size-sm);
+  color: light-dark(var(--mantine-color-black), var(--mantine-color-dark-0));
+  background-color: light-dark(
+    var(--mantine-color-white),
+    var(--mantine-color-dark-7)
+  );
+  border-bottom: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  border-right: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  overflow: hidden;
+  cursor: default;
+  outline: none;
+}
+
+.cell:last-child {
+  border-right: none;
+}
+
+.cellPinned {
+  /* See .headerCellPinned for the rationale on the negative pad-left
+   * — both grids share the same anchor calculation so header and body
+   * cells freeze in lockstep. */
+  position: sticky;
+  left: calc(-1 * var(--embed-grid-pad-left, 0px) + var(--pin-offset, 0px));
+  z-index: 1;
+  background-color: light-dark(
+    var(--mantine-color-white),
+    var(--mantine-color-dark-7)
+  );
+}
+
+.row:hover .cellPinned {
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-7)
+  );
+}
+
+.cellEditing {
+  outline: 2px solid var(--mantine-color-blue-5);
+  outline-offset: -2px;
+  z-index: 1;
+  padding: 0;
+}
+
+.cellContent {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowNumberCell {
+  justify-content: center;
+  font-size: var(--mantine-font-size-xs);
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+}
+
+.rowNumberDraggable {
+  cursor: grab;
+}
+
+.rowNumberDraggable:active {
+  cursor: grabbing;
+}
+
+.rowDragging .cell {
+  opacity: 0.4;
+}
+
+.rowDropAbove .cell {
+  box-shadow: inset 0 2px 0 0 var(--mantine-color-blue-5);
+}
+
+.rowDropBelow .cell {
+  box-shadow: inset 0 -2px 0 0 var(--mantine-color-blue-5);
+}
+
+.addRowButton {
+  /* AddRowButton is a child of .bodyGrid (which is a CSS grid). Without
+   * `grid-column: 1 / -1` it would auto-place into track 1 of a new
+   * grid row, leaving phantom empty cells in the remaining tracks of
+   * that row. Spanning all tracks gives it a single full-row grid area
+   * while inline-flex + width:max-content keeps the visible button
+   * shrunk to its content. `justify-self: start` pins it to the
+   * inline-start of that grid area (a max-content grid item with
+   * `justify-self: stretch` — the default — has surprising placement
+   * across engines, so be explicit). `inset-inline-start: 0` keeps
+   * the button at the scroll-port's start during horizontal scroll;
+   * scroll-port = bodyGrid's content area = the page-content edge in
+   * both standalone and embed modes (the bodyGrid's negative margins
+   * and equal padding cancel out, so x=0 of the content area is
+   * already the page-content-left). */
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  height: 32px;
+  margin: 4px 0 4px;
+  padding: 0 10px;
+  font-size: var(--mantine-font-size-sm);
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  transition: background-color 150ms ease;
+  position: sticky;
+  inset-inline-start: 0;
+  background-color: light-dark(
+    var(--mantine-color-body),
+    var(--mantine-color-dark-7)
+  );
+  z-index: 4;
+}
+
+.addRowButton:hover {
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+}
+
+.addColumnButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 40px;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  border-bottom: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms ease;
+}
+
+.addColumnButton:hover {
+  background-color: light-dark(
+    var(--mantine-color-gray-1),
+    var(--mantine-color-dark-5)
+  );
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
+  grid-column: 1 / -1;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-xs) 0;
+  margin-bottom: var(--mantine-spacing-xs);
+  flex-wrap: wrap;
+}
+
+.toolbarRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+
+.primaryCell {
+  font-weight: 500;
+}
+
+.rowNumberCellInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.rowNumberIndex,
+.rowNumberCheckbox {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rowNumberCheckbox {
+  display: none;
+}
+
+.rowNumberDragHandle {
+  position: absolute;
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  cursor: grab;
+}
+
+.rowNumberDragHandle:active {
+  cursor: grabbing;
+}
+
+/* On row hover: swap index for checkbox, reveal drag handle */
+.row:hover .rowNumberIndex {
+  display: none;
+}
+.row:hover .rowNumberCheckbox,
+.row:hover .rowNumberDragHandle {
+  display: inline-flex;
+}
+
+/* Selected row: checkbox always visible, drag handle still only on hover */
+.rowSelected .rowNumberIndex {
+  display: none;
+}
+.rowSelected .rowNumberCheckbox {
+  display: inline-flex;
+}
+.rowSelected .cell {
+  background: light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-6));
+}
+
+.row.rowSelected:hover .cell,
+.row.rowSelected:hover .cellPinned {
+  background-color: light-dark(var(--mantine-color-blue-1), var(--mantine-color-dark-5));
+}
+
+.rowNumberHeaderInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.rowNumberHeaderHash {
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  font-size: var(--mantine-font-size-xs);
+}
+
+.rowNumberHeaderCheckbox {
+  display: none;
+}
+
+.headerCell:hover .rowNumberHeaderHash,
+.hasSelection .rowNumberHeaderHash {
+  display: none;
+}
+
+.headerCell:hover .rowNumberHeaderCheckbox,
+.hasSelection .rowNumberHeaderCheckbox {
+  display: inline-flex;
+}
+
+.selectionActionBarWrapper {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 200;
+}
+
+.selectionActionBar {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 14px;
+  border-radius: 999px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.18);
+  background: light-dark(
+    var(--mantine-color-dark-8),
+    var(--mantine-color-dark-5)
+  );
+  color: var(--mantine-color-white);
+  border: 1px solid light-dark(
+    var(--mantine-color-dark-9),
+    var(--mantine-color-dark-4)
+  );
+}
+
+.selectionActionBarCount {
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  color: var(--mantine-color-white);
+  padding-right: 10px;
+  margin-right: 2px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.selectionActionBarDelete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: var(--mantine-color-red-4);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 500;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.selectionActionBarDelete:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.selectionActionBarDelete:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.selectionActionBarClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--mantine-color-gray-3);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.selectionActionBarClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--mantine-color-white);
+}
+
+.dropEdgeLine {
+  position: absolute;
+  background: light-dark(
+    var(--mantine-color-blue-5),
+    var(--mantine-color-blue-4)
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.dropEdgeLine[data-edge="left"] {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+}
+
+.dropEdgeLine[data-edge="right"] {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+}
+
+.dropEdgeLine[data-edge="top"] {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+}
+
+.dropEdgeLine[data-edge="bottom"] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+}

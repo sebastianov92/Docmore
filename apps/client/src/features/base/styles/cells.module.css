@@ -1,0 +1,342 @@
+.cellInput {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--mantine-font-size-sm);
+  font-family: inherit;
+  color: inherit;
+  padding: 0 8px;
+}
+
+.cellInput::placeholder {
+  color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+}
+
+.numberValue {
+  text-align: right;
+  width: 100%;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 12px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.overflowCount {
+  font-size: 11px;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.checkboxCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  cursor: pointer;
+}
+
+.urlLink {
+  color: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-4));
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.urlLink:hover {
+  text-decoration: underline;
+}
+
+.emailLink {
+  color: light-dark(var(--mantine-color-blue-6), var(--mantine-color-blue-4));
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.emailLink:hover {
+  text-decoration: underline;
+}
+
+.dateValue {
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+}
+
+.emptyValue {
+  color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4));
+}
+
+/* Person cell — read mode (vertical list like Notion) */
+
+.personGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.personRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.personName {
+  font-size: var(--mantine-font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Person cell — edit mode (tag input + dropdown) */
+
+.personTagArea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  min-height: 34px;
+}
+
+.personTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 2px;
+  border-radius: 3px;
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  font-size: var(--mantine-font-size-xs);
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.personTagName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personTagRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-2));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.personTagRemove:hover {
+  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-0));
+}
+
+.personTagInput {
+  flex: 1;
+  min-width: 60px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--mantine-font-size-xs);
+  font-family: inherit;
+  color: inherit;
+  padding: 2px 0;
+}
+
+.personTagInput::placeholder {
+  color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+}
+
+.personDropdownDivider {
+  height: 1px;
+  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.personDropdownHint {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+}
+
+.personOptionName {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.fileBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: 11px;
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selectDropdown {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.selectOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: var(--mantine-radius-sm);
+  transition: background-color 100ms ease;
+}
+
+.selectOption:hover {
+  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.selectOptionActive {
+  background-color: light-dark(var(--mantine-color-blue-0), var(--mantine-color-blue-9));
+}
+
+.selectOptionKeyboardActive {
+  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.selectOptionActive.selectOptionKeyboardActive {
+  background-color: light-dark(var(--mantine-color-blue-1), var(--mantine-color-blue-8));
+}
+
+.selectCategoryLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  padding: 8px 8px 4px;
+  letter-spacing: 0.5px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: var(--mantine-font-size-sm);
+  color: light-dark(var(--mantine-color-black), var(--mantine-color-dark-0));
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.menuItem:hover {
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-5));
+}
+
+.addOptionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: var(--mantine-radius-sm);
+  transition: background-color 100ms ease;
+  border-top: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  margin-top: 4px;
+}
+
+.addOptionRow:hover {
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-5));
+}
+
+.addOptionLabel {
+  font-size: var(--mantine-font-size-xs);
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pagePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: var(--mantine-font-size-xs);
+  color: light-dark(var(--mantine-color-blue-7), var(--mantine-color-blue-4));
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  text-decoration: none;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.pagePill:hover {
+  background-color: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.pagePillIcon {
+  display: inline-flex;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pagePillIconFallback {
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  flex-shrink: 0;
+}
+
+.pagePillText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pageMissing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--mantine-font-size-xs);
+  color: light-dark(var(--mantine-color-gray-5), var(--mantine-color-dark-3));
+  font-style: italic;
+}
