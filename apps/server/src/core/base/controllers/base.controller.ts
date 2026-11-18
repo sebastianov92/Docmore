@@ -7,9 +7,12 @@ import {
   HttpStatus,
   Inject,
   NotFoundException,
+  PayloadTooLargeException,
   Post,
+  Req,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
 import { BaseService } from '../services/base.service';
@@ -47,6 +50,9 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../../integrations/audit/audit.service';
+import { FileInterceptor } from '../../../common/interceptors/file.interceptor';
+import { BaseCsvImportService } from '../import/base-csv-import.service';
+import { CSV_IMPORT_LIMITS } from '../import/base-csv-import.schema';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bases')
@@ -61,6 +67,7 @@ export class BaseController {
     private readonly pagePermissionRepo: PagePermissionRepo,
     private readonly pageRepo: PageRepo,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
+    private readonly baseCsvImportService: BaseCsvImportService,
   ) {}
 
   private audit(
@@ -230,6 +237,51 @@ export class BaseController {
       ...result,
       items: result.items.filter((b) => accessibleSet.has(b.id)),
     };
+  }
+
+  // Multipart: pageId, spec (JSON), file (JSONL built by the client).
+  @UseInterceptors(FileInterceptor)
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('write')
+  @OAuthScope('write')
+  @Post('import-csv')
+  async importCsv(
+    @Req() req: any,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    let file: any = null;
+    try {
+      file = await req.file({
+        limits: { fileSize: CSV_IMPORT_LIMITS.maxFileBytes, fields: 4, files: 1 },
+      });
+    } catch (err: any) {
+      if (err?.statusCode === 413) {
+        throw new PayloadTooLargeException('Import file is too large');
+      }
+      throw new BadRequestException('Failed to upload file');
+    }
+    if (!file) {
+      throw new BadRequestException('Failed to upload file');
+    }
+    const pageId = file.fields?.pageId?.value;
+    const spec = this.baseCsvImportService.parseSpec(file.fields?.spec?.value);
+    if (!pageId) {
+      throw new BadRequestException('pageId is required');
+    }
+    const base = await this.baseRepo.findById(pageId);
+    if (!base || base.workspaceId !== workspace.id) {
+      throw new NotFoundException('Base not found');
+    }
+    await this.pageAccessService.validateCanEdit(base, user);
+    const task = await this.baseCsvImportService.start(base, user, spec, file);
+    this.audit(AuditEvent.BASE_IMPORTED, base, {
+      fileTaskId: task.id,
+      fileName: spec.fileName,
+      rowCount: spec.rowCount,
+      status: 'queued',
+    });
+    return task;
   }
 
   @HttpCode(HttpStatus.OK)

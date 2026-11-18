@@ -129,6 +129,12 @@ export class BaseQueueProcessor
           data.workspaceId,
           data.actorId ?? null,
         );
+        await this.basePropertyService.recomputeDependents(
+          data.pageId,
+          data.workspaceId,
+          data.propertyId,
+          data.actorId ?? null,
+        );
         return summary;
       }
       case QueueJob.BASE_CELL_GC: {

@@ -19,10 +19,15 @@ import { FormulaService } from './formula/formula.service';
 import { FormulaLockService } from './formula/formula-lock';
 import { PageModule } from '../page/page.module';
 import { BaseAuditListener } from './listeners/base-audit.listener';
+import { NotificationModule } from '../notification/notification.module';
+import { BaseCsvImportService } from './import/base-csv-import.service';
+import { BaseImportProcessor } from './processors/base-import.processor';
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: QueueName.BASE_QUEUE }),
+    BullModule.registerQueue({ name: QueueName.BASE_IMPORT_QUEUE }),
+    NotificationModule,
     PageModule,
   ],
   controllers: [
@@ -45,6 +50,8 @@ import { BaseAuditListener } from './listeners/base-audit.listener';
     FormulaService,
     FormulaLockService,
     BaseAuditListener,
+    BaseCsvImportService,
+    BaseImportProcessor,
   ],
   exports: [
     BaseService,

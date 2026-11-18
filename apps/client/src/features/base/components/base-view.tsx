@@ -356,6 +356,7 @@ export function BaseView({
   const toolbar = (
     <BaseToolbar
       base={base}
+      canEdit={canSave}
       activeView={effectiveView}
       views={views}
       table={table}

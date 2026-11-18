@@ -28,6 +28,8 @@ import {
   BaseTemplate,
 } from "@/features/base/types/base.types";
 import { IPagination } from "@/lib/types";
+import { ImportSpec } from "@/features/base/csv-import/csv-import.types";
+import { IFileTask } from "@/features/file-task/types/file-task.types";
 
 // --- Bases ---
 
@@ -57,6 +59,23 @@ export async function updateBase(data: UpdateBaseInput): Promise<IBase> {
 
 export async function deleteBase(pageId: string): Promise<void> {
   await api.post("/bases/delete", { pageId });
+}
+
+// Multipart upload of the mapped rows (JSONL) and the column spec; the
+// server queues the import and answers with the file task to follow.
+export async function importBaseCsv(
+  pageId: string,
+  spec: ImportSpec,
+  jsonl: Blob,
+): Promise<IFileTask> {
+  const form = new FormData();
+  form.append("pageId", pageId);
+  form.append("spec", JSON.stringify(spec));
+  form.append("file", jsonl, "rows.jsonl");
+  const req = await api.post<IFileTask>("/bases/import-csv", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return req.data;
 }
 
 export async function exportBaseToCsv(pageId: string): Promise<void> {

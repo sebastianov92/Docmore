@@ -176,6 +176,18 @@ outside the `ee/` directories, so they are always on:
   `update_page`. Settings > My Profile lists the connected apps with a
   revoke button. Unless "Sign-in only" is on, an API key also works as the
   bearer token, with its own read or write scope.
+- **Bases**: a page can be a database. Type `/base` or `/kanban` in any
+  page to embed one, or pick Base or Kanban on an empty page to turn it
+  into one. Properties of every kind (text, long text, number, select,
+  status, multi-select, date, person, file, page, checkbox, URL, email,
+  created/edited stamps and formulas evaluated on the server), table and
+  kanban views with filters, sorts and per-user drafts, a row detail
+  modal, type conversion with a background job for large tables, realtime
+  updates, CSV export and CSV import (map columns to existing or new
+  properties; options and people are resolved by name). The code comes
+  from upstream's AGPL base-kan branch, before the feature moved to the
+  enterprise tree, adapted to the current schema; the formula engine is
+  the AGPL copy in `packages/base-formula-core`.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useAtomValue, getDefaultStore } from "jotai";
+import { useAtomValue, getDefaultStore, useStore } from "jotai";
 import { useQueryClient, InfiniteData } from "@tanstack/react-query";
 import { socketAtom } from "@/features/websocket/atoms/socket-atom";
 import {
@@ -10,6 +10,7 @@ import {
 import { selectedRowIdsAtomFamily } from "@/features/base/atoms/base-atoms";
 import { formulaRecomputeAtom } from "@/features/base/atoms/formula-recompute-atom";
 import { IPagination } from "@/lib/types";
+import { importProgressAtomFamily } from "@/features/base/atoms/import-progress-atom";
 
 type BaseRowCreated = {
   operation: "base:row:created";
@@ -141,6 +142,7 @@ export function markRequestIdOutbound(requestId: string): void {
 export function useBaseSocket(pageId: string | undefined): void {
   const socket = useAtomValue(socketAtom);
   const queryClient = useQueryClient();
+  const store = useStore();
 
   useEffect(() => {
     if (!socket || !pageId) return;
@@ -333,6 +335,47 @@ export function useBaseSocket(pageId: string | undefined): void {
           }
           break;
         }
+        case "base:import:progress": {
+          const e = event as unknown as {
+            fileTaskId: string;
+            processedRows: number;
+            totalRows: number;
+          };
+          store.set(importProgressAtomFamily(pageId), (prev) =>
+            prev && prev.fileTaskId === e.fileTaskId && prev.status === "running"
+              ? { ...prev, processedRows: e.processedRows, totalRows: e.totalRows }
+              : prev,
+          );
+          break;
+        }
+        case "base:import:completed": {
+          const e = event as unknown as {
+            fileTaskId: string;
+            status: "success" | "failed";
+            totalRows: number;
+            importedRows: number;
+            skippedValues: number;
+            error: string | null;
+          };
+          store.set(importProgressAtomFamily(pageId), (prev) =>
+            prev && prev.fileTaskId === e.fileTaskId
+              ? {
+                  fileTaskId: e.fileTaskId,
+                  status: e.status,
+                  processedRows: e.totalRows,
+                  totalRows: e.totalRows,
+                  importedRows: e.importedRows,
+                  skippedValues: e.skippedValues,
+                  error: e.error,
+                }
+              : prev,
+          );
+          if (e.status === "success") {
+            queryClient.invalidateQueries({ queryKey: ["base-rows", pageId] });
+            queryClient.invalidateQueries({ queryKey: ["bases", pageId] });
+          }
+          break;
+        }
         case "base:property:created":
         case "base:property:updated":
         case "base:property:deleted":
@@ -353,10 +396,19 @@ export function useBaseSocket(pageId: string | undefined): void {
     };
 
     socket.on("message", handler);
+    // Rooms do not survive a reconnect (server restart, network blip):
+    // subscribe again and refetch what may have changed meanwhile.
+    const resubscribe = () => {
+      socket.emit("message", { operation: "base:subscribe", pageId });
+      queryClient.invalidateQueries({ queryKey: ["base-rows", pageId] });
+      queryClient.invalidateQueries({ queryKey: ["bases", pageId] });
+    };
+    socket.on("connect", resubscribe);
 
     return () => {
       socket.off("message", handler);
+      socket.off("connect", resubscribe);
       socket.emit("message", { operation: "base:unsubscribe", pageId });
     };
-  }, [socket, pageId, queryClient]);
+  }, [socket, pageId, queryClient, store]);
 }

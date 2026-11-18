@@ -19,6 +19,8 @@ import {
   BaseViewCreatedEvent,
   BaseViewDeletedEvent,
   BaseViewUpdatedEvent,
+  BaseImportCompletedEvent,
+  BaseImportProgressEvent,
 } from '../events/base-events';
 
 /*
@@ -211,6 +213,31 @@ export class BaseWsConsumers {
       processed: e.processed,
       errored: e.errored,
       actorId: e.actorId ?? null,
+    });
+  }
+
+  @OnEvent(EventName.BASE_IMPORT_PROGRESS)
+  onImportProgress(e: BaseImportProgressEvent) {
+    this.ws.emitToBase(e.pageId, {
+      operation: 'base:import:progress',
+      pageId: e.pageId,
+      fileTaskId: e.fileTaskId,
+      processedRows: e.processedRows,
+      totalRows: e.totalRows,
+    });
+  }
+
+  @OnEvent(EventName.BASE_IMPORT_COMPLETED)
+  onImportCompleted(e: BaseImportCompletedEvent) {
+    this.ws.emitToBase(e.pageId, {
+      operation: 'base:import:completed',
+      pageId: e.pageId,
+      fileTaskId: e.fileTaskId,
+      status: e.status,
+      totalRows: e.totalRows,
+      importedRows: e.importedRows,
+      skippedValues: e.skippedValues,
+      error: e.error,
     });
   }
 }

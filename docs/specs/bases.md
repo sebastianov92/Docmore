@@ -1,6 +1,6 @@
 # Bases en Docmore — especificación
 
-Estado: borrador para decidir (2026-11-18). Última EE del plan sin hacer.
+Estado: aprobado y ejecutado (2026-11-18/19). F0-F4 hechas: port del servidor y del cliente desde `origin/base-kan`, paquete `@docmore/base-formula`, convert/plantilla kanban, `longText`, token de conversión, parches de vista, auditoría, scopes, import CSV (servidor + modal). Verificado por batería API (`scratchpad/bases-cases.sh`, 100+ casos incl. websocket) y en navegador (convert, kanban, tabla, propiedades, fórmula, conversión de tipo, embed inline, filtros con borrador, import CSV). Pendiente v2: §4.
 
 ## 1. Qué es
 

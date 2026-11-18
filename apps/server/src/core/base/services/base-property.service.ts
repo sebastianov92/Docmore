@@ -81,6 +81,27 @@ export class BasePropertyService {
     private readonly formulaService: FormulaService,
   ) {}
 
+  // Formulas that read a property whose type changed are re-evaluated (a
+  // number column that became text turns `prop("X") * 2` into an error cell).
+  async recomputeDependents(
+    pageId: string,
+    workspaceId: string,
+    propertyId: string,
+    actorId?: string | null,
+  ): Promise<void> {
+    const allProps = await this.basePropertyRepo.findByPageId(pageId);
+    const graph = new BaseFormulaGraph(allProps);
+    const affected = graph.affectedFormulas([propertyId]);
+    if (affected.length === 0) return;
+    await this.formulaService.enqueueRecompute({
+      pageId,
+      workspaceId,
+      propertyIds: affected,
+      reason: 'dep_type_changed',
+      actorId: actorId ?? null,
+    });
+  }
+
   async create(workspaceId: string, dto: CreatePropertyDto, actorId?: string) {
     const type = dto.type as BasePropertyTypeValue;
 
@@ -298,18 +319,7 @@ export class BasePropertyService {
       }
 
       if (isTypeChange && newType !== 'formula') {
-        const allProps = await this.basePropertyRepo.findByPageId(dto.pageId);
-        const graph = new BaseFormulaGraph(allProps);
-        const affected = graph.affectedFormulas([dto.propertyId]);
-        if (affected.length > 0) {
-          await this.formulaService.enqueueRecompute({
-            pageId: dto.pageId,
-            workspaceId,
-            propertyIds: affected,
-            reason: 'dep_type_changed',
-            actorId: actorId ?? null,
-          });
-        }
+        await this.recomputeDependents(dto.pageId, workspaceId, dto.propertyId, actorId);
       }
 
       return this.loadAndEmit(dto, workspaceId, actorId, null);
@@ -372,6 +382,7 @@ export class BasePropertyService {
         return this.baseRepo.bumpSchemaVersion(dto.pageId, trx);
       });
       tick('inline-tx-done');
+      await this.recomputeDependents(dto.pageId, workspaceId, dto.propertyId, actorId);
       const bumpEvent: BaseSchemaBumpedEvent = {
         pageId: dto.pageId,
         workspaceId,

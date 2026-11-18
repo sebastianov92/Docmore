@@ -63,3 +63,17 @@ export type BaseFormulaRecomputeCompletedEvent = BaseEventBase & {
   processed: number;
   errored: number;
 };
+
+export type BaseImportProgressEvent = BaseEventBase & {
+  fileTaskId: string;
+  processedRows: number;
+  totalRows: number;
+};
+export type BaseImportCompletedEvent = BaseEventBase & {
+  fileTaskId: string;
+  status: 'success' | 'failed';
+  totalRows: number;
+  importedRows: number;
+  skippedValues: number;
+  error: string | null;
+};

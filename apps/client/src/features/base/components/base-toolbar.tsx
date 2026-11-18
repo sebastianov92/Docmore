@@ -6,6 +6,7 @@ import {
   IconFilter,
   IconEye,
   IconDownload,
+  IconUpload,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import {
@@ -25,6 +26,7 @@ import { KanbanGroupByPicker } from "@/features/base/components/views/kanban/kan
 import { useUpdateViewMutation } from "@/features/base/queries/base-view-query";
 import { useTranslation } from "react-i18next";
 import classes from "@/features/base/styles/grid.module.css";
+import { CsvImportModal } from "@/features/base/csv-import/csv-import-modal";
 
 type BaseToolbarProps = {
   base: IBase;
@@ -40,6 +42,8 @@ type BaseToolbarProps = {
   onPersistViewConfig: () => void;
   onDraftSortsChange: (sorts: ViewSortConfig[] | undefined) => void;
   onDraftFiltersChange: (filter: FilterGroup | undefined) => void;
+  // Shows the actions that change data (CSV import).
+  canEdit?: boolean;
 };
 
 export function BaseToolbar({
@@ -52,12 +56,14 @@ export function BaseToolbar({
   onPersistViewConfig,
   onDraftSortsChange,
   onDraftFiltersChange,
+  canEdit = false,
 }: BaseToolbarProps) {
   const { t } = useTranslation();
   const [sortOpened, setSortOpened] = useState(false);
   const [filterOpened, setFilterOpened] = useState(false);
   const [fieldsOpened, setFieldsOpened] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importOpened, setImportOpened] = useState(false);
   const toolbarRightRef = useRef<HTMLDivElement>(null);
 
   // Mantine `<Popover>`'s built-in dismiss handlers don't fire reliably
@@ -206,6 +212,26 @@ export function BaseToolbar({
             <IconDownload size={16} />
           </ActionIcon>
         </Tooltip>
+        {canEdit && (
+          <Tooltip label={t("Import CSV")}>
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              color="gray"
+              onClick={() => setImportOpened(true)}
+              aria-label={t("Import CSV")}
+            >
+              <IconUpload size={16} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+        {canEdit && (
+          <CsvImportModal
+            base={base}
+            opened={importOpened}
+            onClose={() => setImportOpened(false)}
+          />
+        )}
 
         <ViewFilterConfigPopover
           opened={filterOpened}
