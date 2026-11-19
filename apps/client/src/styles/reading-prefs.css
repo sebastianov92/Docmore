@@ -27,7 +27,8 @@ html[data-page-text-size="large"] .ProseMirror {
 
 /* High contrast: darker text, dimmed text closer to body text, stronger
  * borders and a thicker focus ring. Works on top of light and dark. */
-html[data-contrast="high"] {
+/* [data-mantine-color-scheme] raises specificity above Mantine's own :root rules. */
+html[data-contrast="high"][data-mantine-color-scheme] {
   --mantine-color-dimmed: light-dark(#1f2937, #e5e7eb);
   --mantine-color-text: light-dark(#000000, #ffffff);
   --mantine-color-default-border: light-dark(#4b5563, #9ca3af);

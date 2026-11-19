@@ -343,26 +343,22 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
 
           {!page?.isBase && (
             <>
-            <Menu.Item
-              leftSection={<IconTypography size={16} />}
-              closeMenuOnClick={false}
-              component="div"
-            >
-              <Group wrap="nowrap" justify="space-between" gap="xs">
+            {/* Plain rows, not Menu.Items: the segmented controls need the
+                clicks themselves and the menu should stay open. */}
+            <Group px="sm" py={6} wrap="nowrap" justify="space-between" gap="xs">
+              <Group gap={8} wrap="nowrap">
+                <IconTypography size={16} />
                 <Text size="sm">{t("Font")}</Text>
-                <PageFontControl />
               </Group>
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<IconTextSize size={16} />}
-              closeMenuOnClick={false}
-              component="div"
-            >
-              <Group wrap="nowrap" justify="space-between" gap="xs">
+              <PageFontControl />
+            </Group>
+            <Group px="sm" py={6} wrap="nowrap" justify="space-between" gap="xs">
+              <Group gap={8} wrap="nowrap">
+                <IconTextSize size={16} />
                 <Text size="sm">{t("Text size")}</Text>
-                <PageTextSizeControl />
               </Group>
-            </Menu.Item>
+              <PageTextSizeControl />
+            </Group>
             <Menu.Item leftSection={<IconArrowsHorizontal size={16} />}>
               <Group wrap="nowrap">
                 <PageWidthToggle label={t("Full width")} />

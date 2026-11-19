@@ -49,6 +49,7 @@ export class ExportController {
   ) {}
 
   // The page body as Markdown, for the API and the CLI (no title heading).
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiKeyScope('read')
   @Post('pages/markdown')

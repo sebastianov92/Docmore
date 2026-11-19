@@ -16,7 +16,10 @@ import { executeTx } from '@docmost/db/utils';
 import { InjectKysely } from 'nestjs-kysely';
 import { Feature } from '../../../common/features';
 import { SpaceMemberService } from './space-member.service';
-import { SpaceRole } from '../../../common/helpers/types/permission';
+import {
+  SpaceRole,
+  SpaceVisibility,
+} from '../../../common/helpers/types/permission';
 import { QueueJob, QueueName } from 'src/integrations/queue/constants';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -120,6 +123,7 @@ export class SpaceService {
       {
         name: createSpaceDto.name ?? 'untitled space',
         description: createSpaceDto.description ?? '',
+        visibility: createSpaceDto.visibility ?? SpaceVisibility.PRIVATE,
         creatorId: userId,
         workspaceId: workspaceId,
         slug: createSpaceDto.slug,
