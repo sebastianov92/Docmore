@@ -17,6 +17,8 @@ export const BasePropertyType = {
   EMAIL: 'email',
   PHONE: 'phone',
   ID: 'id',
+  RELATION: 'relation',
+  ROLLUP: 'rollup',
   CREATED_AT: 'createdAt',
   LAST_EDITED_AT: 'lastEditedAt',
   LAST_EDITED_BY: 'lastEditedBy',
@@ -28,6 +30,7 @@ const SYSTEM_PROPERTY_TYPES: Set<string> = new Set([
   BasePropertyType.LAST_EDITED_AT,
   BasePropertyType.LAST_EDITED_BY,
   BasePropertyType.ID,
+  BasePropertyType.ROLLUP,
   BasePropertyType.FORMULA,
 ]);
 
@@ -124,6 +127,31 @@ export const personTypeOptionsSchema = z
 
 export const emptyTypeOptionsSchema = z.object({}).passthrough();
 
+// Relation: rows of another base (or this one); cell = array of row ids.
+export const relationTypeOptionsSchema = z
+  .object({
+    targetPageId: z.uuid(),
+    allowMultiple: z.boolean().optional(),
+  })
+  .passthrough();
+
+// Rollup: an aggregate over the rows a relation points to, computed on read.
+export const ROLLUP_AGGREGATES = [
+  'count',
+  'sum',
+  'avg',
+  'min',
+  'max',
+  'show',
+] as const;
+export const rollupTypeOptionsSchema = z
+  .object({
+    relationPropertyId: basePropertyIdSchema,
+    targetPropertyId: basePropertyIdSchema.optional(),
+    aggregate: z.enum(ROLLUP_AGGREGATES),
+  })
+  .passthrough();
+
 // ID: a per-base number assigned on insert, shown with an optional prefix.
 export const idTypeOptionsSchema = z
   .object({ prefix: z.string().max(20).optional() })
@@ -160,6 +188,8 @@ const typeOptionsSchemaMap: Record<BasePropertyTypeValue, z.ZodType> = {
   [BasePropertyType.EMAIL]: emailTypeOptionsSchema,
   [BasePropertyType.PHONE]: textTypeOptionsSchema,
   [BasePropertyType.ID]: idTypeOptionsSchema,
+  [BasePropertyType.RELATION]: relationTypeOptionsSchema,
+  [BasePropertyType.ROLLUP]: rollupTypeOptionsSchema,
   [BasePropertyType.CREATED_AT]: emptyTypeOptionsSchema,
   [BasePropertyType.LAST_EDITED_AT]: emptyTypeOptionsSchema,
   [BasePropertyType.LAST_EDITED_BY]: emptyTypeOptionsSchema,
@@ -209,6 +239,7 @@ const cellValueSchemaMap: Partial<Record<BasePropertyTypeValue, z.ZodType>> = {
   [BasePropertyType.URL]: z.url(),
   [BasePropertyType.EMAIL]: z.email(),
   // digits with the usual separators; `+` only at the start
+  [BasePropertyType.RELATION]: z.array(z.uuid()).max(200),
   [BasePropertyType.PHONE]: z
     .string()
     .trim()

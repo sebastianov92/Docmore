@@ -48,6 +48,7 @@ import {
   BaseRowsDeletedEvent,
 } from '../events/base-events';
 import { FormulaService } from '../formula/formula.service';
+import { BaseRelationService } from './base-relation.service';
 
 // Cap for `count({ exact: true })`. Beyond this we return `capped: true` and
 // the UI shows "N+". Chosen so a cell-wise scan stays well under 100ms on
@@ -64,6 +65,7 @@ export class BaseRowService {
     private readonly baseViewRepo: BaseViewRepo,
     private readonly eventEmitter: EventEmitter2,
     private readonly formulaService: FormulaService,
+    private readonly relationService: BaseRelationService,
   ) {}
 
   async create(userId: string, workspaceId: string, dto: CreateRowDto) {
@@ -105,6 +107,7 @@ export class BaseRowService {
     const incoming = { ...seed, ...(dto.cells ?? {}) };
     if (Object.keys(incoming).length > 0) {
       validatedCells = this.validateCells(incoming, properties);
+      await this.relationService.assertTargets(validatedCells, properties, workspaceId);
     }
 
     // On create, treat every user-provided cell plus every formula property
@@ -146,12 +149,16 @@ export class BaseRowService {
     if (!row || row.pageId !== pageId) {
       throw new NotFoundException('Row not found');
     }
+    const properties = await this.basePropertyRepo.findByPageId(pageId);
+    const related = await this.relationService.loadRelated([row], properties, workspaceId);
+    await this.relationService.applyRollups([row], properties, related.byId);
     return row;
   }
 
   async update(dto: UpdateRowDto, workspaceId: string, userId?: string) {
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
     const validatedCells = this.validateCells(dto.cells, properties);
+    await this.relationService.assertTargets(validatedCells, properties, workspaceId);
 
     // Smoke-check the position (same guard as `reorder`).
     if (dto.position !== undefined) {
@@ -279,12 +286,18 @@ export class BaseRowService {
       pagination,
       templates: dto.templates === true,
     });
+    const related = await this.relationService.loadRelated(
+      result.items as BaseRow[],
+      properties,
+      workspaceId,
+    );
+    await this.relationService.applyRollups(result.items as BaseRow[], properties, related.byId);
     const references = await this.collectReferences(
       result.items as BaseRow[],
       properties,
       workspaceId,
     );
-    return { ...result, references };
+    return { ...result, references: { ...references, rows: related.refs } };
   }
 
   // Names behind the ids in a page of rows, so readers (public ones have
@@ -478,9 +491,14 @@ export class BaseRowService {
         continue;
       }
 
+      // A relation accepts one id or a list; the cell is always a list.
+      const normalized =
+        property.type === BasePropertyType.RELATION && typeof value === 'string'
+          ? [value]
+          : value;
       const result = validateCellValue(
         property.type as BasePropertyTypeValue,
-        value,
+        normalized,
       );
 
       if (!result.success) {

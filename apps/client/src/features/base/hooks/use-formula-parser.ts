@@ -92,7 +92,7 @@ export function useFormulaParser(
 }
 
 function clientResultTypeOf(type: string): FormulaResultType {
-  if (type === "number" || type === "id") return "number";
+  if (type === "number" || type === "id" || type === "rollup") return "number";
   if (
     type === "text" ||
     type === "longText" ||

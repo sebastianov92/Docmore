@@ -16,6 +16,7 @@ import {
   serializeCellForCsv,
 } from '../export/cell-csv-serializer';
 import { sanitizeFileName } from '../../../common/helpers';
+import { BaseRelationService } from './base-relation.service';
 
 const CHUNK_SIZE = 1000;
 
@@ -28,6 +29,7 @@ export class BaseCsvExportService {
     private readonly baseRepo: BaseRepo,
     private readonly basePropertyRepo: BasePropertyRepo,
     private readonly baseRowRepo: BaseRowRepo,
+    private readonly relationService: BaseRelationService,
   ) {}
 
   async streamBaseAsCsv(
@@ -90,7 +92,9 @@ export class BaseCsvExportService {
         chunkSize: CHUNK_SIZE,
       })) {
         if (aborted) break;
-        const ctx = await this.buildCtx(chunk, properties);
+        const related = await this.relationService.loadRelated(chunk as any, properties as any, workspaceId);
+        await this.relationService.applyRollups(chunk as any, properties as any, related.byId);
+        const ctx = { ...(await this.buildCtx(chunk, properties)), rows: related.refs };
 
         for (const row of chunk) {
           if (aborted) break;

@@ -3,6 +3,7 @@ import { BasePropertyType, BasePropertyTypeValue } from '../base.schemas';
 export type CellCsvContext = {
   userNames?: Map<string, string>;
   pageTitles?: Map<string, string>;
+  rows?: Record<string, { id: string; pageId: string; title: string }>;
 };
 
 type PropertyLike = {
@@ -43,6 +44,18 @@ export function serializeCellForCsv(
       const prefix = (property.typeOptions as any)?.prefix ?? '';
       return `${prefix}${value}`;
     }
+
+    case BasePropertyType.RELATION: {
+      const ids = Array.isArray(value) ? value : [value];
+      return ids
+        .map((id) => ctx.rows?.[String(id)]?.title ?? '')
+        .filter((s) => s.length > 0)
+        .join('; ');
+    }
+
+    case BasePropertyType.ROLLUP:
+      if (Array.isArray(value)) return value.map(String).join('; ');
+      return typeof value === 'number' ? String(value) : String(value ?? '');
 
     case BasePropertyType.NUMBER:
       return typeof value === 'number' ? String(value) : String(value ?? '');

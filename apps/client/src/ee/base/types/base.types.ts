@@ -21,6 +21,8 @@ export type BasePropertyType =
   | 'email'
   | 'phone'
   | 'id'
+  | 'relation'
+  | 'rollup'
   | 'createdAt'
   | 'lastEditedAt'
   | 'lastEditedBy'

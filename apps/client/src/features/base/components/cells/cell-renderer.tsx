@@ -17,6 +17,8 @@ import { CellLastEditedBy } from "./cell-last-edited-by";
 import { CellFormula } from "./cell-formula";
 import { CellPhone } from "./cell-phone";
 import { CellId } from "./cell-id";
+import { CellRelation } from "./cell-relation";
+import { CellRollup } from "./cell-rollup";
 
 export type CellComponentProps = {
   value: unknown;
@@ -43,6 +45,8 @@ export const cellComponents: Record<
   email: CellEmail,
   phone: CellPhone,
   id: CellId,
+  relation: CellRelation,
+  rollup: CellRollup,
   person: CellPerson,
   file: CellFile,
   page: CellPage,

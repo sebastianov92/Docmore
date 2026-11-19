@@ -14,6 +14,8 @@ export type BasePropertyType =
   | 'email'
   | 'phone'
   | 'id'
+  | 'relation'
+  | 'rollup'
   | 'createdAt'
   | 'lastEditedAt'
   | 'lastEditedBy'
@@ -75,6 +77,20 @@ export type IdTypeOptions = {
   prefix?: string;
 };
 
+// Relation: rows of another base (cell = array of row ids).
+export type RelationTypeOptions = {
+  targetPageId: string;
+  allowMultiple?: boolean;
+};
+
+export type RollupAggregate = "count" | "sum" | "avg" | "min" | "max" | "show";
+// Rollup: aggregate over the rows a relation points to; computed on read.
+export type RollupTypeOptions = {
+  relationPropertyId: string;
+  targetPropertyId?: string;
+  aggregate: RollupAggregate;
+};
+
 export type TypeOptions =
   | SelectTypeOptions
   | NumberTypeOptions
@@ -86,6 +102,8 @@ export type TypeOptions =
   | PersonTypeOptions
   | PageTypeOptions
   | IdTypeOptions
+  | RelationTypeOptions
+  | RollupTypeOptions
   | Record<string, unknown>;
 
 export type IBaseProperty = {
@@ -197,7 +215,12 @@ export type ReferencePage = {
   spaceId: string;
   space: { id: string; slug: string; name: string } | null;
 };
-export type RowReferences = { users: Record<string, ReferenceUser>; pages: Record<string, ReferencePage> };
+export type ReferenceRow = { id: string; pageId: string; title: string };
+export type RowReferences = {
+  users: Record<string, ReferenceUser>;
+  pages: Record<string, ReferencePage>;
+  rows?: Record<string, ReferenceRow>;
+};
 
 export type IBaseView = {
   id: string;

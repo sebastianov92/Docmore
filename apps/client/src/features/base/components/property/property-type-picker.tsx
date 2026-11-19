@@ -21,6 +21,8 @@ import {
   IconAlignLeft,
   IconPhone,
   IconId,
+  IconArrowsRightLeft,
+  IconSum,
 } from "@tabler/icons-react";
 import { BasePropertyType } from "@/features/base/types/base.types";
 import { useTranslation } from "react-i18next";
@@ -47,6 +49,8 @@ const propertyTypes: {
   { type: "email", icon: IconMail, labelKey: "Email" },
   { type: "phone", icon: IconPhone, labelKey: "Phone" },
   { type: "id", icon: IconId, labelKey: "ID" },
+  { type: "relation", icon: IconArrowsRightLeft, labelKey: "Relation" },
+  { type: "rollup", icon: IconSum, labelKey: "Rollup" },
   { type: "createdAt", icon: IconClockPlus, labelKey: "Created at" },
   { type: "lastEditedAt", icon: IconClockEdit, labelKey: "Last edited at" },
   { type: "lastEditedBy", icon: IconUserEdit, labelKey: "Last edited by" },

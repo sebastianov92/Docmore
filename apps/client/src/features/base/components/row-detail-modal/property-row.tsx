@@ -22,6 +22,7 @@ const READONLY_TYPES = new Set<BasePropertyType>([
   "lastEditedAt",
   "lastEditedBy",
   "id",
+  "rollup",
 ]);
 
 const ICON_BY_TYPE = new Map(propertyTypes.map((p) => [p.type, p.icon] as const));

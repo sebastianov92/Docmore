@@ -486,13 +486,17 @@ function MainPanel({
   const isPending = property.pendingType != null;
 
   const hasOptions =
-    !isSystem &&
     !isPending &&
     (property.type === "select" ||
       property.type === "multiSelect" ||
       property.type === "status" ||
       property.type === "number" ||
-      property.type === "date");
+      property.type === "date" ||
+      property.type === "id" ||
+      property.type === "relation" ||
+      property.type === "rollup");
+  // Relations are not converted to other types; rollups are system-like.
+  const canChangeType = !isSystem && !isPending && !property.isPrimary && property.type !== "relation";
 
   const typeDef = propertyTypes.find((pt) => pt.type === property.type);
   const TypeIcon = typeDef?.icon;
@@ -512,7 +516,7 @@ function MainPanel({
           </Text>
         </Group>
       )}
-      {!isSystem && !isPending && !property.isPrimary && (
+      {canChangeType && (
         <UnstyledButton
           className={cellClasses.menuItem}
           onClick={onChangeType}

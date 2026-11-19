@@ -54,6 +54,7 @@ import { processBaseTypeConversion } from '../tasks/base-type-conversion.task';
 import { FormulaService } from '../formula/formula.service';
 import { BaseFormulaGraph } from '@docmore/base-formula/server';
 import { randomUUID } from 'node:crypto';
+import { BaseRelationService } from './base-relation.service';
 
 
 /*
@@ -79,6 +80,7 @@ export class BasePropertyService {
     @InjectQueue(QueueName.BASE_QUEUE) private readonly baseQueue: Queue,
     private readonly eventEmitter: EventEmitter2,
     private readonly formulaService: FormulaService,
+    private readonly relationService: BaseRelationService,
   ) {}
 
   // Formulas that read a property whose type changed are re-evaluated (a
@@ -127,6 +129,12 @@ export class BasePropertyService {
       validatedTypeOptions = dto.typeOptions
         ? parseTypeOptionsOrThrow(type, dto.typeOptions)
         : parseTypeOptionsOrThrow(type, {});
+      await this.relationService.validateOptions(
+        dto.pageId,
+        workspaceId,
+        type,
+        validatedTypeOptions,
+      );
     }
 
     const lastPosition = await this.basePropertyRepo.getLastPosition(
@@ -239,6 +247,16 @@ export class BasePropertyService {
     }
     if (
       isTypeChange &&
+      (oldType === BasePropertyType.RELATION ||
+        newType === BasePropertyType.RELATION ||
+        newType === BasePropertyType.ROLLUP)
+    ) {
+      throw new BadRequestException(
+        'Relations and rollups cannot be converted; create a new property',
+      );
+    }
+    if (
+      isTypeChange &&
       property.isPrimary &&
       newType !== BasePropertyType.TEXT
     ) {
@@ -281,6 +299,12 @@ export class BasePropertyService {
         newType,
         dto.typeOptions,
       ) as any;
+      await this.relationService.validateOptions(
+        property.pageId,
+        workspaceId,
+        newType,
+        validatedTypeOptions,
+      );
     } else if (isTypeChange) {
       const result = validateTypeOptions(newType, {});
       validatedTypeOptions = result.success ? (result.data as any) : null;

@@ -35,6 +35,7 @@ export const SYSTEM_PROPERTY_TYPES = new Set([
   "lastEditedAt",
   "lastEditedBy",
   "id",
+  "rollup",
   "formula",
 ]);
 

@@ -26,6 +26,7 @@ import { ShareModule } from '../share/share.module';
 import { PublicSpaceModule } from '../public-space/public-space.module';
 import { BasePublicController } from './controllers/base-public.controller';
 import { BaseRowSearchService } from './search/base-row-search.service';
+import { BaseRelationService } from './services/base-relation.service';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { BaseRowSearchService } from './search/base-row-search.service';
     BasePropertyService,
     BaseRowService,
     BaseViewService,
+    BaseRelationService,
     BaseCsvExportService,
     BasePageResolverService,
     BaseQueueProcessor,

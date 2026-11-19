@@ -67,7 +67,10 @@ function getOperatorsForType(type: string): FilterOperator[] {
     case "lastEditedBy":
       return ["eq", "neq", "any", "none", "isEmpty", "isNotEmpty"];
     case "file":
+    case "relation":
       return ["isEmpty", "isNotEmpty"];
+    case "rollup":
+      return [];
     case "page":
       return ["isEmpty", "isNotEmpty"];
     default:
@@ -174,10 +177,12 @@ export function ViewFilterConfigPopover({
 }: ViewFilterConfigProps) {
   const { t } = useTranslation();
 
-  const propertyOptions = properties.map((p) => ({
-    value: p.id,
-    label: p.name,
-  }));
+  const propertyOptions = properties
+    .filter((p) => getOperatorsForType(p.type).length > 0)
+    .map((p) => ({
+      value: p.id,
+      label: p.name,
+    }));
 
   const [draft, setDraft] = useState<FilterCondition | null>(null);
 

@@ -35,6 +35,7 @@ export function propertyKind(type: string): PropertyKindValue | null {
     case BasePropertyType.STATUS:
       return PropertyKind.SELECT;
     case BasePropertyType.MULTI_SELECT:
+    case BasePropertyType.RELATION:
       return PropertyKind.MULTI;
     case BasePropertyType.PERSON:
       return PropertyKind.PERSON;

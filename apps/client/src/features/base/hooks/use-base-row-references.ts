@@ -14,13 +14,15 @@ export function useBaseRowReferences(pageId: string | undefined): RowReferences 
   return useMemo(() => {
     const users: Record<string, ReferenceUser> = {};
     const pages: RowReferences["pages"] = {};
+    const rows: NonNullable<RowReferences["rows"]> = {};
     for (const [, data] of cached) {
       for (const page of data?.pages ?? []) {
         Object.assign(users, page.references?.users ?? {});
         Object.assign(pages, page.references?.pages ?? {});
+        Object.assign(rows, page.references?.rows ?? {});
       }
     }
-    return { users, pages };
+    return { users, pages, rows };
     // the cache snapshot changes identity on every render; fold it by content
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(cached.map(([k]) => k)), cached.length, pageId]);

@@ -18,6 +18,8 @@ import {
   IconMathFunction,
   IconPhone,
   IconId,
+  IconArrowsRightLeft,
+  IconSum,
 } from "@tabler/icons-react";
 import type {
   BasePropertyType,
@@ -217,6 +219,26 @@ export const PROPERTY_TYPE_REGISTRY: Record<
     hasOptions: true,
     systemAccessor: (row) => (row as any).rowNo ?? null,
   },
+  relation: {
+    type: "relation",
+    cellComponent: CellText,
+    icon: IconArrowsRightLeft,
+    labelKey: "Relation",
+    filterOperators: ["isEmpty", "isNotEmpty"],
+    filterInput: "text",
+    isSystem: false,
+    hasOptions: true,
+  },
+  rollup: {
+    type: "rollup",
+    cellComponent: CellText,
+    icon: IconSum,
+    labelKey: "Rollup",
+    filterOperators: [],
+    filterInput: "number",
+    isSystem: true,
+    hasOptions: true,
+  },
   createdAt: {
     type: "createdAt",
     cellComponent: CellCreatedAt,
@@ -268,7 +290,7 @@ export const DEFAULT_FILTER_OPERATORS = ["eq", "neq", "isEmpty", "isNotEmpty"];
 
 export const PROPERTY_PICKER_ORDER: BasePropertyType[] = [
   "text", "longText", "number", "select", "status", "multiSelect", "date",
-  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "id",
+  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "id", "relation", "rollup",
   "createdAt", "lastEditedAt", "lastEditedBy",
 ];
 

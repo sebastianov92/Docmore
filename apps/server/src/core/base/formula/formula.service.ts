@@ -135,7 +135,7 @@ export class FormulaService {
 }
 
 function asResultType(type: string): "number" | "string" | "boolean" | "date" | "null" {
-  if (type === "number" || type === "id") return "number";
+  if (type === "number" || type === "id" || type === "rollup") return "number";
   if (type === "text" || type === "longText" || type === "url" || type === "email" || type === "phone") return "string";
   if (type === "checkbox") return "boolean";
   if (type === "date" || type === "createdAt" || type === "lastEditedAt") return "date";
