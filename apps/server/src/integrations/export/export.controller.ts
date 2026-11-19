@@ -36,6 +36,7 @@ import {
   IAuditService,
 } from '../../integrations/audit/audit.service';
 import { ApiKeyScope } from '../../common/decorators/api-key-scope.decorator';
+import { PageIdDto } from '../../core/page/dto/page.dto';
 
 @Controller()
 export class ExportController {
@@ -46,6 +47,32 @@ export class ExportController {
     private readonly pageAccessService: PageAccessService,
     @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
+
+  // The page body as Markdown, for the API and the CLI (no title heading).
+  @HttpCode(HttpStatus.OK)
+  @ApiKeyScope('read')
+  @Post('pages/markdown')
+  async pageMarkdown(@Body() dto: PageIdDto, @AuthUser() user: User) {
+    const page = await this.pageRepo.findById(dto.pageId, {
+      includeContent: true,
+    });
+    if (!page || page.deletedAt) {
+      throw new NotFoundException('Page not found');
+    }
+    await this.pageAccessService.validateCanView(page, user);
+    const markdown = await this.exportService.exportPage('markdown', {
+      ...page,
+      title: '',
+    });
+    return {
+      id: page.id,
+      slugId: page.slugId,
+      spaceId: page.spaceId,
+      title: page.title,
+      updatedAt: page.updatedAt,
+      markdown: markdown ?? '',
+    };
+  }
 
   @ApiKeyScope('read')
   @UseGuards(JwtAuthGuard)
