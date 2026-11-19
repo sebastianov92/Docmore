@@ -12,6 +12,10 @@ type BaseEventBase = {
   workspaceId: string;
   actorId?: string | null;
   requestId?: string | null;
+  // how many automation hops led here (loops stop at a few)
+  automationDepth?: number;
+  // the public form a row came in through
+  formId?: string | null;
 };
 
 export type BaseRowCreatedEvent = BaseEventBase & { row: BaseRow };

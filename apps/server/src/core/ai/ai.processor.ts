@@ -3,6 +3,7 @@ import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { QueueJob, QueueName } from '../../integrations/queue/constants';
 import { AiEmbeddingService } from './embeddings/ai-embedding.service';
+import { AiBaseFillService } from './base-fill/ai-base-fill.service';
 
 // Drains the AI queue that pages, spaces and workspaces already feed: keeps
 // page embeddings current, drops them with their pages, and runs the
@@ -11,7 +12,10 @@ import { AiEmbeddingService } from './embeddings/ai-embedding.service';
 export class AiProcessor extends WorkerHost {
   private readonly logger = new Logger(AiProcessor.name);
 
-  constructor(private readonly embeddings: AiEmbeddingService) {
+  constructor(
+    private readonly embeddings: AiEmbeddingService,
+    private readonly baseFill: AiBaseFillService,
+  ) {
     super();
   }
 
@@ -44,6 +48,8 @@ export class AiProcessor extends WorkerHost {
         return this.embeddings.backfill(workspaceId);
       case QueueJob.WORKSPACE_RESET_EMBEDDINGS:
         return this.embeddings.backfill(workspaceId, { reset: true });
+      case QueueJob.BASE_AI_FILL:
+        return this.baseFill.process(job.data);
       default:
         return;
     }

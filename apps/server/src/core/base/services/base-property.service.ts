@@ -255,7 +255,9 @@ export class BasePropertyService {
       isTypeChange &&
       (oldType === BasePropertyType.RELATION ||
         newType === BasePropertyType.RELATION ||
-        newType === BasePropertyType.ROLLUP)
+        newType === BasePropertyType.ROLLUP ||
+        oldType === BasePropertyType.BUTTON ||
+        newType === BasePropertyType.BUTTON)
     ) {
       throw new BadRequestException(
         'Relations and rollups cannot be converted; create a new property',

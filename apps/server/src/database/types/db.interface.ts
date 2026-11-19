@@ -6,6 +6,7 @@ import {
   WorkspaceInviteRequests,
 } from '@docmost/db/types/requests.types';
 import { BaseRowVersions } from '@docmost/db/types/base-history.types';
+import { BaseAutomationRuns, BaseAutomations, BaseForms } from '@docmost/db/types/automation.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -14,4 +15,7 @@ export interface DbInterface extends DB {
   spaceJoinRequests: SpaceJoinRequests;
   workspaceInviteRequests: WorkspaceInviteRequests;
   baseRowVersions: BaseRowVersions;
+  baseAutomations: BaseAutomations;
+  baseAutomationRuns: BaseAutomationRuns;
+  baseForms: BaseForms;
 }

@@ -19,6 +19,7 @@ export const BasePropertyType = {
   ID: 'id',
   RELATION: 'relation',
   ROLLUP: 'rollup',
+  BUTTON: 'button',
   CREATED_AT: 'createdAt',
   LAST_EDITED_AT: 'lastEditedAt',
   LAST_EDITED_BY: 'lastEditedBy',
@@ -54,6 +55,21 @@ export const USER_PROPERTY_TYPES: readonly BasePropertyTypeValue[] =
     (t) => !SYSTEM_PROPERTY_TYPES.has(t),
   ) as readonly BasePropertyTypeValue[];
 
+// AI autofill: a prompt run over the row's other cells.
+export const aiFillSchema = z.object({
+  prompt: z.string().trim().min(1).max(2000),
+  autoUpdate: z.boolean().optional(),
+  sourcePropertyIds: z.array(basePropertyIdSchema).max(50).optional(),
+});
+
+// A button cell runs an automation of this base.
+export const buttonTypeOptionsSchema = z
+  .object({
+    label: z.string().trim().max(60).optional(),
+    automationId: z.uuid().optional(),
+  })
+  .passthrough();
+
 export const choiceSchema = z.object({
   id: baseChoiceIdSchema,
   name: z.string().min(1),
@@ -63,6 +79,7 @@ export const choiceSchema = z.object({
 
 export const selectTypeOptionsSchema = z
   .object({
+    ai: aiFillSchema.optional(),
     choices: z.array(choiceSchema).default([]),
     choiceOrder: z.array(baseChoiceIdSchema).default([]),
     disableColors: z.boolean().optional(),
@@ -75,6 +92,7 @@ export const selectTypeOptionsSchema = z
 
 export const numberTypeOptionsSchema = z
   .object({
+    ai: aiFillSchema.optional(),
     format: z
       .enum(['plain', 'currency', 'percent', 'progress'])
       .optional()
@@ -96,6 +114,7 @@ export const dateTypeOptionsSchema = z
 
 export const textTypeOptionsSchema = z
   .object({
+    ai: aiFillSchema.optional(),
     richText: z.boolean().optional(),
     defaultValue: z.string().nullable().optional(),
   })
@@ -103,6 +122,7 @@ export const textTypeOptionsSchema = z
 
 export const checkboxTypeOptionsSchema = z
   .object({
+    ai: aiFillSchema.optional(),
     defaultValue: z.boolean().optional(),
   })
   .passthrough();
@@ -194,6 +214,7 @@ const typeOptionsSchemaMap: Record<BasePropertyTypeValue, z.ZodType> = {
   [BasePropertyType.ID]: idTypeOptionsSchema,
   [BasePropertyType.RELATION]: relationTypeOptionsSchema,
   [BasePropertyType.ROLLUP]: rollupTypeOptionsSchema,
+  [BasePropertyType.BUTTON]: buttonTypeOptionsSchema,
   [BasePropertyType.CREATED_AT]: emptyTypeOptionsSchema,
   [BasePropertyType.LAST_EDITED_AT]: emptyTypeOptionsSchema,
   [BasePropertyType.LAST_EDITED_BY]: emptyTypeOptionsSchema,

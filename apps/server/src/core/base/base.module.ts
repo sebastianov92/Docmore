@@ -31,6 +31,13 @@ import { BaseVisibilityService } from './services/base-visibility.service';
 import { BaseHistoryService } from './services/base-history.service';
 import { BaseRowVersionRepo } from '@docmost/db/repos/base/base-row-version.repo';
 import { BaseHistoryController } from './controllers/base-history.controller';
+import { BaseAutomationRepo } from '@docmost/db/repos/base/base-automation.repo';
+import { BaseAutomationService } from './automation/base-automation.service';
+import { BaseAutomationListener } from './automation/base-automation.listener';
+import { BaseAutomationController } from './automation/base-automation.controller';
+import { BaseFormRepo } from '@docmost/db/repos/base/base-form.repo';
+import { BaseFormService } from './forms/base-form.service';
+import { BaseFormController, BaseFormPublicController } from './forms/base-form.controller';
 
 @Module({
   imports: [
@@ -43,6 +50,9 @@ import { BaseHistoryController } from './controllers/base-history.controller';
   ],
   controllers: [
     BaseHistoryController,
+    BaseAutomationController,
+    BaseFormController,
+    BaseFormPublicController,
     BaseController,
     BasePropertyController,
     BaseRowController,
@@ -50,6 +60,11 @@ import { BaseHistoryController } from './controllers/base-history.controller';
     BasePublicController,
   ],
   providers: [
+    BaseAutomationRepo,
+    BaseAutomationService,
+    BaseAutomationListener,
+    BaseFormRepo,
+    BaseFormService,
     BaseVisibilityService,
     BaseHistoryService,
     BaseRowVersionRepo,
@@ -72,6 +87,8 @@ import { BaseHistoryController } from './controllers/base-history.controller';
     BaseRowSearchService,
   ],
   exports: [
+    BaseAutomationService,
+    BaseFormService,
     BaseVisibilityService,
     BaseHistoryService,
     BaseRowSearchService,

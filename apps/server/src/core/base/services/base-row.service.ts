@@ -73,10 +73,10 @@ export class BaseRowService {
   ) {}
 
   async create(
-    userId: string,
+    userId: string | null,
     workspaceId: string,
     dto: CreateRowDto,
-    opts: { hidden?: Set<string> } = {},
+    opts: { hidden?: Set<string>; automationDepth?: number; formId?: string | null } = {},
   ) {
     this.visibility.assertWritable(dto.cells ?? {}, opts.hidden);
     let position: string;
@@ -152,6 +152,8 @@ export class BaseRowService {
       actorId: userId,
       requestId: dto.requestId ?? null,
       row: created,
+      automationDepth: opts.automationDepth,
+      formId: opts.formId ?? null,
     };
     this.eventEmitter.emit(EventName.BASE_ROW_CREATED, event);
 
@@ -178,8 +180,8 @@ export class BaseRowService {
   async update(
     dto: UpdateRowDto,
     workspaceId: string,
-    userId?: string,
-    opts: { hidden?: Set<string> } = {},
+    userId?: string | null,
+    opts: { hidden?: Set<string>; automationDepth?: number } = {},
   ) {
     this.visibility.assertWritable(dto.cells ?? {}, opts.hidden);
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
@@ -240,6 +242,7 @@ export class BaseRowService {
       rowId: dto.rowId,
       patch: dto.cells,
       updatedCells: finalCells,
+      automationDepth: opts.automationDepth,
     };
     this.eventEmitter.emit(EventName.BASE_ROW_UPDATED, event);
 

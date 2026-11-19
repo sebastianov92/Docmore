@@ -4,6 +4,9 @@ import { listApiKeyReadRoutes } from '../../../test/api-key-read-routes.helper';
 const READ_ROUTES = [
   'GET /files/:fileId/:fileName',
   'POST /bases',
+  'POST /bases/automations',
+  'POST /bases/automations/runs',
+  'POST /bases/forms',
   'POST /bases/export-csv',
   'POST /bases/history',
   'POST /bases/info',

@@ -108,4 +108,5 @@ export enum QueueJob {
   BASE_CELL_GC = 'base-cell-gc',
   BASE_FORMULA_RECOMPUTE = 'base-formula-recompute',
   BASE_CSV_IMPORT = 'base-csv-import',
+  BASE_AI_FILL = 'base-ai-fill',
 }

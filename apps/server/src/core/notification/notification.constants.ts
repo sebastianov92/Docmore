@@ -1,4 +1,5 @@
 export const NotificationType = {
+  BASE_AUTOMATION: 'base.automation',
   COMMENT_USER_MENTION: 'comment.user_mention',
   COMMENT_CREATED: 'comment.created',
   COMMENT_RESOLVED: 'comment.resolved',

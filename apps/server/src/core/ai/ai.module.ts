@@ -18,14 +18,19 @@ import { StorageModule } from '../../integrations/storage/storage.module';
 import { BaseModule } from '../base/base.module';
 import { AiBaseToolsService } from './chat/ai-base-tools.service';
 import { AiUsageService } from './ai-usage.service';
+import { AiBaseFillService } from './base-fill/ai-base-fill.service';
+import { AiBaseFillListener } from './base-fill/ai-base-fill.listener';
+import { AiBaseFillController } from './base-fill/ai-base-fill.controller';
 
 // Built-in AI: provider credentials, model discovery, Ask AI in the editor,
 // page embeddings with AI Answers in search, and the chat with tools over
 // the workspace's pages.
 @Module({
   imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule],
-  controllers: [AiController, AiChatController],
+  controllers: [AiController, AiChatController, AiBaseFillController],
   providers: [
+    AiBaseFillService,
+    AiBaseFillListener,
     AiUsageService,
     AiSettingsService,
     AiProviderService,
