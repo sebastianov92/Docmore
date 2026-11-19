@@ -203,6 +203,25 @@ outside the `ee/` directories, so they are always on:
 - **Sitemap and SEO**: `/sitemap.xml` lists indexed public spaces and
   links, `/robots.txt` points to it, and public pages carry description,
   canonical and Open Graph metas.
+- **Reading preferences**: per-user page font (default, serif, mono), text
+  size and a high contrast mode, from Preferences or the page menu.
+- **Page owner**: every page has an editable owner (seeded from the
+  creator), shown in the page details.
+- **Space visibility**: open (any member joins), closed (listed, join by
+  request, space admins approve) or private (hidden); the Spaces page
+  lists the spaces you can join.
+- **Invite requests**: members ask admins to invite someone; approving
+  sends the invitation.
+- **People**: `/people` lists everyone with search; each person has a
+  profile with the pages they created.
+- **Verified domains**: prove a domain with a DNS TXT record; with
+  auto-join on, emails on it sign up alone from `/signup`.
+- **AI limits per person**: daily request cap and the roles allowed to use
+  AI, under Settings > AI.
+- **Markdown API and CLI**: `POST /pages/markdown` returns a page body as
+  Markdown; `/pages/create` and `/pages/update` take `format: markdown`.
+  `tools/docmore-cli/docmore.mjs` wraps the API (login, spaces, pages,
+  get, create, update, search, export) with an API key.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
