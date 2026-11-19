@@ -150,12 +150,15 @@ export const handlePaste = (
     const urlWithoutAnchor = anchorId
       ? url.substring(0, url.indexOf("#"))
       : url;
+    // a base link may name the view to embed (?view=<id>)
+    const viewId = /[?&]view=([0-9a-f-]{36})/i.exec(clipboardData)?.[1];
     createMentionAction(
       urlWithoutAnchor,
       editor.view,
       pos,
       creatorId,
       anchorId,
+      viewId,
     );
     return true;
   }

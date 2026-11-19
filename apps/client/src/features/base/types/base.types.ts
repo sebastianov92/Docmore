@@ -110,6 +110,8 @@ export type IBaseProperty = {
   id: string;
   pageId: string;
   name: string;
+  // who may see the column; 'all' when unset
+  restrictedTo?: PropertyRestriction;
   type: BasePropertyType;
   position: string;
   typeOptions: TypeOptions;
@@ -272,7 +274,13 @@ export type IBase = {
   baseSchemaVersion?: number;
   // Structure lock: properties and views stay as they are.
   baseLocked?: boolean;
-  permissions?: { canEdit: boolean; hasRestriction: boolean };
+  permissions?: {
+    canEdit: boolean;
+    hasRestriction: boolean;
+    // space admins (and workspace owners/admins) may restrict columns
+    canManage?: boolean;
+    visibility?: PropertyRestriction;
+  };
 };
 
 export type EditingCell = {
@@ -310,6 +318,7 @@ export type CreatePropertyInput = {
 };
 
 export type UpdatePropertyInput = {
+  restrictedTo?: 'all' | 'editors' | 'admins';
   propertyId: string;
   pageId: string;
   name?: string;
@@ -434,3 +443,24 @@ export type {
   ErrorCode as FormulaErrorCode,
 } from "@docmore/base-formula/client";
 export { isErrorCell as isFormulaErrorCell } from "@docmore/base-formula/client";
+
+export type PropertyRestriction = 'all' | 'editors' | 'admins';
+
+// One cell snapshot of a row, taken before an edit, delete or conversion.
+export type IRowVersion = {
+  id: string;
+  rowId: string;
+  kind: 'update' | 'delete' | 'convert' | 'restore' | string;
+  cells: Record<string, unknown>;
+  title: string;
+  actorId: string | null;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+  createdAt: string;
+  rowDeleted: boolean;
+};
+
+export type IRowVersionPage = {
+  items: IRowVersion[];
+  meta: { hasNextPage: boolean; nextBefore: string | null };
+};

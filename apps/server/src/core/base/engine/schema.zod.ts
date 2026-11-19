@@ -85,6 +85,8 @@ export type SortSpec = z.infer<typeof sortSpecSchema>;
 export const sortsSchema = z.array(sortSpecSchema).max(MAX_SORTS);
 
 export const searchSchema = z.object({
+  // server-side: cell keys left out of the match (hidden columns)
+  excludeKeys: z.array(z.string()).optional(),
   query: z.string().min(1).max(500),
   mode: z.enum(['trgm', 'fts']).default('trgm'),
 });

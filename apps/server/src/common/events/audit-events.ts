@@ -138,6 +138,8 @@ export const AuditEvent = {
   BASE_VIEW_UPDATED: 'base.view.updated',
   BASE_VIEW_DELETED: 'base.view.deleted',
   BASE_ROWS_DELETED: 'base.rows.deleted',
+  BASE_ROW_RESTORED: 'base.row.restored',
+  BASE_ROWS_RESTORED: 'base.rows.restored',
   BASE_EXPORTED: 'base.exported',
   BASE_IMPORTED: 'base.imported',
 

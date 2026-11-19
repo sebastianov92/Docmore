@@ -151,6 +151,7 @@ export interface Backlinks {
 
 export interface BaseProperties {
   createdAt: Generated<Timestamp>;
+  restrictedTo: Generated<string>;
   deletedAt: Timestamp | null;
   id: Generated<string>;
   isPrimary: Generated<boolean>;
@@ -228,6 +229,7 @@ export interface Billing {
 }
 
 export interface Comments {
+  baseRowId: string | null;
   content: Json | null;
   createdAt: Generated<Timestamp>;
   creatorId: string | null;

@@ -32,6 +32,13 @@ export const useQuerySubscription = () => {
           });
           break;
         case "commentCreated": {
+          // a row comment refreshes that row's thread, not the page's
+          if ((data.comment as any)?.baseRowId) {
+            queryClient.invalidateQueries({
+              queryKey: ["comments", data.pageId, "row", (data.comment as any).baseRowId],
+            });
+            break;
+          }
           const createCache = queryClient.getQueryData(
             RQ_KEY(data.pageId),
           ) as InfiniteData<IPagination<IComment>> | undefined;

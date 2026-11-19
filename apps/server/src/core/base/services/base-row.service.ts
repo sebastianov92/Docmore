@@ -49,6 +49,8 @@ import {
 } from '../events/base-events';
 import { FormulaService } from '../formula/formula.service';
 import { BaseRelationService } from './base-relation.service';
+import { BaseHistoryService } from './base-history.service';
+import { BaseVisibilityService } from './base-visibility.service';
 
 // Cap for `count({ exact: true })`. Beyond this we return `capped: true` and
 // the UI shows "N+". Chosen so a cell-wise scan stays well under 100ms on
@@ -59,6 +61,8 @@ const EXACT_COUNT_CAP = 10_000;
 @Injectable()
 export class BaseRowService {
   constructor(
+    private readonly history: BaseHistoryService,
+    private readonly visibility: BaseVisibilityService,
     @InjectKysely() private readonly db: KyselyDB,
     private readonly baseRowRepo: BaseRowRepo,
     private readonly basePropertyRepo: BasePropertyRepo,
@@ -68,7 +72,13 @@ export class BaseRowService {
     private readonly relationService: BaseRelationService,
   ) {}
 
-  async create(userId: string, workspaceId: string, dto: CreateRowDto) {
+  async create(
+    userId: string,
+    workspaceId: string,
+    dto: CreateRowDto,
+    opts: { hidden?: Set<string> } = {},
+  ) {
+    this.visibility.assertWritable(dto.cells ?? {}, opts.hidden);
     let position: string;
 
     if (dto.afterRowId) {
@@ -148,7 +158,12 @@ export class BaseRowService {
     return created;
   }
 
-  async getRowInfo(rowId: string, pageId: string, workspaceId: string) {
+  async getRowInfo(
+    rowId: string,
+    pageId: string,
+    workspaceId: string,
+    opts: { hidden?: Set<string> } = {},
+  ) {
     const row = await this.baseRowRepo.findById(rowId, { workspaceId });
     if (!row || row.pageId !== pageId) {
       throw new NotFoundException('Row not found');
@@ -156,10 +171,17 @@ export class BaseRowService {
     const properties = await this.basePropertyRepo.findByPageId(pageId);
     const related = await this.relationService.loadRelated([row], properties, workspaceId);
     await this.relationService.applyRollups([row], properties, related.byId);
+    this.visibility.stripRows([row], opts.hidden);
     return row;
   }
 
-  async update(dto: UpdateRowDto, workspaceId: string, userId?: string) {
+  async update(
+    dto: UpdateRowDto,
+    workspaceId: string,
+    userId?: string,
+    opts: { hidden?: Set<string> } = {},
+  ) {
+    this.visibility.assertWritable(dto.cells ?? {}, opts.hidden);
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
     const validatedCells = this.validateCells(dto.cells ?? {}, properties);
     await this.relationService.assertTargets(validatedCells, properties, workspaceId);
@@ -181,6 +203,7 @@ export class BaseRowService {
     }
 
     const existing = await this.baseRowRepo.findById(dto.rowId, { workspaceId });
+    if (existing) await this.history.recordUpdate(existing, validatedCells, userId);
     const mergedRow = {
       ...((existing?.cells as Record<string, unknown>) ?? {}),
       ...validatedCells,
@@ -229,6 +252,7 @@ export class BaseRowService {
       throw new NotFoundException('Row not found');
     }
 
+    await this.history.recordDelete([row], userId);
     await this.baseRowRepo.softDelete(dto.rowId, {
       pageId: dto.pageId,
       workspaceId,
@@ -257,6 +281,7 @@ export class BaseRowService {
       throw new NotFoundException('Row does not belong to base');
     }
 
+    await this.history.recordDelete(rows, userId);
     await this.baseRowRepo.softDeleteMany(dto.rowIds, {
       pageId: dto.pageId,
       workspaceId,
@@ -276,18 +301,22 @@ export class BaseRowService {
     dto: ListRowsDto,
     pagination: PaginationOptions,
     workspaceId: string,
+    opts: { hidden?: Set<string> } = {},
   ) {
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
     const schema: PropertySchema = new Map(
       properties.map((p) => [p.id, p]),
     );
 
-    const filter = this.normaliseFilter(dto);
-    const search = this.normaliseSearch(dto.search);
-    const sorts = dto.sorts?.map((s) => ({
-      propertyId: s.propertyId,
-      direction: s.direction,
-    }));
+    const hidden = opts.hidden;
+    const filter = this.visibility.stripFilter(this.normaliseFilter(dto), hidden);
+    const search = this.visibility.stripSearch(this.normaliseSearch(dto.search), hidden);
+    const sorts = dto.sorts
+      ?.filter((s) => !hidden?.has(s.propertyId))
+      .map((s) => ({
+        propertyId: s.propertyId,
+        direction: s.direction,
+      }));
 
     const result = await this.baseRowRepo.list({
       pageId: dto.pageId,
@@ -310,6 +339,7 @@ export class BaseRowService {
       properties,
       workspaceId,
     );
+    this.visibility.stripRows(result.items as BaseRow[], hidden);
     return { ...result, references: { ...references, rows: related.refs } };
   }
 
@@ -417,12 +447,12 @@ export class BaseRowService {
     return { users, pages };
   }
 
-  async count(dto: CountRowsDto, workspaceId: string) {
+  async count(dto: CountRowsDto, workspaceId: string, opts: { hidden?: Set<string> } = {}) {
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
     const schema: PropertySchema = new Map(properties.map((p) => [p.id, p]));
 
-    const filter = this.normaliseFilter({ filter: dto.filter });
-    const search = this.normaliseSearch(dto.search);
+    const filter = this.visibility.stripFilter(this.normaliseFilter({ filter: dto.filter }), opts.hidden);
+    const search = this.visibility.stripSearch(this.normaliseSearch(dto.search), opts.hidden);
 
     // Planner estimates are untrustworthy for ILIKE / FTS predicates on
     // jsonb-extracted cells — PG falls back to a default selectivity and

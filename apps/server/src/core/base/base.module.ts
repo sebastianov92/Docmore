@@ -27,6 +27,10 @@ import { PublicSpaceModule } from '../public-space/public-space.module';
 import { BasePublicController } from './controllers/base-public.controller';
 import { BaseRowSearchService } from './search/base-row-search.service';
 import { BaseRelationService } from './services/base-relation.service';
+import { BaseVisibilityService } from './services/base-visibility.service';
+import { BaseHistoryService } from './services/base-history.service';
+import { BaseRowVersionRepo } from '@docmost/db/repos/base/base-row-version.repo';
+import { BaseHistoryController } from './controllers/base-history.controller';
 
 @Module({
   imports: [
@@ -38,6 +42,7 @@ import { BaseRelationService } from './services/base-relation.service';
     PageModule,
   ],
   controllers: [
+    BaseHistoryController,
     BaseController,
     BasePropertyController,
     BaseRowController,
@@ -45,6 +50,9 @@ import { BaseRelationService } from './services/base-relation.service';
     BasePublicController,
   ],
   providers: [
+    BaseVisibilityService,
+    BaseHistoryService,
+    BaseRowVersionRepo,
     BaseService,
     BasePropertyService,
     BaseRowService,
@@ -64,6 +72,8 @@ import { BaseRelationService } from './services/base-relation.service';
     BaseRowSearchService,
   ],
   exports: [
+    BaseVisibilityService,
+    BaseHistoryService,
     BaseRowSearchService,
     BaseService,
     BasePropertyService,

@@ -40,6 +40,7 @@ import { useAtomValue } from "jotai";
 import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 import { RowTemplatesMenu } from "@/features/base/components/templates/row-templates-menu";
 import { GalleryControls } from "@/features/base/components/views/gallery/gallery-controls";
+import { BaseHistoryButton } from "@/features/base/components/history/base-history-button";
 
 type BaseToolbarProps = {
   base: IBase;
@@ -358,6 +359,7 @@ export function BaseToolbar({
         {canEdit && !publicCtx && onOpenRow && (
           <RowTemplatesMenu base={base} onOpenRow={onOpenRow} />
         )}
+        {!publicCtx && <BaseHistoryButton base={base} canEdit={canEdit} />}
         {!publicCtx && (locked || onToggleLock) && (
           <Tooltip
             label={

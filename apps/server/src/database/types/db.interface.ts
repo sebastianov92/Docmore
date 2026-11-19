@@ -5,6 +5,7 @@ import {
   SpaceJoinRequests,
   WorkspaceInviteRequests,
 } from '@docmost/db/types/requests.types';
+import { BaseRowVersions } from '@docmost/db/types/base-history.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -12,4 +13,5 @@ export interface DbInterface extends DB {
   aiUsage: AiUsageTable;
   spaceJoinRequests: SpaceJoinRequests;
   workspaceInviteRequests: WorkspaceInviteRequests;
+  baseRowVersions: BaseRowVersions;
 }

@@ -8,6 +8,8 @@ export interface IComment {
   type?: string;
   creatorId: string;
   pageId: string;
+  // set on comments of one row of a base
+  baseRowId?: string | null;
   parentCommentId?: string;
   resolvedById?: string;
   resolvedAt?: Date;
@@ -39,4 +41,6 @@ export interface IResolveComment {
 
 export interface ICommentParams extends QueryParams {
   pageId: string;
+  // comments of one row of a base
+  baseRowId?: string;
 }

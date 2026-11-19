@@ -16,5 +16,14 @@ export function buildSearch(eb: Eb, spec: SearchSpec): Expression<SqlBool> {
   // Rows carry no search column: a plain substring match over the cell
   // JSON is enough at homelab scale (both modes behave the same).
   const escaped = q.replace(/[%_\\]/g, '\\$&');
+  const exclude = spec.excludeKeys ?? [];
+  if (exclude.length > 0) {
+    // cells the reader may not see take no part in the match
+    return sql<SqlBool>`(
+      select coalesce(string_agg(kv.value::text, ' '), '')
+      from jsonb_each(cells) as kv(key, value)
+      where kv.key <> all(${sql.val(exclude)}::text[])
+    ) ILIKE ${'%' + escaped + '%'}`;
+  }
   return sql<SqlBool>`cells::text ILIKE ${'%' + escaped + '%'}`;
 }

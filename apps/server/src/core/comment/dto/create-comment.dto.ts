@@ -30,8 +30,13 @@ export class CreateCommentDto {
   selection: string;
 
   @IsOptional()
-  @IsIn(['inline', 'page'])
+  @IsIn(['inline', 'page', 'row'])
   type: string;
+
+  // a comment on one row of a base
+  @IsOptional()
+  @IsUUID()
+  baseRowId?: string;
 
   @IsOptional()
   @IsUUID()

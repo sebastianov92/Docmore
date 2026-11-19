@@ -1,6 +1,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Header, flexRender } from "@tanstack/react-table";
-import { Badge, Popover } from "@mantine/core";
+import {
+  Badge,
+  Popover,
+  Tooltip,
+} from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { useAtom } from "jotai";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
@@ -38,6 +42,7 @@ import {
   IconClockPlus,
   IconClockEdit,
   IconUserEdit,
+  IconLock,
 } from "@tabler/icons-react";
 import { PropertyMenuContent } from "@/features/base/components/property/property-menu";
 import { RowNumberHeaderCell } from "./row-number-header-cell";
@@ -215,6 +220,11 @@ export const GridHeaderCell = memo(function GridHeaderCell({
           <span className={classes.headerCellName}>
             {flexRender(header.column.columnDef.header, header.getContext())}
           </span>
+          {property?.restrictedTo && property.restrictedTo !== "all" && (
+            <Tooltip label={property.restrictedTo === "admins" ? t("Visible to space admins only") : t("Visible to editors and admins")}>
+              <IconLock size={12} className={classes.headerTypeIcon} aria-label={t("Restricted column")} data-testid="restricted-column" />
+            </Tooltip>
+          )}
           {property?.pendingType && (
             <Badge size="xs" color="gray" variant="light" ml={6}>
               {t("Converting…")}

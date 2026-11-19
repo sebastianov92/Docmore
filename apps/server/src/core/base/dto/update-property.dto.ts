@@ -11,6 +11,8 @@ import { BASE_PROPERTY_ID_RE } from '../base-ids';
 import {
   USER_PROPERTY_TYPES,
   BasePropertyTypeValue,
+  PROPERTY_RESTRICTIONS,
+  PropertyRestriction,
 } from '../base.schemas';
 
 export class UpdatePropertyDto {
@@ -36,6 +38,11 @@ export class UpdatePropertyDto {
   @IsOptional()
   @IsString()
   requestId?: string;
+
+  // who may see the column (space admins set it)
+  @IsOptional()
+  @IsIn(PROPERTY_RESTRICTIONS)
+  restrictedTo?: PropertyRestriction;
 }
 
 export class DeletePropertyDto {

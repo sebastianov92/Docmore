@@ -18,6 +18,7 @@ import { PublicSpaceService } from '../../public-space/public-space.service';
 import { BaseService } from '../services/base.service';
 import { BaseRowService } from '../services/base-row.service';
 import { PublicBaseInfoDto, PublicBaseRowsDto } from '../dto/public-base.dto';
+import { BaseVisibilityService } from '../services/base-visibility.service';
 
 // Read-only access to a base from a shared page or a published space,
 // for readers without an account. The same checks the shared page itself
@@ -25,6 +26,7 @@ import { PublicBaseInfoDto, PublicBaseRowsDto } from '../dto/public-base.dto';
 @Controller('bases/public')
 export class BasePublicController {
   constructor(
+    private readonly visibility: BaseVisibilityService,
     private readonly baseRepo: BaseRepo,
     private readonly spaceRepo: SpaceRepo,
     private readonly shareService: ShareService,
@@ -43,7 +45,8 @@ export class BasePublicController {
   ) {
     await this.assertPublic(dto.pageId, dto.shareId, workspace, shareToken);
     const info = await this.baseService.getBaseInfo(dto.pageId);
-    return { ...info, permissions: { canEdit: false, hasRestriction: false } };
+    const hidden = this.visibility.hiddenIds(((info as any).properties ?? []) as any, 'all');
+    return { ...this.visibility.stripBaseInfo(info as any, hidden), permissions: { canEdit: false, hasRestriction: false } };
   }
 
   @Public()
@@ -57,7 +60,9 @@ export class BasePublicController {
   ) {
     await this.assertPublic(dto.pageId, dto.shareId, workspace, shareToken);
     const { shareId: _shareId, ...listDto } = dto;
-    return this.baseRowService.list(listDto, pagination, workspace.id);
+    return this.baseRowService.list(listDto, pagination, workspace.id, {
+      hidden: await this.visibility.hiddenForPublic(dto.pageId),
+    });
   }
 
   private async assertPublic(

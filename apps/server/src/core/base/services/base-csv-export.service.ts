@@ -36,6 +36,7 @@ export class BaseCsvExportService {
     pageId: string,
     workspaceId: string,
     reply: FastifyReply,
+    opts: { hidden?: Set<string> } = {},
   ): Promise<void> {
     const base = await this.baseRepo.findById(pageId);
     if (!base || base.workspaceId !== workspaceId) {
@@ -43,12 +44,14 @@ export class BaseCsvExportService {
     }
 
     const properties = await this.basePropertyRepo.findByPageId(pageId);
+    // columns this reader may not see stay out of the file
+    const visible = opts.hidden?.size ? properties.filter((p) => !opts.hidden!.has(p.id)) : properties;
 
     const fileName = sanitizeFileName(base.title || 'base') + '.csv';
 
     const stringifier = stringify({
       header: true,
-      columns: properties.map((p) => ({ key: p.id, header: p.name })),
+      columns: visible.map((p) => ({ key: p.id, header: p.name })),
     });
 
     // Prepend UTF-8 BOM so Excel auto-detects encoding, then pipe the
@@ -101,7 +104,7 @@ export class BaseCsvExportService {
           const record: Record<string, string> = {};
           const cells = (row.cells ?? {}) as Record<string, unknown>;
 
-          for (const prop of properties) {
+          for (const prop of visible) {
             const type = prop.type as BasePropertyTypeValue;
             let value: unknown;
             if (type === BasePropertyType.CREATED_AT) {

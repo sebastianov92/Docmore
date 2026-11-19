@@ -6,7 +6,11 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { BASE_PROPERTY_TYPES } from '../base.schemas';
+import {
+  BASE_PROPERTY_TYPES,
+  PROPERTY_RESTRICTIONS,
+  PropertyRestriction,
+} from '../base.schemas';
 
 export class CreatePropertyDto {
   @IsUUID()
@@ -22,4 +26,9 @@ export class CreatePropertyDto {
   @IsOptional()
   @IsObject()
   typeOptions?: Record<string, unknown>;
+
+  // who may see the column (space admins set it)
+  @IsOptional()
+  @IsIn(PROPERTY_RESTRICTIONS)
+  restrictedTo?: PropertyRestriction;
 }

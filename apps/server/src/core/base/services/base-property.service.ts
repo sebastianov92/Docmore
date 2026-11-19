@@ -55,6 +55,7 @@ import { FormulaService } from '../formula/formula.service';
 import { BaseFormulaGraph } from '@docmore/base-formula/server';
 import { randomUUID } from 'node:crypto';
 import { BaseRelationService } from './base-relation.service';
+import { BaseHistoryService } from './base-history.service';
 
 
 /*
@@ -72,6 +73,7 @@ export class BasePropertyService {
   private readonly logger = new Logger(BasePropertyService.name);
 
   constructor(
+    private readonly history: BaseHistoryService,
     @InjectKysely() private readonly db: KyselyDB,
     private readonly basePropertyRepo: BasePropertyRepo,
     private readonly baseRowRepo: BaseRowRepo,
@@ -151,6 +153,7 @@ export class BasePropertyService {
           position,
           typeOptions: validatedTypeOptions as any,
           workspaceId,
+          ...(dto.restrictedTo ? { restrictedTo: dto.restrictedTo } : {}),
         },
         trx,
       );
@@ -209,6 +212,9 @@ export class BasePropertyService {
         `property-update ${dto.propertyId} ${label}=${Date.now() - t0}ms`,
       );
 
+    if (dto.restrictedTo !== undefined) {
+      await this.basePropertyRepo.updateProperty(dto.propertyId, { restrictedTo: dto.restrictedTo } as any);
+    }
     const property = await this.basePropertyRepo.findById(dto.propertyId);
     tick('after-findById');
     if (!property) {
@@ -380,6 +386,7 @@ export class BasePropertyService {
       // Path 2: inline rewrite. Apply the name-only fields (if any), run
       // the rewrite, then flip the type — all in one transaction so
       // readers only ever see a consistent snapshot.
+      await this.history.recordConvert(dto.pageId, workspaceId, actorId ?? null);
       const schemaVersion = await executeTx(this.db, async (trx) => {
         if (dto.name !== undefined) {
           await this.basePropertyRepo.updateProperty(
@@ -429,6 +436,7 @@ export class BasePropertyService {
     // and hand off to the worker. A best-effort revert clears the staging
     // fields if the enqueue itself fails.
     tick('taking-worker-path');
+    await this.history.recordConvert(dto.pageId, workspaceId, actorId ?? null);
     await executeTx(this.db, async (trx) => {
       await this.basePropertyRepo.updateProperty(
         dto.propertyId,

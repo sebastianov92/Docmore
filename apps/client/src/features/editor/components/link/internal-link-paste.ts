@@ -12,6 +12,7 @@ export type LinkFn = (
   pos: number,
   creatorId: string,
   anchorId?: string,
+  viewId?: string,
 ) => void;
 
 export interface InternalLinkOptions {
@@ -21,7 +22,7 @@ export interface InternalLinkOptions {
 
 export const handleInternalLink =
   ({ validateFn, onResolveLink }: InternalLinkOptions): LinkFn =>
-  async (url: string, view, pos, creatorId, anchorId) => {
+  async (url: string, view, pos, creatorId, anchorId, viewId) => {
     const validated = validateFn(url, view);
     if (!validated) return;
 
@@ -46,13 +47,7 @@ export const handleInternalLink =
         const transaction = view.state.tr.replaceWith(pos, pos, node);
         if (page.isBase && canConvertMentionToBaseEmbed(transaction.doc, pos)) {
           // a view link (?view=<id>) embeds that view
-          let viewId: string | null = null;
-          try {
-            viewId = new URL(url, window.location.origin).searchParams.get("view");
-          } catch {
-            viewId = null;
-          }
-          transaction.setMeta(basePasteMenuKey, { pos, viewId });
+          transaction.setMeta(basePasteMenuKey, viewId ? { pos, viewId } : { pos });
         }
         view.dispatch(transaction);
       },

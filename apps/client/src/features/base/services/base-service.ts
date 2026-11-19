@@ -27,6 +27,7 @@ import {
   CountRowsResult,
   BaseTemplate,
   RowReferences,
+  IRowVersionPage,
 } from "@/features/base/types/base.types";
 import { IPagination } from "@/lib/types";
 import { ImportSpec } from "@/features/base/csv-import/csv-import.types";
@@ -234,5 +235,26 @@ export async function deleteView(data: DeleteViewInput): Promise<void> {
 
 export async function listViews(pageId: string): Promise<IBaseView[]> {
   const req = await api.post<IBaseView[]>("/bases/views", { pageId });
+  return req.data;
+}
+
+// --- History ---
+export async function listBaseHistory(params: {
+  pageId: string;
+  rowId?: string;
+  before?: string;
+  limit?: number;
+}): Promise<IRowVersionPage> {
+  const req = await api.post("/bases/history", params);
+  return req.data;
+}
+
+export async function restoreBaseVersion(params: { pageId: string; versionId: string }): Promise<{ row: IBaseRow; restoredDeleted: boolean }> {
+  const req = await api.post("/bases/history/restore", params);
+  return req.data;
+}
+
+export async function restoreDeletedRows(params: { pageId: string; since: string }): Promise<{ count: number }> {
+  const req = await api.post("/bases/history/restore-deleted", params);
   return req.data;
 }

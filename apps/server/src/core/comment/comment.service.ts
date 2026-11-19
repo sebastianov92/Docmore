@@ -20,12 +20,14 @@ import { QueueJob, QueueName } from '../../integrations/queue/constants';
 import { extractUserMentionIdsFromJson } from '../../common/helpers/prosemirror/utils';
 import { ICommentNotificationJob } from '../../integrations/queue/constants/queue.interface';
 import { WsService } from '../../ws/ws.service';
+import { BaseRowRepo } from '@docmost/db/repos/base/base-row.repo';
 
 @Injectable()
 export class CommentService {
   private readonly logger = new Logger(CommentService.name);
 
   constructor(
+    private readonly baseRowRepo: BaseRowRepo,
     private commentRepo: CommentRepo,
     private pageRepo: PageRepo,
     private wsService: WsService,
@@ -54,6 +56,16 @@ export class CommentService {
     const { page, workspaceId, user } = opts;
     const commentContent = JSON.parse(createCommentDto.content);
 
+    // Row comments hang off one row of a base.
+    let baseRowId: string | null = null;
+    if (createCommentDto.baseRowId) {
+      const row = await this.baseRowRepo.findById(createCommentDto.baseRowId, { workspaceId });
+      if (!row || row.pageId !== page.id) {
+        throw new BadRequestException('Row not found in this base');
+      }
+      baseRowId = row.id;
+    }
+
     if (createCommentDto.parentCommentId) {
       const parentComment = await this.commentRepo.findById(
         createCommentDto.parentCommentId,
@@ -61,6 +73,9 @@ export class CommentService {
 
       if (!parentComment || parentComment.pageId !== page.id) {
         throw new BadRequestException('Parent comment not found');
+      }
+      if (((parentComment as any).baseRowId ?? null) !== baseRowId) {
+        throw new BadRequestException('Parent comment belongs to another thread');
       }
 
       if (parentComment.parentCommentId !== null) {
@@ -72,14 +87,15 @@ export class CommentService {
       pageId: page.id,
       content: commentContent,
       selection: createCommentDto?.selection?.substring(0, 250) ?? null,
-      type: createCommentDto.type ?? 'page',
+      type: createCommentDto.type ?? (baseRowId ? 'row' : 'page'),
+      baseRowId,
       parentCommentId: createCommentDto?.parentCommentId,
       creatorId: user.id,
       workspaceId: workspaceId,
       spaceId: page.spaceId,
     });
 
-    if (createCommentDto.yjsSelection) {
+    if (createCommentDto.yjsSelection && !baseRowId) {
       const parsed = yjsSelectionSchema.safeParse(createCommentDto.yjsSelection);
       if (!parsed.success) {
         this.logger.warn(
@@ -149,6 +165,7 @@ export class CommentService {
   async findByPageId(
     pageId: string,
     pagination: PaginationOptions,
+    baseRowId?: string,
   ): Promise<CursorPaginationResult<Comment>> {
     const page = await this.pageRepo.findById(pageId);
 
@@ -156,7 +173,7 @@ export class CommentService {
       throw new BadRequestException('Page not found');
     }
 
-    return this.commentRepo.findPageComments(pageId, pagination);
+    return this.commentRepo.findPageComments(pageId, pagination, baseRowId);
   }
 
   async update(

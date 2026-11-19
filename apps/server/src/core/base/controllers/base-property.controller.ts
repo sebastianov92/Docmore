@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Body,
   Controller,
   HttpCode,
@@ -23,15 +24,24 @@ import { PageAccessService } from '../../page/page-access/page-access.service';
 import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
 import { OAuthScope } from '../../../common/decorators/oauth-scope.decorator';
 import { assertBaseUnlocked } from '../services/base-lock';
+import { BaseVisibilityService } from '../services/base-visibility.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bases/properties')
 export class BasePropertyController {
   constructor(
+    private readonly visibility: BaseVisibilityService,
     private readonly basePropertyService: BasePropertyService,
     private readonly baseRepo: BaseRepo,
     private readonly pageAccessService: PageAccessService,
   ) {}
+
+  // Only space admins decide who sees a column.
+  private async assertCanRestrict(user: User, spaceId: string): Promise<void> {
+    if ((await this.visibility.levelFor(user, spaceId)) !== 'admins') {
+      throw new ForbiddenException('Only space admins can restrict a property');
+    }
+  }
 
   @HttpCode(HttpStatus.OK)
   @ApiKeyScope('write')
@@ -49,6 +59,8 @@ export class BasePropertyController {
 
     await this.pageAccessService.validateCanEdit(base, user);
     assertBaseUnlocked(base);
+
+    if (dto.restrictedTo !== undefined) await this.assertCanRestrict(user, base.spaceId);
 
     return this.basePropertyService.create(workspace.id, dto, user.id);
   }
@@ -69,6 +81,8 @@ export class BasePropertyController {
 
     await this.pageAccessService.validateCanEdit(base, user);
     assertBaseUnlocked(base);
+
+    if (dto.restrictedTo !== undefined) await this.assertCanRestrict(user, base.spaceId);
 
     return this.basePropertyService.update(dto, workspace.id, user.id);
   }

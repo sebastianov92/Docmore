@@ -22,6 +22,7 @@ import {
   BaseImportCompletedEvent,
   BaseImportProgressEvent,
 } from '../events/base-events';
+import { BasePropertyRepo } from '@docmost/db/repos/base/base-property.repo';
 
 /*
  * In-process listeners that forward base domain events onto the
@@ -32,27 +33,57 @@ import {
 export class BaseWsConsumers {
   private readonly logger = new Logger(BaseWsConsumers.name);
 
-  constructor(private readonly ws: BaseWsService) {}
+  constructor(
+    private readonly ws: BaseWsService,
+    private readonly basePropertyRepo: BasePropertyRepo,
+  ) {}
+
+  // Ids of the columns some readers may not see.
+  private async restrictedIds(pageId: string): Promise<Set<string>> {
+    const properties = await this.basePropertyRepo.findByPageId(pageId);
+    return new Set(
+      properties
+        .filter((p) => (p as any).restrictedTo && (p as any).restrictedTo !== 'all')
+        .map((p) => p.id),
+    );
+  }
+
+  private strip(cells: Record<string, unknown> | undefined, restricted: Set<string>) {
+    const out: Record<string, unknown> = {};
+    const touched: string[] = [];
+    for (const [k, v] of Object.entries(cells ?? {})) {
+      if (restricted.has(k)) touched.push(k);
+      else out[k] = v;
+    }
+    return { cells: out, touched };
+  }
 
   @OnEvent(EventName.BASE_ROW_CREATED)
-  onRowCreated(e: BaseRowCreatedEvent) {
+  async onRowCreated(e: BaseRowCreatedEvent) {
+    const restricted = await this.restrictedIds(e.pageId);
+    const { cells, touched } = this.strip((e.row as any)?.cells, restricted);
     this.ws.emitToBase(e.pageId, {
       operation: 'base:row:created',
       pageId: e.pageId,
-      row: e.row,
+      row: restricted.size ? { ...e.row, cells } : e.row,
+      restrictedCellIds: touched,
       actorId: e.actorId ?? null,
       requestId: e.requestId ?? null,
     });
   }
 
   @OnEvent(EventName.BASE_ROW_UPDATED)
-  onRowUpdated(e: BaseRowUpdatedEvent) {
+  async onRowUpdated(e: BaseRowUpdatedEvent) {
+    const restricted = await this.restrictedIds(e.pageId);
+    const patch = this.strip(e.patch, restricted);
+    const updated = this.strip(e.updatedCells, restricted);
     this.ws.emitToBase(e.pageId, {
       operation: 'base:row:updated',
       pageId: e.pageId,
       rowId: e.rowId,
-      patch: e.patch,
-      updatedCells: e.updatedCells,
+      patch: patch.cells,
+      updatedCells: updated.cells,
+      restrictedCellIds: [...new Set([...patch.touched, ...updated.touched])],
       actorId: e.actorId ?? null,
       requestId: e.requestId ?? null,
     });

@@ -2,6 +2,8 @@ import {
   Modal,
   Text,
   Badge,
+  Divider,
+  Stack,
 } from "@mantine/core";
 import { useWindowEvent } from "@mantine/hooks";
 import { IconDotsVertical, IconX, IconLock } from "@tabler/icons-react";
@@ -17,6 +19,8 @@ import { RowDetailTitle } from "./row-detail-title";
 import { PropertyRow } from "./property-row";
 import classes from "./row-detail-modal.module.css";
 import { RowHierarchy } from "@/features/base/components/row-detail-modal/row-hierarchy";
+import { RowComments } from "@/features/base/components/row-detail-modal/row-comments";
+import { BaseHistoryList } from "@/features/base/components/history/base-history-list";
 
 type RowDetailModalProps = {
   base: IBase;
@@ -177,7 +181,14 @@ export function RowDetailModal({
                 ))}
             </div>
             {!row.isTemplate && (
-              <RowHierarchy base={base} row={row} rows={rows} canEdit={canEdit} onOpenRow={onOpenRow ?? (() => {})} />
+              <>
+                <RowHierarchy base={base} row={row} rows={rows} canEdit={canEdit} onOpenRow={onOpenRow ?? (() => {})} />
+                <RowComments base={base} row={row} canEdit={canEdit} />
+                <Stack gap="xs" mt="md" data-testid="row-history">
+                  <Divider label={t("History")} labelPosition="left" />
+                  <BaseHistoryList pageId={base.id} rowId={row.id} canEdit={canEdit} compact />
+                </Stack>
+              </>
             )}
             {canEdit && canEditStructure !== false && (
               <div className={classes.addPropertyWrap}>

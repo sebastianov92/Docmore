@@ -54,11 +54,13 @@ import { FileInterceptor } from '../../../common/interceptors/file.interceptor';
 import { BaseCsvImportService } from '../import/base-csv-import.service';
 import { CSV_IMPORT_LIMITS } from '../import/base-csv-import.schema';
 import { assertBaseUnlocked } from '../services/base-lock';
+import { BaseVisibilityService } from '../services/base-visibility.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bases')
 export class BaseController {
   constructor(
+    private readonly visibility: BaseVisibilityService,
     private readonly baseService: BaseService,
     private readonly baseCsvExportService: BaseCsvExportService,
     private readonly basePageResolverService: BasePageResolverService,
@@ -179,7 +181,12 @@ export class BaseController {
       await this.pageAccessService.validateCanViewWithPermissions(base, user);
 
     const info = await this.baseService.getBaseInfo(dto.pageId);
-    return { ...info, permissions };
+    const level = await this.visibility.levelFor(user, base.spaceId);
+    const hidden = this.visibility.hiddenIds(((info as any).properties ?? []) as any, level);
+    return {
+      ...this.visibility.stripBaseInfo(info as any, hidden),
+      permissions: { ...permissions, canManage: level === 'admins', visibility: level },
+    };
   }
 
   @HttpCode(HttpStatus.OK)
@@ -309,6 +316,7 @@ export class BaseController {
       dto.pageId,
       workspace.id,
       res,
+      { hidden: await this.visibility.hiddenFor(user, base) },
     );
   }
 

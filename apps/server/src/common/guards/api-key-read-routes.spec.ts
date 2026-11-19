@@ -5,6 +5,7 @@ const READ_ROUTES = [
   'GET /files/:fileId/:fileName',
   'POST /bases',
   'POST /bases/export-csv',
+  'POST /bases/history',
   'POST /bases/info',
   'POST /bases/pages/expand',
   'POST /bases/rows',

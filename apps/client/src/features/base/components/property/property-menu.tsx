@@ -10,6 +10,7 @@ import {
   Divider,
   ScrollArea,
   Loader,
+  Radio,
 } from "@mantine/core";
 import {
   IconTrash,
@@ -54,7 +55,8 @@ type MenuPanel =
   | "changeType"
   | "confirmTypeChange"
   | "confirmDelete"
-  | "confirmDiscard";
+  | "confirmDiscard"
+  | "visibility";
 
 export function PropertyMenuContent({
   property,
@@ -267,7 +269,40 @@ export function PropertyMenuContent({
           onChangeType={() => setPanel("changeType")}
           onOptions={() => setPanel("options")}
           onDelete={() => setPanel("confirmDelete")}
+          canRestrict={Boolean(base?.permissions?.canManage)}
+          onVisibility={() => setPanel("visibility")}
         />
+      )}
+      {panel === "visibility" && (
+        <Stack gap="xs" p="sm" data-testid="property-visibility">
+          <Group gap="xs">
+            <ActionIcon variant="subtle" color="gray" size="xs" onClick={() => setPanel("main")}>
+              <IconChevronRight size={14} style={{ transform: "rotate(180deg)" }} />
+            </ActionIcon>
+            <Text size="xs" fw={600} c="dimmed">
+              {t("Who can see this column")}
+            </Text>
+          </Group>
+          <Radio.Group
+            value={property.restrictedTo ?? "all"}
+            onChange={(value) =>
+              updatePropertyMutation.mutate({
+                pageId,
+                propertyId: property.id,
+                restrictedTo: value as "all" | "editors" | "admins",
+              })
+            }
+          >
+            <Stack gap={6}>
+              <Radio size="xs" value="all" label={t("Everyone who can open the base")} />
+              <Radio size="xs" value="editors" label={t("Editors and space admins")} />
+              <Radio size="xs" value="admins" label={t("Space admins only")} />
+            </Stack>
+          </Radio.Group>
+          <Text size="xs" c="dimmed">
+            {t("Hidden columns leave filters, sorts, exports and search for those readers.")}
+          </Text>
+        </Stack>
       )}
       {panel === "rename" && (
         <Stack gap="xs" p="sm">
@@ -473,12 +508,16 @@ function MainPanel({
   onChangeType,
   onOptions,
   onDelete,
+  canRestrict,
+  onVisibility,
 }: {
   property: IBaseProperty;
   onRename: () => void;
   onChangeType: () => void;
   onOptions: () => void;
   onDelete: () => void;
+  canRestrict?: boolean;
+  onVisibility?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -536,6 +575,14 @@ function MainPanel({
           label={t("Options")}
           rightIcon={<IconChevronRight size={14} />}
           onClick={onOptions}
+        />
+      )}
+      {canRestrict && !property.isPrimary && onVisibility && (
+        <MenuItem
+          icon={<IconLock size={14} />}
+          label={property.restrictedTo && property.restrictedTo !== "all" ? t("Who can see: restricted") : t("Who can see")}
+          rightIcon={<IconChevronRight size={14} />}
+          onClick={onVisibility}
         />
       )}
       {!property.isPrimary && !isPending && (

@@ -88,8 +88,10 @@ describe("pasting a link to a base", () => {
     });
 
     expect(mocks.getPageById).toHaveBeenCalledWith({ pageId: "x1y2z3" });
+    // the embed will open on that view
     expect(basePasteMenuKey.getState(editor.state)).toEqual({
       pos: mentionPos(),
+      viewId: "0195f3c2-1111-7000-8000-000000000abc",
     });
   });
 

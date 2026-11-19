@@ -136,6 +136,10 @@ export const relationTypeOptionsSchema = z
   .passthrough();
 
 // Rollup: an aggregate over the rows a relation points to, computed on read.
+// Who may see a column.
+export const PROPERTY_RESTRICTIONS = ['all', 'editors', 'admins'] as const;
+export type PropertyRestriction = (typeof PROPERTY_RESTRICTIONS)[number];
+
 export const ROLLUP_AGGREGATES = [
   'count',
   'sum',

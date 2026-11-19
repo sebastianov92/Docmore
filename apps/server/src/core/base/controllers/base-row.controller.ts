@@ -27,11 +27,13 @@ import { User, Workspace } from '@docmost/db/types/entity.types';
 import { PageAccessService } from '../../page/page-access/page-access.service';
 import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
 import { OAuthScope } from '../../../common/decorators/oauth-scope.decorator';
+import { BaseVisibilityService } from '../services/base-visibility.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bases/rows')
 export class BaseRowController {
   constructor(
+    private readonly visibility: BaseVisibilityService,
     private readonly baseRowService: BaseRowService,
     private readonly baseRepo: BaseRepo,
     private readonly pageAccessService: PageAccessService,
@@ -53,7 +55,9 @@ export class BaseRowController {
 
     await this.pageAccessService.validateCanEdit(base, user);
 
-    return this.baseRowService.create(user.id, workspace.id, dto);
+    return this.baseRowService.create(user.id, workspace.id, dto, {
+      hidden: await this.visibility.hiddenFor(user, base),
+    });
   }
 
   @HttpCode(HttpStatus.OK)
@@ -72,7 +76,9 @@ export class BaseRowController {
 
     await this.pageAccessService.validateCanView(base, user);
 
-    return this.baseRowService.getRowInfo(dto.rowId, dto.pageId, workspace.id);
+    return this.baseRowService.getRowInfo(dto.rowId, dto.pageId, workspace.id, {
+      hidden: await this.visibility.hiddenFor(user, base),
+    });
   }
 
   @HttpCode(HttpStatus.OK)
@@ -91,7 +97,9 @@ export class BaseRowController {
 
     await this.pageAccessService.validateCanEdit(base, user);
 
-    return this.baseRowService.update(dto, workspace.id, user.id);
+    return this.baseRowService.update(dto, workspace.id, user.id, {
+      hidden: await this.visibility.hiddenFor(user, base),
+    });
   }
 
   @HttpCode(HttpStatus.OK)
@@ -149,7 +157,9 @@ export class BaseRowController {
 
     await this.pageAccessService.validateCanView(base, user);
 
-    return this.baseRowService.list(dto, pagination, workspace.id);
+    return this.baseRowService.list(dto, pagination, workspace.id, {
+      hidden: await this.visibility.hiddenFor(user, base),
+    });
   }
 
   @HttpCode(HttpStatus.OK)
@@ -168,7 +178,9 @@ export class BaseRowController {
 
     await this.pageAccessService.validateCanView(base, user);
 
-    return this.baseRowService.count(dto, workspace.id);
+    return this.baseRowService.count(dto, workspace.id, {
+      hidden: await this.visibility.hiddenFor(user, base),
+    });
   }
 
   @HttpCode(HttpStatus.OK)

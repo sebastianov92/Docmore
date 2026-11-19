@@ -65,6 +65,74 @@ export class BaseRowRepo {
       .executeTakeFirst()) as BaseRow | undefined;
   }
 
+  // Also deleted rows (history restores them).
+  async findByIdIncludingDeleted(
+    rowId: string,
+    opts: WorkspaceOpts,
+  ): Promise<(BaseRow & { deletedAt: Date | null }) | undefined> {
+    const db = dbOrTx(this.db, opts.trx);
+    return (await db
+      .selectFrom('baseRows')
+      .select([...BASE_ROW_COLUMNS, 'deletedAt'])
+      .where('id', '=', rowId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .executeTakeFirst()) as any;
+  }
+
+  async findDeletedSince(
+    pageId: string,
+    workspaceId: string,
+    since: Date,
+    limit = 500,
+  ): Promise<BaseRow[]> {
+    return (await this.db
+      .selectFrom('baseRows')
+      .select(BASE_ROW_COLUMNS)
+      .where('pageId', '=', pageId)
+      .where('workspaceId', '=', workspaceId)
+      .where('deletedAt', 'is not', null)
+      .where('deletedAt', '>=', since)
+      .orderBy('deletedAt', 'desc')
+      .limit(limit)
+      .execute()) as BaseRow[];
+  }
+
+  // Replaces the whole cell set (history restore) and brings a deleted row
+  // back when asked.
+  async replaceCells(
+    rowId: string,
+    cells: Record<string, unknown>,
+    opts: { pageId: string; workspaceId: string; actorId?: string | null; undelete?: boolean; trx?: KyselyTransaction },
+  ): Promise<BaseRow | undefined> {
+    const db = dbOrTx(this.db, opts.trx);
+    return (await db
+      .updateTable('baseRows')
+      .set({
+        cells: cells as any,
+        updatedAt: new Date(),
+        lastUpdatedById: opts.actorId ?? null,
+        ...(opts.undelete ? { deletedAt: null } : {}),
+      })
+      .where('id', '=', rowId)
+      .where('pageId', '=', opts.pageId)
+      .where('workspaceId', '=', opts.workspaceId)
+      .returning(BASE_ROW_COLUMNS)
+      .executeTakeFirst()) as BaseRow | undefined;
+  }
+
+  async undeleteMany(rowIds: string[], pageId: string, workspaceId: string): Promise<number> {
+    if (rowIds.length === 0) return 0;
+    const res = await this.db
+      .updateTable('baseRows')
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where('id', 'in', rowIds)
+      .where('pageId', '=', pageId)
+      .where('workspaceId', '=', workspaceId)
+      .where('deletedAt', 'is not', null)
+      .executeTakeFirst();
+    return Number(res.numUpdatedRows ?? 0);
+  }
+
   async findByIds(
     rowIds: string[],
     opts: WorkspaceOpts,

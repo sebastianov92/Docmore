@@ -25,6 +25,8 @@ type BaseRowUpdated = {
   pageId: string;
   rowId: string;
   updatedCells: Record<string, unknown>;
+  // restricted cells never travel; readers allowed to see them refetch
+  restrictedCellIds?: string[];
   requestId?: string | null;
 };
 
@@ -184,6 +186,9 @@ export function useBaseSocket(pageId: string | undefined): void {
               };
             },
           );
+          if ((e as any).restrictedCellIds?.length) {
+            queryClient.invalidateQueries({ queryKey: ["base-rows", pageId] });
+          }
           break;
         }
         case "base:row:updated": {
@@ -214,6 +219,9 @@ export function useBaseSocket(pageId: string | undefined): void {
                     })),
                   },
           );
+          if (e.restrictedCellIds?.length) {
+            queryClient.invalidateQueries({ queryKey: ["base-rows", pageId] });
+          }
           break;
         }
         case "base:row:deleted": {

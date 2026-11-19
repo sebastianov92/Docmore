@@ -31,13 +31,17 @@ export class CommentRepo {
       .executeTakeFirst();
   }
 
-  async findPageComments(pageId: string, pagination: PaginationOptions) {
-    const query = this.db
+  async findPageComments(pageId: string, pagination: PaginationOptions, baseRowId?: string) {
+    let query = this.db
       .selectFrom('comments')
       .selectAll('comments')
       .select((eb) => this.withCreator(eb))
       .select((eb) => this.withResolvedBy(eb))
       .where('pageId', '=', pageId);
+    // page comments and row comments are separate threads
+    query = baseRowId
+      ? query.where('baseRowId', '=', baseRowId)
+      : query.where('baseRowId', 'is', null);
 
     return executeWithCursorPagination(query, {
       perPage: pagination.limit,

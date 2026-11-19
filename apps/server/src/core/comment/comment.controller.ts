@@ -103,7 +103,7 @@ export class CommentController {
 
     await this.pageAccessService.validateCanView(page, user);
 
-    return this.commentService.findByPageId(page.id, pagination);
+    return this.commentService.findByPageId(page.id, pagination, input.baseRowId);
   }
 
   @ApiKeyScope('read')
