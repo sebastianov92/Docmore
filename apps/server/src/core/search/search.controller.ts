@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Post,
   UseGuards,
+  Inject,
 } from '@nestjs/common';
 import { SearchService } from './search.service';
 import {
@@ -36,6 +37,9 @@ import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { ShareService } from '../share/share.service';
 import { ShareRepo } from '@docmost/db/repos/share/share.repo';
 import { BaseRowSearchService } from '../base/search/base-row-search.service';
+import {  AUDIT_SERVICE,  IAuditService, } from '../../integrations/audit/audit.service';
+import { AuditEvent, AuditResource } from '../../common/events/audit-events';
+import { UserRole } from '../../common/helpers/types/permission';
 
 @UseGuards(JwtAuthGuard)
 @Controller('search')
@@ -51,6 +55,7 @@ export class SearchController {
     private readonly shareService: ShareService,
     private readonly shareRepo: ShareRepo,
     private moduleRef: ModuleRef,
+    @Inject(AUDIT_SERVICE) private readonly auditService: IAuditService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -72,6 +77,27 @@ export class SearchController {
       if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
         throw new ForbiddenException();
       }
+    }
+
+    // Admin content search: owners and admins may look across every space.
+    // Audited, and always served by Postgres (Typesense indexes by member).
+    const allSpaces =
+      searchDto.allSpaces === true &&
+      !searchDto.spaceId &&
+      (user.role === UserRole.OWNER || user.role === UserRole.ADMIN);
+    if (allSpaces) {
+      this.auditService.log({
+        event: AuditEvent.SEARCH_ADMIN_CONTENT,
+        resourceType: AuditResource.WORKSPACE,
+        resourceId: workspace.id,
+        metadata: { query: (searchDto.query ?? '').slice(0, 200) },
+      });
+      const results = await this.searchService.searchPage(searchDto, {
+        userId: user.id,
+        workspaceId: workspace.id,
+        allSpaces: true,
+      });
+      return this.withBaseRows(results, searchDto, user.id, workspace.id);
     }
 
     const results =

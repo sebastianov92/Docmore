@@ -52,6 +52,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api', {
     exclude: [
       'robots.txt',
+      'sitemap.xml',
       'share/:shareId/p/:pageSlug',
       'mcp',
       '.well-known/oauth-authorization-server',

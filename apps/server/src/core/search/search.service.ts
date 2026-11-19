@@ -28,6 +28,8 @@ export class SearchService {
       userId?: string;
       workspaceId: string;
       publicPageIds?: string[];
+      // Admin content search: every space of the workspace.
+      allSpaces?: boolean;
     },
   ): Promise<{ items: SearchResponseDto[] }> {
     const query = searchParams.query?.trim() ?? '';
@@ -112,6 +114,22 @@ export class SearchService {
 
     if (searchParams.spaceId && opts.userId) {
       queryResults = queryResults.where('spaceId', '=', searchParams.spaceId);
+    } else if (opts.userId && opts.allSpaces && !searchParams.spaceId) {
+      // admin content search: the whole workspace, membership aside
+      queryResults = queryResults
+        .where(
+          'spaceId',
+          'in',
+          this.db
+            .selectFrom('spaces')
+            .select('spaces.id')
+            .where('spaces.workspaceId', '=', opts.workspaceId)
+            .where('spaces.deletedAt', 'is', null)
+            .$if(!searchParams.includeArchived, (qb) =>
+              qb.where('spaces.archivedAt', 'is', null),
+            ),
+        )
+        .where('workspaceId', '=', opts.workspaceId);
     } else if (opts.userId && !searchParams.spaceId) {
       // only search spaces the user is a member of
       queryResults = queryResults

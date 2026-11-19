@@ -36,7 +36,8 @@ describe('LicenseCheckService without the EE module', () => {
     expect(service.hasFeature(null, 'siem')).toBe(false);
     expect(service.hasFeature(null, 'import:confluence')).toBe(true);
     expect(service.hasFeature(null, 'ai')).toBe(true);
-    expect(service.hasFeature(null, 'mcp')).toBe(false);
+    // MCP ships built in since the MCP + OAuth batch.
+    expect(service.hasFeature(null, 'mcp')).toBe(true);
     expect(service.hasFeature(null, 'scim')).toBe(false);
     expect(service.isValidEELicense(null)).toBe(false);
   });

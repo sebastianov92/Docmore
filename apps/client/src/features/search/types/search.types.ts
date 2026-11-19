@@ -41,6 +41,8 @@ export interface IPageSearchParams {
   query: string;
   spaceId?: string;
   shareId?: string;
+  // owners/admins: every space of the workspace
+  allSpaces?: boolean;
   creatorId?: string;
   labelIds?: string[];
   titleOnly?: boolean;

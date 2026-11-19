@@ -4,10 +4,15 @@ import { PublicSpaceSeoController } from './public-space-seo.controller';
 import { PublicSpaceService } from './public-space.service';
 import { ShareModule } from '../share/share.module';
 import { TransclusionModule } from '../page/transclusion/transclusion.module';
+import { SitemapController } from './sitemap.controller';
 
 @Module({
   imports: [ShareModule, TransclusionModule],
-  controllers: [PublicSpaceController, PublicSpaceSeoController],
+  controllers: [
+    PublicSpaceController,
+    PublicSpaceSeoController,
+    SitemapController,
+  ],
   providers: [PublicSpaceService],
   exports: [PublicSpaceService],
 })

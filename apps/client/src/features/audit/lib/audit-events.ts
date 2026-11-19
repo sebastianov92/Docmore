@@ -20,6 +20,8 @@ const PHRASES: Record<string, string> = {
   "user.mfa_disabled": "Disabled two-factor authentication",
   "user.mfa_backup_code_generated": "Generated two-factor backup codes",
   "user.password_reset_requested": "Requested a password reset",
+  "search.admin_content": "Searched all content as admin",
+  "audit.exported": "Exported the audit log",
   "page.trashed": "Moved page to trash",
   "page.restriction_removed": "Removed page restriction",
   "page.permission_role_changed": "Changed page permission",
@@ -78,6 +80,8 @@ export const EVENT_FILTER_GROUPS: EventGroup[] = [
   {
     group: "Workspace",
     events: [
+      "search.admin_content",
+      "audit.exported",
       "workspace.updated",
       "workspace.invite_created",
       "workspace.invite_resent",

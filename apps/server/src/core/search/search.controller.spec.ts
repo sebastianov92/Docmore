@@ -44,6 +44,7 @@ describe('SearchController public-space-search gate', () => {
       {} as any,
       {} as any,
       {} as any,
+      { log: jest.fn() } as any,
     );
     return { controller, searchService, publicSpaceService, pageRepo };
   }
@@ -150,6 +151,7 @@ describe('SearchController share-search gate', () => {
       shareService as any,
       shareRepo as any,
       {} as any,
+      { log: jest.fn() } as any,
     );
     const searchTypesense = jest
       .spyOn(controller, 'searchTypesense')

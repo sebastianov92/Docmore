@@ -12,6 +12,9 @@ import { EVENT_FILTER_GROUPS, eventLabel } from "@/features/audit/lib/audit-even
 import { toDateParam } from "@/features/audit/lib/audit-time";
 import AuditLogTable from "@/features/audit/components/audit-log-table";
 import AuditRetentionSetting from "@/features/audit/components/audit-retention-setting";
+import { exportAuditCsv } from "@/features/audit/services/audit-service";
+import { IconDownload } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
 
 // Loaded on demand: the date picker is heavy and only this page uses a range.
 const DatePickerInput = lazy(() =>
@@ -40,6 +43,18 @@ export default function AuditLogs() {
     [cursor, event, range],
   );
   const { data, isLoading, isFetching } = useAuditLogsQuery(params);
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportAuditCsv(params);
+    } catch {
+      notifications.show({ color: "red", message: t("Failed to export CSV") });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!isOwner) {
     return null;
@@ -110,6 +125,16 @@ export default function AuditLogs() {
             {t("Clear filters")}
           </Button>
         )}
+        <Button
+          variant="default"
+          size="sm"
+          leftSection={<IconDownload size={14} />}
+          loading={exporting}
+          onClick={handleExport}
+          data-testid="audit-export"
+        >
+          {t("Export CSV")}
+        </Button>
         {isFetching && !isLoading && (
           <Text size="xs" c="dimmed">
             {t("Refreshing…")}

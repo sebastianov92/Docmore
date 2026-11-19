@@ -25,6 +25,11 @@ export class SearchDTO {
   @IsString()
   shareId?: string;
 
+  // Owners and admins: search every space, not only the ones they belong to.
+  @IsOptional()
+  @IsBoolean()
+  allSpaces?: boolean;
+
   @IsOptional()
   @IsUUID()
   creatorId?: string;

@@ -10,6 +10,10 @@ import { htmlEscape } from '../../common/helpers/html-escaper';
 import { PublicSpaceService } from './public-space.service';
 import { getWorkspaceDefaultLocale } from '../workspace/workspace.util';
 import { DEFAULT_LOCALE } from '../workspace/workspace.constants';
+import { InjectKysely } from 'nestjs-kysely';
+import { KyselyDB } from '@docmost/db/types/kysely.types';
+import { pageExcerpt, seoMetaTags } from './seo.util';
+import { pageSlug as pageSlugOf } from './sitemap.controller';
 
 @Controller('docs')
 export class PublicSpaceSeoController {
@@ -19,6 +23,7 @@ export class PublicSpaceSeoController {
     private readonly publicSpaceService: PublicSpaceService,
     private workspaceRepo: WorkspaceRepo,
     private environmentService: EnvironmentService,
+    @InjectKysely() private readonly db: KyselyDB,
   ) {}
 
   /*
@@ -102,6 +107,8 @@ export class PublicSpaceSeoController {
 
     let title: string = null;
     let searchIndexing = false;
+    let description = '';
+    let canonical = `${this.environmentService.getAppUrl().replace(/\/$/, '')}/docs/${encodeURIComponent(spaceSlug)}`;
 
     try {
       if (pageSlug) {
@@ -114,6 +121,8 @@ export class PublicSpaceSeoController {
         );
         title = pageData.page?.title ?? pageData.space.name;
         searchIndexing = pageData.searchIndexing;
+        description = await pageExcerpt(this.db, pageData.page?.id);
+        canonical = `${canonical}/${pageSlugOf(pageData.page?.title, pageData.page?.slugId ?? pageSlugId)}`;
       } else {
         const info = await this.publicSpaceService.getPublicSpaceInfo(
           spaceSlug,
@@ -133,13 +142,12 @@ export class PublicSpaceSeoController {
       rawTitle.length > 80 ? `${rawTitle.slice(0, 77)}…` : rawTitle;
 
     const metaTagVar = '<!--meta-tags-->';
-    const metaTags = [
-      `<meta property="og:title" content="${metaTitle}" />`,
-      `<meta property="twitter:title" content="${metaTitle}" />`,
-      !searchIndexing ? `<meta name="robots" content="noindex" />` : '',
-    ]
-      .filter(Boolean)
-      .join('\n    ');
+    const metaTags = seoMetaTags({
+      title: metaTitle,
+      description: htmlEscape(description),
+      canonical: htmlEscape(canonical),
+      searchIndexing,
+    });
 
     const lang = getWorkspaceDefaultLocale(workspace) ?? DEFAULT_LOCALE;
 

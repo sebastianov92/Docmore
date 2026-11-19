@@ -38,6 +38,7 @@ import classes from "./search-spotlight-filters.module.css";
 import { useAtom } from "jotai";
 import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
 import { LabelFilterMenu } from "./label-filter-menu";
+import { useUserRole } from "@/hooks/use-user-role";
 
 interface SearchSpotlightFiltersProps {
   onFiltersChange?: (filters: any) => void;
@@ -65,6 +66,9 @@ export function SearchSpotlightFilters({
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [titleOnly, setTitleOnly] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
+  // Admin content search: owners and admins may look across every space.
+  const [allSpaces, setAllSpaces] = useState(false);
+  const { isAdmin } = useUserRole();
   const filterMenuTargetRef = useRef<HTMLButtonElement>(null);
   const [openedFilter, setOpenedFilter] = useState<string | null>(null);
   const [visibleFilters, setVisibleFilters] = useState<string[]>([]);
@@ -100,6 +104,7 @@ export function SearchSpotlightFilters({
       labelIds: selectedLabelIds,
       titleOnly,
       includeArchived,
+      allSpaces: isAdmin && allSpaces && !selectedSpaceId,
     });
   }, [
     selectedSpaceId,
@@ -109,6 +114,8 @@ export function SearchSpotlightFilters({
     selectedLabelIds,
     titleOnly,
     includeArchived,
+    allSpaces,
+    isAdmin,
     onFiltersChange,
   ]);
 
@@ -200,6 +207,37 @@ export function SearchSpotlightFilters({
                 alignItems: "center",
                 flexShrink: 0,
               },
+              label: {
+                whiteSpace: "nowrap",
+                paddingRight: "8px",
+                fontSize: "13px",
+                fontWeight: 500,
+              },
+            }}
+          />
+        </div>
+      )}
+
+      {isAdmin && !selectedSpaceId && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: "32px",
+            paddingLeft: "8px",
+            paddingRight: "8px",
+          }}
+        >
+          <Switch
+            checked={allSpaces}
+            onChange={(event) => setAllSpaces(event.currentTarget.checked)}
+            label={t("All content (admin)")}
+            size="sm"
+            color="orange"
+            labelPosition="left"
+            data-testid="search-all-content"
+            styles={{
+              root: { display: "flex", alignItems: "center", flexShrink: 0 },
               label: {
                 whiteSpace: "nowrap",
                 paddingRight: "8px",

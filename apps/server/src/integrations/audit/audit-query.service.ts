@@ -82,6 +82,24 @@ export class AuditQueryService {
     return { items, meta: result.meta };
   }
 
+  // Every matching entry, newest first, for the CSV export (capped).
+  async exportRows(workspaceId: string, dto: AuditListDto, max = 20000) {
+    const rows: any[] = [];
+    let cursor: string | undefined = undefined;
+    while (rows.length < max) {
+      const page = await this.list(workspaceId, {
+        ...dto,
+        cursor,
+        beforeCursor: undefined,
+        limit: 100,
+      });
+      rows.push(...page.items);
+      if (!page.meta?.hasNextPage || !page.meta?.nextCursor) break;
+      cursor = page.meta.nextCursor;
+    }
+    return rows.slice(0, max);
+  }
+
   async retentionDays(workspaceId: string): Promise<number | null> {
     const row = await this.db
       .selectFrom('workspaces')

@@ -147,6 +147,9 @@ export const AuditEvent = {
   ANNOUNCEMENT_ARCHIVED: 'announcement.archived',
   ANNOUNCEMENT_UNARCHIVED: 'announcement.unarchived',
   ANNOUNCEMENT_DELETED: 'announcement.deleted',
+  // Admin tools
+  SEARCH_ADMIN_CONTENT: 'search.admin_content',
+  AUDIT_EXPORTED: 'audit.exported',
 } as const;
 
 export type AuditEventType = (typeof AuditEvent)[keyof typeof AuditEvent];

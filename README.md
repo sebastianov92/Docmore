@@ -192,6 +192,17 @@ outside the `ee/` directories, so they are always on:
   from upstream's AGPL base-kan branch, before the feature moved to the
   enterprise tree, adapted to the current schema; the formula engine is
   the AGPL copy in `packages/base-formula-core`.
+  Also list and gallery views (grouping, cover image, card size), row
+  templates, a structure lock, phone and auto-numbered ID properties
+  (v3).
+- **Share links** can ask for a password and expire on a date; readers
+  unlock once per browser session.
+- **Admin content search**: owners and admins can search every space
+  from the search dialog; each such search is audited.
+- **Audit export**: the audit log downloads as CSV with the same filters.
+- **Sitemap and SEO**: `/sitemap.xml` lists indexed public spaces and
+  links, `/robots.txt` points to it, and public pages carry description,
+  canonical and Open Graph metas.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
