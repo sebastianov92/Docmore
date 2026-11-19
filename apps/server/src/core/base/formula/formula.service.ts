@@ -135,8 +135,8 @@ export class FormulaService {
 }
 
 function asResultType(type: string): "number" | "string" | "boolean" | "date" | "null" {
-  if (type === "number") return "number";
-  if (type === "text" || type === "url" || type === "email") return "string";
+  if (type === "number" || type === "id") return "number";
+  if (type === "text" || type === "longText" || type === "url" || type === "email" || type === "phone") return "string";
   if (type === "checkbox") return "boolean";
   if (type === "date" || type === "createdAt" || type === "lastEditedAt") return "date";
   if (type === "formula") return "number"; // overridden by the nested formula's own resultType at runtime

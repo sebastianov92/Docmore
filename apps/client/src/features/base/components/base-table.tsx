@@ -19,6 +19,7 @@ type BaseTableProps = {
   onCellUpdate: (rowId: string, propertyId: string, value: unknown) => void;
   onAddRow?: () => void;
   editable?: boolean;
+  canEditStructure?: boolean;
   onColumnReorder: (columnId: string, finishIndex: number) => void;
   onResizeEnd: () => void;
   onRowReorder: (
@@ -43,6 +44,7 @@ export function BaseTable({
   onCellUpdate,
   onAddRow,
   editable,
+  canEditStructure,
   onColumnReorder,
   onResizeEnd,
   onRowReorder,
@@ -55,7 +57,7 @@ export function BaseTable({
       properties={base.properties}
       onCellUpdate={onCellUpdate}
       onAddRow={onAddRow}
-      canAddProperty={editable !== false}
+      canAddProperty={editable !== false && canEditStructure !== false}
       pageId={pageId}
       onColumnReorder={onColumnReorder}
       onResizeEnd={onResizeEnd}

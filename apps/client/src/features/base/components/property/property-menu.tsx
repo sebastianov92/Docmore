@@ -16,6 +16,7 @@ import {
   IconPencil,
   IconChevronRight,
   IconSettings,
+  IconLock,
 } from "@tabler/icons-react";
 import {
   IBaseProperty,
@@ -36,6 +37,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { isSystemPropertyType } from "@/features/base/hooks/use-base-table";
 import cellClasses from "@/features/base/styles/cells.module.css";
+import { useBaseQuery } from "@/features/base/queries/base-query";
 
 type PropertyMenuContentProps = {
   property: IBaseProperty;
@@ -73,6 +75,8 @@ export function PropertyMenuContent({
   const closeRequestRef = useRef(closeRequest);
 
   const renameDirty = renameValue !== property.name;
+  const { data: base } = useBaseQuery(pageId);
+  const baseLocked = Boolean(base?.baseLocked);
 
   const updatePropertyMutation = useUpdatePropertyMutation();
   const deletePropertyMutation = useDeletePropertyMutation();
@@ -243,7 +247,20 @@ export function PropertyMenuContent({
 
   return (
     <>
-      {panel === "main" && (
+      {panel === "main" && baseLocked && (
+        <Stack gap={4} p="sm">
+          <Group gap={6} wrap="nowrap">
+            <IconLock size={14} />
+            <Text size="sm" fw={500}>
+              {t("Base locked")}
+            </Text>
+          </Group>
+          <Text size="xs" c="dimmed">
+            {t("Unlock the base from the toolbar to change its properties.")}
+          </Text>
+        </Stack>
+      )}
+      {panel === "main" && !baseLocked && (
         <MainPanel
           property={property}
           onRename={() => setPanel("rename")}

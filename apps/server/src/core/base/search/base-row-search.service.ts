@@ -72,6 +72,7 @@ export class BaseRowSearchService {
       .where('p.isBase', '=', true)
       .where('p.deletedAt', 'is', null)
       .where('r.deletedAt', 'is', null)
+      .where('r.isTemplate', '=', false)
       .where(
         'p.spaceId',
         'in',

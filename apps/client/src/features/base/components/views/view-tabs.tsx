@@ -11,7 +11,25 @@ import {
   Divider,
   Menu,
 } from "@mantine/core";
-import { IconPlus, IconPencil, IconTrash, IconTable, IconLayoutKanban, IconCalendar } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconPencil,
+  IconTrash,
+  IconTable,
+  IconLayoutKanban,
+  IconCalendar,
+  IconLayoutList,
+  IconLayoutGrid,
+} from "@tabler/icons-react";
+import { BaseViewType } from "@/features/base/types/base.types";
+
+export const VIEW_ICONS: Record<BaseViewType, typeof IconTable> = {
+  table: IconTable,
+  kanban: IconLayoutKanban,
+  calendar: IconCalendar,
+  list: IconLayoutList,
+  gallery: IconLayoutGrid,
+};
 import { IBaseView } from "@/features/base/types/base.types";
 import {
   useUpdateViewMutation,
@@ -25,7 +43,7 @@ type ViewTabsProps = {
   activeViewId: string | undefined;
   pageId: string;
   onViewChange: (viewId: string) => void;
-  onAddView?: (type?: "table" | "kanban" | "calendar") => void;
+  onAddView?: (type?: BaseViewType) => void;
 };
 
 export function ViewTabs({
@@ -126,6 +144,12 @@ export function ViewTabs({
             </Menu.Item>
             <Menu.Item leftSection={<IconCalendar size={14} />} onClick={() => onAddView("calendar")}>
               {t("Calendar")}
+            </Menu.Item>
+            <Menu.Item leftSection={<IconLayoutList size={14} />} onClick={() => onAddView("list")}>
+              {t("List")}
+            </Menu.Item>
+            <Menu.Item leftSection={<IconLayoutGrid size={14} />} onClick={() => onAddView("gallery")}>
+              {t("Gallery")}
             </Menu.Item>
           </Menu.Dropdown>
         </Menu>
@@ -236,7 +260,7 @@ function ViewTab({
           }}
         >
           <Group gap={6} wrap="nowrap">
-            <IconTable size={14} opacity={0.5} />
+            <TabIcon type={view.type} />
             <Text
               size="sm"
               c={isActive ? undefined : "dimmed"}
@@ -282,4 +306,9 @@ function ViewTab({
       </Popover.Dropdown>
     </Popover>
   );
+}
+
+function TabIcon({ type }: { type: BaseViewType }) {
+  const Icon = VIEW_ICONS[type] ?? IconTable;
+  return <Icon size={14} opacity={0.5} />;
 }

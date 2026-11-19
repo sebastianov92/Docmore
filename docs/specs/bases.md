@@ -138,3 +138,12 @@ Orden de commits: uno por fase, push al terminar F5 (como las etapas anteriores)
 3. Import CSV en v1 (F4, recomendado) o dejarlo para después.
 4. Compartir bases en páginas públicas: fuera de v1 (recomendado).
 5. Caché DuckDB de `base-duck`: no (recomendado; Postgres con índices parciales basta para el homelab).
+
+## 14. v3 (hecho el 2026-11-19, migración `20261119T110000-bases-v3`)
+
+- **Vistas lista y galería**: `base_views.type` admite `list` y `gallery`. Lista = filas compactas (título + propiedades llenas en línea), agrupación opcional por select/estado con cabeceras plegables (reusa `partitionRowsByGroup`). Galería = cuadrícula de tarjetas; `config.coverPropertyId` (propiedad archivo, primera imagen) y `config.cardSize` (`small|medium|large`); al borrar la propiedad portada el config la suelta.
+- **Plantillas de fila**: `base_rows.is_template`. `POST /bases/rows/create` con `isTemplate: true` crea una plantilla (sin número); con `fromTemplateId` copia sus celdas (las del llamador ganan, fórmulas se recalculan). `POST /bases/rows` con `templates: true` lista solo plantillas; el listado normal, el conteo, el export, la búsqueda global y el stream las excluyen. Cliente: menú Plantillas en la barra (`base-templates` query aparte de `base-rows`), el modal de fila abre plantillas con una insignia.
+- **Bloqueo de base**: `pages.base_locked`. `POST /bases/update {locked}`; con el candado puesto el servidor responde 403 a crear/editar/borrar/reordenar propiedades, crear/editar/borrar vistas e importar CSV (`assertBaseUnlocked`); las filas siguen editables. Cliente: candado en la barra, menú de propiedad con aviso, sin «+» de propiedad ni de vista.
+- **Propiedad teléfono** (`phone`): texto validado (`^\+?[\d(][\d\s().-]{3,30}$` y al menos 4 dígitos), kind TEXT (filtros de texto, cadena en fórmulas), celda con enlace `tel:`, tipo importable desde CSV (detección por patrón).
+- **Propiedad ID** (`id`, tipo de sistema): `base_rows.row_no` asignado al insertar bajo `pg_advisory_xact_lock(hashtext(page_id))` como `max(row_no)+1` (los borrados no se reutilizan; plantillas sin número; el import CSV numera por lote; duplicar página copia los números). `typeOptions.prefix` para mostrar `INV-12`. Columna de sistema `rowNo` en filtros (numéricos) y orden; export CSV con prefijo; no convertible.
+- Batería: `bases-v3-cases.sh` (teléfono, numeración, plantillas, bloqueo, vistas, duplicado).

@@ -53,6 +53,7 @@ import {
 import { FileInterceptor } from '../../../common/interceptors/file.interceptor';
 import { BaseCsvImportService } from '../import/base-csv-import.service';
 import { CSV_IMPORT_LIMITS } from '../import/base-csv-import.schema';
+import { assertBaseUnlocked } from '../services/base-lock';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bases')
@@ -274,6 +275,7 @@ export class BaseController {
       throw new NotFoundException('Base not found');
     }
     await this.pageAccessService.validateCanEdit(base, user);
+    assertBaseUnlocked(base);
     const task = await this.baseCsvImportService.start(base, user, spec, file);
     this.audit(AuditEvent.BASE_IMPORTED, base, {
       fileTaskId: task.id,

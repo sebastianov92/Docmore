@@ -16,6 +16,8 @@ import {
   IconClockEdit,
   IconUserEdit,
   IconMathFunction,
+  IconPhone,
+  IconId,
 } from "@tabler/icons-react";
 import type {
   BasePropertyType,
@@ -194,6 +196,27 @@ export const PROPERTY_TYPE_REGISTRY: Record<
     isSystem: false,
     hasOptions: true,
   },
+  phone: {
+    type: "phone",
+    cellComponent: CellEmail,
+    icon: IconPhone,
+    labelKey: "Phone",
+    filterOperators: ["eq", "neq", "contains", "ncontains", "isEmpty", "isNotEmpty"],
+    filterInput: "text",
+    isSystem: false,
+    hasOptions: false,
+  },
+  id: {
+    type: "id",
+    cellComponent: CellText,
+    icon: IconId,
+    labelKey: "ID",
+    filterOperators: ["eq", "neq", "gt", "lt", "isEmpty", "isNotEmpty"],
+    filterInput: "number",
+    isSystem: true,
+    hasOptions: true,
+    systemAccessor: (row) => (row as any).rowNo ?? null,
+  },
   createdAt: {
     type: "createdAt",
     cellComponent: CellCreatedAt,
@@ -245,7 +268,7 @@ export const DEFAULT_FILTER_OPERATORS = ["eq", "neq", "isEmpty", "isNotEmpty"];
 
 export const PROPERTY_PICKER_ORDER: BasePropertyType[] = [
   "text", "longText", "number", "select", "status", "multiSelect", "date",
-  "person", "file", "formula", "page", "checkbox", "url", "email",
+  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "id",
   "createdAt", "lastEditedAt", "lastEditedBy",
 ];
 

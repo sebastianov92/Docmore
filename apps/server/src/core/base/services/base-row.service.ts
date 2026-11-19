@@ -86,9 +86,25 @@ export class BaseRowService {
 
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
 
+    // A template seeds the new row; the caller's cells win over it.
+    let seed: Record<string, unknown> = {};
+    if (dto.fromTemplateId) {
+      const template = await this.baseRowRepo.findById(dto.fromTemplateId, {
+        workspaceId,
+      });
+      if (!template || template.pageId !== dto.pageId || !template.isTemplate) {
+        throw new BadRequestException('Invalid fromTemplateId');
+      }
+      seed = { ...((template.cells as Record<string, unknown>) ?? {}) };
+      for (const p of properties) {
+        if (p.type === 'formula') delete seed[p.id];
+      }
+    }
+
     let validatedCells: Record<string, unknown> = {};
-    if (dto.cells && Object.keys(dto.cells).length > 0) {
-      validatedCells = this.validateCells(dto.cells, properties);
+    const incoming = { ...seed, ...(dto.cells ?? {}) };
+    if (Object.keys(incoming).length > 0) {
+      validatedCells = this.validateCells(incoming, properties);
     }
 
     // On create, treat every user-provided cell plus every formula property
@@ -110,6 +126,7 @@ export class BaseRowService {
       position,
       creatorId: userId,
       workspaceId,
+      isTemplate: dto.isTemplate === true,
     });
 
     const event: BaseRowCreatedEvent = {
@@ -260,6 +277,7 @@ export class BaseRowService {
       search,
       schema,
       pagination,
+      templates: dto.templates === true,
     });
     const references = await this.collectReferences(
       result.items as BaseRow[],

@@ -7,6 +7,8 @@ import {
   IconEye,
   IconDownload,
   IconUpload,
+  IconLock,
+  IconLockOpen,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import {
@@ -16,6 +18,7 @@ import {
   ViewSortConfig,
   FilterCondition,
   FilterGroup,
+  BaseViewType,
 } from "@/features/base/types/base.types";
 import { exportBaseToCsv } from "@/features/base/services/base-service";
 import { ViewTabs } from "@/features/base/components/views/view-tabs";
@@ -30,6 +33,8 @@ import classes from "@/features/base/styles/grid.module.css";
 import { CsvImportModal } from "@/features/base/csv-import/csv-import-modal";
 import { useAtomValue } from "jotai";
 import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
+import { RowTemplatesMenu } from "@/features/base/components/templates/row-templates-menu";
+import { GalleryControls } from "@/features/base/components/views/gallery/gallery-controls";
 
 type BaseToolbarProps = {
   base: IBase;
@@ -41,12 +46,17 @@ type BaseToolbarProps = {
   views: IBaseView[];
   table: Table<IBaseRow>;
   onViewChange: (viewId: string) => void;
-  onAddView?: (type?: "table" | "kanban" | "calendar") => void;
+  onAddView?: (type?: BaseViewType) => void;
   onPersistViewConfig: () => void;
   onDraftSortsChange: (sorts: ViewSortConfig[] | undefined) => void;
   onDraftFiltersChange: (filter: FilterGroup | undefined) => void;
   // Shows the actions that change data (CSV import).
   canEdit?: boolean;
+  // Structure lock state and its toggle (editors only).
+  locked?: boolean;
+  onToggleLock?: () => void;
+  // Opens a row in the detail modal (templates menu).
+  onOpenRow?: (rowId: string) => void;
 };
 
 export function BaseToolbar({
@@ -60,6 +70,9 @@ export function BaseToolbar({
   onDraftSortsChange,
   onDraftFiltersChange,
   canEdit = false,
+  locked = false,
+  onToggleLock,
+  onOpenRow,
 }: BaseToolbarProps) {
   const { t } = useTranslation();
   const [sortOpened, setSortOpened] = useState(false);
@@ -151,6 +164,8 @@ export function BaseToolbar({
   const updateViewMutation = useUpdateViewMutation();
   const isKanban = activeView?.type === "kanban";
   const isCalendar = activeView?.type === "calendar";
+  const isList = activeView?.type === "list";
+  const isGallery = activeView?.type === "gallery";
 
   const handleGroupByChange = useCallback(
     (propertyId: string) => {
@@ -159,6 +174,45 @@ export function BaseToolbar({
         viewId: activeView.id,
         pageId: base.id,
         config: { ...activeView.config, groupByPropertyId: propertyId },
+      });
+    },
+    [activeView, base.id, updateViewMutation],
+  );
+
+  // Null deletes the key on the server (config patch semantics).
+  const handleGroupByClear = useCallback(() => {
+    if (!activeView) return;
+    updateViewMutation.mutate({
+      viewId: activeView.id,
+      pageId: base.id,
+      config: {
+        ...activeView.config,
+        groupByPropertyId: null,
+        hiddenChoiceIds: null,
+        choiceOrder: null,
+      } as any,
+    });
+  }, [activeView, base.id, updateViewMutation]);
+
+  const handleCoverChange = useCallback(
+    (propertyId: string | null) => {
+      if (!activeView) return;
+      updateViewMutation.mutate({
+        viewId: activeView.id,
+        pageId: base.id,
+        config: { ...activeView.config, coverPropertyId: propertyId } as any,
+      });
+    },
+    [activeView, base.id, updateViewMutation],
+  );
+
+  const handleCardSizeChange = useCallback(
+    (cardSize: "small" | "medium" | "large") => {
+      if (!activeView) return;
+      updateViewMutation.mutate({
+        viewId: activeView.id,
+        pageId: base.id,
+        config: { ...activeView.config, cardSize },
       });
     },
     [activeView, base.id, updateViewMutation],
@@ -224,8 +278,52 @@ export function BaseToolbar({
           size="xs"
         />
       )}
+      {isList && canEdit && (
+        <KanbanGroupByPicker
+          properties={base.properties}
+          value={activeView?.config?.groupByPropertyId ?? null}
+          onChange={handleGroupByChange}
+          onClear={handleGroupByClear}
+          size="xs"
+        />
+      )}
+      {isGallery && canEdit && (
+        <GalleryControls
+          properties={base.properties}
+          coverPropertyId={activeView?.config?.coverPropertyId ?? null}
+          cardSize={activeView?.config?.cardSize ?? "medium"}
+          onCoverChange={handleCoverChange}
+          onSizeChange={handleCardSizeChange}
+        />
+      )}
 
       <div className={classes.toolbarRight} ref={toolbarRightRef}>
+        {canEdit && !publicCtx && onOpenRow && (
+          <RowTemplatesMenu base={base} onOpenRow={onOpenRow} />
+        )}
+        {!publicCtx && (locked || onToggleLock) && (
+          <Tooltip
+            label={
+              locked
+                ? onToggleLock
+                  ? t("Locked: properties and views can't change. Click to unlock.")
+                  : t("Locked: properties and views can't change.")
+                : t("Lock base")
+            }
+          >
+            <ActionIcon
+              variant="subtle"
+              size="sm"
+              color={locked ? "orange" : "gray"}
+              onClick={onToggleLock}
+              disabled={!onToggleLock}
+              aria-label={locked ? t("Unlock base") : t("Lock base")}
+              data-testid="base-lock-toggle"
+            >
+              {locked ? <IconLock size={16} /> : <IconLockOpen size={16} />}
+            </ActionIcon>
+          </Tooltip>
+        )}
         {!publicCtx && (
           <Tooltip label={t("Export CSV")}>
             <ActionIcon

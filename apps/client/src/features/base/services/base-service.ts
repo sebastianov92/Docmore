@@ -198,6 +198,7 @@ export async function listRows(
     filter?: FilterNode;
     sorts?: ViewSortConfig[];
     search?: SearchSpec;
+    templates?: boolean;
   },
 ): Promise<IPagination<IBaseRow> & { references?: RowReferences }> {
   const req = await api.post("/bases/rows", { pageId, ...params });

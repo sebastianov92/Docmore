@@ -53,6 +53,10 @@ export function stripPropertyFromViewConfig(
     delete next.choiceOrder;
   }
 
+  if ((config as any).coverPropertyId === propertyId) {
+    delete next.coverPropertyId;
+  }
+
   if (config.visiblePropertyIds) {
     const kept = config.visiblePropertyIds.filter((id) => id !== propertyId);
     if (kept.length > 0) next.visiblePropertyIds = kept;

@@ -48,7 +48,12 @@ export function buildSorts(
         key,
         expression: sql`${sql.ref(sysCol)}`,
         direction: dir,
-        valueType: prop.type === 'lastEditedBy' ? 'text' : 'date',
+        valueType:
+          prop.type === 'lastEditedBy'
+            ? 'text'
+            : prop.type === 'id'
+              ? 'numeric'
+              : 'date',
       });
       continue;
     }

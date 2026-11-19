@@ -19,6 +19,8 @@ export type BasePropertyType =
   | 'checkbox'
   | 'url'
   | 'email'
+  | 'phone'
+  | 'id'
   | 'createdAt'
   | 'lastEditedAt'
   | 'lastEditedBy'

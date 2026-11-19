@@ -1,4 +1,10 @@
-import { IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateRowDto {
   @IsUUID()
@@ -11,6 +17,15 @@ export class CreateRowDto {
   @IsOptional()
   @IsUUID()
   afterRowId?: string;
+
+  // Template rows are kept apart from the data and seed new rows.
+  @IsOptional()
+  @IsBoolean()
+  isTemplate?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  fromTemplateId?: string;
 
   // Echoed back in the socket event so the originating client can skip
   // replaying its own write.

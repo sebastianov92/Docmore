@@ -5,6 +5,7 @@ import { BasePropertyType, IBaseProperty, IBaseRow } from "@/features/base/types
 import { CellRenderer } from "@/features/base/components/cells/cell-renderer";
 import { propertyTypes } from "@/features/base/components/property/property-type-picker";
 import classes from "./row-detail-modal.module.css";
+import { getSystemAccessor } from "@/features/base/hooks/use-base-table";
 
 type PropertyRowProps = {
   property: IBaseProperty;
@@ -20,12 +21,14 @@ const READONLY_TYPES = new Set<BasePropertyType>([
   "createdAt",
   "lastEditedAt",
   "lastEditedBy",
+  "id",
 ]);
 
 const ICON_BY_TYPE = new Map(propertyTypes.map((p) => [p.type, p.icon] as const));
 
 export function PropertyRow({ property, row, canEdit, onUpdate }: PropertyRowProps) {
-  const value = (row.cells ?? {})[property.id];
+  const systemAccessor = getSystemAccessor(property.type);
+  const value = systemAccessor ? systemAccessor(row) : (row.cells ?? {})[property.id];
   const [editing, setEditing] = useState(false);
 
   const isReadonlyType = READONLY_TYPES.has(property.type);

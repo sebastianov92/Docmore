@@ -235,6 +235,7 @@ export class BaseService {
       {
         ...(dto.name !== undefined && { title: dto.name }),
         ...(dto.icon !== undefined && { icon: dto.icon }),
+        ...(dto.locked !== undefined && { baseLocked: dto.locked }),
       },
       dto.pageId,
     );

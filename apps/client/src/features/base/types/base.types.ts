@@ -12,6 +12,8 @@ export type BasePropertyType =
   | 'checkbox'
   | 'url'
   | 'email'
+  | 'phone'
+  | 'id'
   | 'createdAt'
   | 'lastEditedAt'
   | 'lastEditedBy'
@@ -68,6 +70,11 @@ export type PersonTypeOptions = {
 
 export type PageTypeOptions = Record<string, never>;
 
+// ID: per-base row number shown with an optional prefix ("INV-12").
+export type IdTypeOptions = {
+  prefix?: string;
+};
+
 export type TypeOptions =
   | SelectTypeOptions
   | NumberTypeOptions
@@ -78,6 +85,7 @@ export type TypeOptions =
   | EmailTypeOptions
   | PersonTypeOptions
   | PageTypeOptions
+  | IdTypeOptions
   | Record<string, unknown>;
 
 export type IBaseProperty = {
@@ -108,6 +116,9 @@ export type IBaseRow = {
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
+  // Per-base number behind the ID property; null on template rows.
+  rowNo?: number | null;
+  isTemplate?: boolean;
 };
 
 export type ViewSortConfig = {
@@ -170,7 +181,12 @@ export type ViewConfig = {
   calendarPropertyId?: string;
   hiddenChoiceIds?: string[];
   choiceOrder?: string[];
+  // Gallery
+  cardSize?: 'small' | 'medium' | 'large';
+  coverPropertyId?: string;
 };
+
+export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery';
 
 export type ReferenceUser = { id: string; name: string | null; avatarUrl: string | null };
 export type ReferencePage = {
@@ -187,7 +203,7 @@ export type IBaseView = {
   id: string;
   pageId: string;
   name: string;
-  type: 'table' | 'kanban' | 'calendar';
+  type: BaseViewType;
   config: ViewConfig;
   workspaceId: string;
   creatorId: string;
@@ -211,6 +227,8 @@ export type IBase = {
   slugId?: string;
   isBase?: boolean;
   baseSchemaVersion?: number;
+  // Structure lock: properties and views stay as they are.
+  baseLocked?: boolean;
   permissions?: { canEdit: boolean; hasRestriction: boolean };
 };
 
@@ -237,6 +255,7 @@ export type UpdateBaseInput = {
   name?: string;
   description?: string;
   icon?: string;
+  locked?: boolean;
 };
 
 export type CreatePropertyInput = {
@@ -289,6 +308,9 @@ export type CreateRowInput = {
   cells?: Record<string, unknown>;
   afterRowId?: string;
   requestId?: string;
+  // Template rows live apart from the data and seed new rows.
+  isTemplate?: boolean;
+  fromTemplateId?: string;
 };
 
 export type UpdateRowInput = {
@@ -321,7 +343,7 @@ export type ReorderRowInput = {
 export type CreateViewInput = {
   pageId: string;
   name: string;
-  type?: 'table' | 'kanban' | 'calendar';
+  type?: BaseViewType;
   config?: ViewConfig;
 };
 
@@ -329,7 +351,7 @@ export type UpdateViewInput = {
   viewId: string;
   pageId: string;
   name?: string;
-  type?: 'table' | 'kanban' | 'calendar';
+  type?: BaseViewType;
   config?: ViewConfig;
 };
 

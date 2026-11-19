@@ -1,5 +1,12 @@
 import { useCallback, useMemo } from "react";
-import { Stack, NumberInput, Select, Switch, Text } from "@mantine/core";
+import {
+  Stack,
+  NumberInput,
+  Select,
+  Switch,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import {
   IBaseProperty,
   SelectTypeOptions,
@@ -7,6 +14,7 @@ import {
   DateTypeOptions,
   PersonTypeOptions,
   Choice,
+  IdTypeOptions,
 } from "@/features/base/types/base.types";
 import { ChoiceEditor } from "./choice-editor";
 import { useTranslation } from "react-i18next";
@@ -51,6 +59,8 @@ export function PropertyOptions({ property, onUpdate, onClose, onDirtyChange, hi
           onUpdate={onUpdate}
         />
       );
+    case "id":
+      return <IdOptions property={property} onUpdate={onUpdate} />;
     case "date":
       return (
         <DateOptions
@@ -189,6 +199,35 @@ function NumberOptions({
           onUpdate({ ...property.typeOptions, precision: val })
         }
       />
+    </Stack>
+  );
+}
+
+// ID: only the prefix shown in front of the row number.
+function IdOptions({
+  property,
+  onUpdate,
+}: {
+  property: IBaseProperty;
+  onUpdate: (typeOptions: Record<string, unknown>) => void;
+}) {
+  const { t } = useTranslation();
+  const options = property.typeOptions as IdTypeOptions | undefined;
+  return (
+    <Stack gap="xs">
+      <TextInput
+        size="xs"
+        label={t("Prefix")}
+        placeholder="INV-"
+        maxLength={20}
+        value={options?.prefix ?? ""}
+        onChange={(e) =>
+          onUpdate({ ...property.typeOptions, prefix: e.currentTarget.value })
+        }
+      />
+      <Text size="xs" c="dimmed">
+        {t("Numbers are assigned when a row is created and never reused.")}
+      </Text>
     </Stack>
   );
 }

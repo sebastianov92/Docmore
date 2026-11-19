@@ -21,6 +21,7 @@ export function propertyKind(type: string): PropertyKindValue | null {
     case BasePropertyType.LONG_TEXT:
     case BasePropertyType.URL:
     case BasePropertyType.EMAIL:
+    case BasePropertyType.PHONE:
       return PropertyKind.TEXT;
     case BasePropertyType.NUMBER:
       return PropertyKind.NUMERIC;
@@ -50,10 +51,12 @@ export function propertyKind(type: string): PropertyKindValue | null {
 
 // System property type → camelCase column name on `base_rows`.
 // Kysely camel-case plugin maps to snake_case in SQL.
-export const SYSTEM_COLUMN: Record<string, 'createdAt' | 'updatedAt' | 'lastUpdatedById'> = {
+export type SystemColumn = 'createdAt' | 'updatedAt' | 'lastUpdatedById' | 'rowNo';
+export const SYSTEM_COLUMN: Record<string, SystemColumn> = {
   [BasePropertyType.CREATED_AT]: 'createdAt',
   [BasePropertyType.LAST_EDITED_AT]: 'updatedAt',
   [BasePropertyType.LAST_EDITED_BY]: 'lastUpdatedById',
+  [BasePropertyType.ID]: 'rowNo',
 };
 
 export function isSystemType(type: string): boolean {

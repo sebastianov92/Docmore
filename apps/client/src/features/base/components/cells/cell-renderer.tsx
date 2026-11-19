@@ -15,6 +15,8 @@ import { CellCreatedAt } from "./cell-created-at";
 import { CellLastEditedAt } from "./cell-last-edited-at";
 import { CellLastEditedBy } from "./cell-last-edited-by";
 import { CellFormula } from "./cell-formula";
+import { CellPhone } from "./cell-phone";
+import { CellId } from "./cell-id";
 
 export type CellComponentProps = {
   value: unknown;
@@ -39,6 +41,8 @@ export const cellComponents: Record<
   checkbox: CellCheckbox,
   url: CellUrl,
   email: CellEmail,
+  phone: CellPhone,
+  id: CellId,
   person: CellPerson,
   file: CellFile,
   page: CellPage,

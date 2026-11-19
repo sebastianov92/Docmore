@@ -13,6 +13,7 @@ export const IMPORTABLE_TYPES = [
   "checkbox",
   "url",
   "email",
+  "phone",
 ] as const satisfies readonly BasePropertyType[];
 
 export type ImportableType = (typeof IMPORTABLE_TYPES)[number];

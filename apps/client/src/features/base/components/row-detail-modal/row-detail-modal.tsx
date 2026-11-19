@@ -1,4 +1,8 @@
-import { Modal, Text } from "@mantine/core";
+import {
+  Modal,
+  Text,
+  Badge,
+} from "@mantine/core";
 import { useWindowEvent } from "@mantine/hooks";
 import { IconDotsVertical, IconX, IconLock } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +23,10 @@ type RowDetailModalProps = {
   openRowId: string | null;
   canEdit: boolean;
   onClose: () => void;
+  // Template rows are not in `rows`; the modal opens them too.
+  templates?: IBaseRow[];
+  // false while the base is locked: no new properties from here.
+  canEditStructure?: boolean;
 };
 
 export function RowDetailModal({
@@ -27,13 +35,19 @@ export function RowDetailModal({
   openRowId,
   canEdit,
   onClose,
+  templates,
+  canEditStructure,
 }: RowDetailModalProps) {
   const { t } = useTranslation();
   const updateRowMutation = useUpdateRowMutation();
 
   const row = useMemo(
-    () => (openRowId ? rows.find((r) => r.id === openRowId) : undefined),
-    [openRowId, rows],
+    () =>
+      openRowId
+        ? (rows.find((r) => r.id === openRowId) ??
+          templates?.find((r) => r.id === openRowId))
+        : undefined,
+    [openRowId, rows, templates],
   );
   const primaryProperty = useMemo(
     () => base.properties.find((p) => p.isPrimary),
@@ -114,6 +128,16 @@ export function RowDetailModal({
             </button>
           </div>
 
+          {row.isTemplate && (
+            <div style={{ padding: "0 24px" }}>
+              <Badge variant="light" color="blue" size="sm">
+                {t("Template")}
+              </Badge>
+              <Text size="xs" c="dimmed" mt={4}>
+                {t("Rows created from this template start with these values.")}
+              </Text>
+            </div>
+          )}
           <RowDetailTitle
             row={row}
             primaryProperty={primaryProperty}
@@ -148,7 +172,7 @@ export function RowDetailModal({
                   />
                 ))}
             </div>
-            {canEdit && (
+            {canEdit && canEditStructure !== false && (
               <div className={classes.addPropertyWrap}>
                 <CreatePropertyPopover
                   pageId={base.id}

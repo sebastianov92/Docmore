@@ -89,6 +89,11 @@ export class ListRowsDto {
   @IsOptional()
   @IsObject()
   search?: unknown;
+
+  // `true` lists the base's template rows instead of its data.
+  @IsOptional()
+  @IsBoolean()
+  templates?: boolean;
 }
 
 export class CountRowsDto {

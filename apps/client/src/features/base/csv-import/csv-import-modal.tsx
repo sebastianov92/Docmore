@@ -53,6 +53,7 @@ const TYPE_LABELS: Record<ImportableType, string> = {
   checkbox: "Checkbox",
   url: "URL",
   email: "Email",
+  phone: "Phone",
 };
 
 // Pick a file, map its columns to properties (existing, new or skipped),

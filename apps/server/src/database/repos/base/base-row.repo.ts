@@ -41,6 +41,8 @@ const BASE_ROW_COLUMNS = [
   'createdAt',
   'updatedAt',
   'deletedAt',
+  'isTemplate',
+  'rowNo',
 ] as const;
 
 @Injectable()
@@ -85,6 +87,8 @@ export class BaseRowRepo {
     schema: PropertySchema;
     pagination: PaginationOptions;
     trx?: KyselyTransaction;
+    // Template rows live apart from the data; `true` lists only them.
+    templates?: boolean;
   }): Promise<CursorPaginationResult<BaseRow>> {
     const db = dbOrTx(this.db, opts.trx);
 
@@ -93,7 +97,8 @@ export class BaseRowRepo {
       .select(BASE_ROW_COLUMNS)
       .where('pageId', '=', opts.pageId)
       .where('workspaceId', '=', opts.workspaceId)
-      .where('deletedAt', 'is', null);
+      .where('deletedAt', 'is', null)
+      .where('isTemplate', '=', opts.templates === true);
 
     const hasFilterSortSearch =
       !!opts.filter || (opts.sorts && opts.sorts.length > 0) || !!opts.search;
@@ -151,7 +156,8 @@ export class BaseRowRepo {
       .select(sql<number>`1`.as('x'))
       .where('pageId', '=', opts.pageId)
       .where('workspaceId', '=', opts.workspaceId)
-      .where('deletedAt', 'is', null);
+      .where('deletedAt', 'is', null)
+      .where('isTemplate', '=', false);
 
     if (opts.search) {
       const spec = opts.search;
@@ -208,7 +214,8 @@ export class BaseRowRepo {
       .select(sql<number>`1`.as('x'))
       .where('pageId', '=', opts.pageId)
       .where('workspaceId', '=', opts.workspaceId)
-      .where('deletedAt', 'is', null);
+      .where('deletedAt', 'is', null)
+      .where('isTemplate', '=', false);
 
     if (opts.search) {
       const spec = opts.search;
@@ -250,16 +257,34 @@ export class BaseRowRepo {
     return result?.position ?? null;
   }
 
+  // Row numbers are per base and never reused (deleted rows keep theirs);
+  // the advisory lock serialises inserts on the same base.
+  async nextRowNo(pageId: string, trx: KyselyTransaction): Promise<number> {
+    await sql`select pg_advisory_xact_lock(hashtext(${pageId}))`.execute(trx);
+    const r = await trx
+      .selectFrom('baseRows')
+      .select(sql<number>`coalesce(max(row_no), 0)`.as('m'))
+      .where('pageId', '=', pageId)
+      .executeTakeFirst();
+    return Number(r?.m ?? 0) + 1;
+  }
+
   async insertRow(
     row: InsertableBaseRow,
     opts?: RepoOpts,
   ): Promise<BaseRow> {
-    const db = dbOrTx(this.db, opts?.trx);
-    return (await db
-      .insertInto('baseRows')
-      .values(row)
-      .returning(BASE_ROW_COLUMNS)
-      .executeTakeFirstOrThrow()) as BaseRow;
+    const run = async (trx: KyselyTransaction) => {
+      const rowNo = row.isTemplate
+        ? null
+        : (row.rowNo ?? (await this.nextRowNo(row.pageId, trx)));
+      return (await trx
+        .insertInto('baseRows')
+        .values({ ...row, rowNo })
+        .returning(BASE_ROW_COLUMNS)
+        .executeTakeFirstOrThrow()) as BaseRow;
+    };
+    if (opts?.trx) return run(opts.trx);
+    return this.db.transaction().execute(run);
   }
 
   /*
@@ -406,6 +431,7 @@ export class BaseRowRepo {
         .where('pageId', '=', pageId)
         .where('workspaceId', '=', opts.workspaceId)
         .where('deletedAt', 'is', null)
+        .where('isTemplate', '=', false)
         .orderBy(sql`position COLLATE "C"`, 'asc')
         .orderBy('id', 'asc')
         .limit(chunkSize);

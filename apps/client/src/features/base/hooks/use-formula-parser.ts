@@ -92,12 +92,13 @@ export function useFormulaParser(
 }
 
 function clientResultTypeOf(type: string): FormulaResultType {
-  if (type === "number") return "number";
+  if (type === "number" || type === "id") return "number";
   if (
     type === "text" ||
     type === "longText" ||
     type === "url" ||
-    type === "email"
+    type === "email" ||
+    type === "phone"
   )
     return "string";
   if (type === "checkbox") return "boolean";

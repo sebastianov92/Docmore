@@ -9,6 +9,8 @@ type KanbanGroupByPickerProps = {
   onChange: (propertyId: string) => void;
   // Allows the toolbar variant to render compact / narrow.
   size?: "xs" | "sm" | "md";
+  // List views may drop the grouping again.
+  onClear?: () => void;
 };
 
 export function KanbanGroupByPicker({
@@ -16,6 +18,7 @@ export function KanbanGroupByPicker({
   value,
   onChange,
   size = "sm",
+  onClear,
 }: KanbanGroupByPickerProps) {
   const { t } = useTranslation();
   const data = useMemo(
@@ -30,9 +33,10 @@ export function KanbanGroupByPicker({
       placeholder={t("Group by…")}
       data={data}
       value={value}
-      onChange={(v) => v && onChange(v)}
+      onChange={(v) => (v ? onChange(v) : onClear?.())}
       size={size}
-      allowDeselect={false}
+      allowDeselect={Boolean(onClear)}
+      clearable={Boolean(onClear)}
       searchable
     />
   );

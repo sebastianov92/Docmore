@@ -45,6 +45,7 @@ import {
   CsvImportSpec,
   csvImportSpecSchema,
 } from './base-csv-import.schema';
+import { sql } from 'kysely';
 
 export const BASE_CSV_IMPORT_SOURCE = 'base-csv';
 
@@ -216,7 +217,20 @@ export class BaseCsvImportService {
 
       const flush = async () => {
         if (batch.length === 0) return;
-        await this.db.insertInto('baseRows').values(batch as any).execute();
+        const rows = batch;
+        await this.db.transaction().execute(async (trx) => {
+          await sql`select pg_advisory_xact_lock(hashtext(${pageId}))`.execute(trx);
+          const m = await trx
+            .selectFrom('baseRows')
+            .select(sql<number>`coalesce(max(row_no), 0)`.as('m'))
+            .where('pageId', '=', pageId)
+            .executeTakeFirst();
+          const start = Number(m?.m ?? 0) + 1;
+          await trx
+            .insertInto('baseRows')
+            .values(rows.map((r, i) => ({ ...r, rowNo: start + i })) as any)
+            .execute();
+        });
         importedRows += batch.length;
         batch = [];
         await this.db

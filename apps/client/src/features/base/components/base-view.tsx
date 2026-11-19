@@ -6,11 +6,15 @@ import { useTranslation } from "react-i18next";
 import { notifications } from "@mantine/notifications";
 import { reorder } from "@atlaskit/pragmatic-drag-and-drop/reorder";
 import { generateJitteredKeyBetween } from "fractional-indexing-jittered";
-import { useBaseQuery } from "@/features/base/queries/base-query";
+import {
+  useBaseQuery,
+  useUpdateBaseMutation,
+} from "@/features/base/queries/base-query";
 import { useBaseSocket } from "@/features/base/hooks/use-base-socket";
 import {
   FilterGroup,
   ViewSortConfig,
+  BaseViewType,
 } from "@/features/base/types/base.types";
 import {
   useBaseRowsQuery,
@@ -19,6 +23,7 @@ import {
   useCreateRowMutation,
   useUpdateRowMutation,
   useReorderRowMutation,
+  useBaseTemplatesQuery,
 } from "@/features/base/queries/base-row-query";
 import {
   useCreateViewMutation,
@@ -129,6 +134,11 @@ export function BaseView({
     editable ??
     base?.permissions?.canEdit ??
     spaceAbility.can(SpaceCaslAction.Edit, SpaceCaslSubject.Page);
+  // A locked base keeps its properties and views; rows still change.
+  const structureEditable = canSave && !base?.baseLocked;
+  const { data: templatesData } = useBaseTemplatesQuery(canSave ? pageId : undefined);
+  const templates = templatesData?.items;
+  const updateBaseMutation = useUpdateBaseMutation();
 
   // Hold the rows query until `base` has loaded. Otherwise the query
   // fires once with `activeFilter` / `activeSorts` still undefined
@@ -202,6 +212,11 @@ export function BaseView({
 
   const isKanban = effectiveView?.type === "kanban";
   const isCalendar = effectiveView?.type === "calendar";
+  const isCardView =
+    isKanban ||
+    isCalendar ||
+    effectiveView?.type === "list" ||
+    effectiveView?.type === "gallery";
 
   const handleCellUpdate = useCallback(
     (rowId: string, propertyId: string, value: unknown) => {
@@ -218,6 +233,10 @@ export function BaseView({
     createRowMutation.mutate({ pageId });
   }, [pageId, createRowMutation]);
 
+  const handleToggleLock = useCallback(() => {
+    updateBaseMutation.mutate({ pageId, locked: !base?.baseLocked });
+  }, [pageId, base?.baseLocked, updateBaseMutation]);
+
   const handleViewChange = useCallback(
     (viewId: string) => {
       setActiveViewId(viewId);
@@ -226,9 +245,20 @@ export function BaseView({
   );
 
   const handleAddView = useCallback(
-    (type: "table" | "kanban" | "calendar" = "table") => {
-      const names = { table: t("Table"), kanban: t("Kanban"), calendar: t("Calendar") };
+    (type: BaseViewType = "table") => {
+      const names: Record<BaseViewType, string> = {
+        table: t("Table"),
+        kanban: t("Kanban"),
+        calendar: t("Calendar"),
+        list: t("List"),
+        gallery: t("Gallery"),
+      };
       const config: Record<string, unknown> = {};
+      if (type === "gallery") {
+        const file = base?.properties.find((p) => p.type === "file");
+        if (file) config.coverPropertyId = file.id;
+        config.cardSize = "medium";
+      }
       if (type === "kanban") {
         const groupable = base?.properties.find((p) => p.type === "select" || p.type === "status");
         if (groupable) config.groupByPropertyId = groupable.id;
@@ -371,7 +401,10 @@ export function BaseView({
       views={views}
       table={table}
       onViewChange={handleViewChange}
-      onAddView={canSave ? handleAddView : undefined}
+      onAddView={structureEditable ? handleAddView : undefined}
+      locked={Boolean(base.baseLocked)}
+      onToggleLock={canSave ? handleToggleLock : undefined}
+      onOpenRow={handleCardClick}
       onPersistViewConfig={persistViewConfig}
       onDraftSortsChange={handleDraftSortsChange}
       onDraftFiltersChange={handleDraftFiltersChange}
@@ -396,6 +429,7 @@ export function BaseView({
           onCellUpdate={handleCellUpdate}
           onAddRow={canSave ? handleAddRow : undefined}
           editable={canSave}
+          canEditStructure={structureEditable}
           onColumnReorder={handleColumnReorder}
           onResizeEnd={handleResizeEnd}
           onRowReorder={handleRowReorder}
@@ -414,6 +448,8 @@ export function BaseView({
           rows={rows}
           openRowId={openRowId}
           canEdit={canSave}
+          canEditStructure={structureEditable}
+          templates={templates}
           onClose={closeRow}
         />
       </>
@@ -431,7 +467,7 @@ export function BaseView({
         {titleSlot}
         {banner}
         {toolbar}
-        {isKanban || isCalendar ? (
+        {isCardView ? (
           <div
             ref={setScrollportEl}
             style={{
@@ -460,6 +496,7 @@ export function BaseView({
               persistViewConfig={persistViewConfig}
               scrollportEl={scrollportEl}
               editable={canSave}
+              canEditStructure={structureEditable}
             />
           </div>
         ) : (
@@ -483,6 +520,7 @@ export function BaseView({
               persistViewConfig={persistViewConfig}
               scrollportEl={scrollportEl}
               editable={canSave}
+              canEditStructure={structureEditable}
             />
           </div>
         )}
@@ -492,6 +530,8 @@ export function BaseView({
         rows={rows}
         openRowId={openRowId}
         canEdit={canSave}
+        canEditStructure={structureEditable}
+        templates={templates}
         onClose={closeRow}
       />
     </>

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class UpdateBaseDto {
   @IsUUID()
@@ -16,4 +22,9 @@ export class UpdateBaseDto {
   @IsOptional()
   @IsString()
   icon?: string;
+
+  // Structure lock: properties and views stop changing while true.
+  @IsOptional()
+  @IsBoolean()
+  locked?: boolean;
 }

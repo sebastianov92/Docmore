@@ -61,10 +61,12 @@ export function conversionWarning(
     return "Cells will be coerced (yes/true/1 become checked; everything else becomes unchecked or cleared).";
   }
 
-  if ((to === "url" || to === "email") && from !== to) {
+  if ((to === "url" || to === "email" || to === "phone") && from !== to) {
     return to === "url"
       ? "Cells that aren't a valid URL will be cleared."
-      : "Cells that aren't a valid email address will be cleared.";
+      : to === "phone"
+        ? "Cells that aren't a valid phone number will be cleared."
+        : "Cells that aren't a valid email address will be cleared.";
   }
 
   return "Cells will be reinterpreted under the new type.";

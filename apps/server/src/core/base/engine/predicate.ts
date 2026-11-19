@@ -123,7 +123,14 @@ function textCondition(eb: Eb, cond: Condition): Expression<SqlBool> {
 }
 
 function numericCondition(eb: Eb, cond: Condition): Expression<SqlBool> {
-  const expr = numericCell(cond.propertyId);
+  return numericConditionOn(eb, numericCell(cond.propertyId), cond);
+}
+
+function numericConditionOn(
+  eb: Eb,
+  expr: unknown,
+  cond: Condition,
+): Expression<SqlBool> {
   const raw = cond.value;
   const num = raw == null ? null : Number(raw);
   const bad = num == null || Number.isNaN(num);
@@ -378,12 +385,17 @@ function arrayOfIdsCondition(eb: Eb, cond: Condition): Expression<SqlBool> {
 
 function systemCondition(
   eb: Eb,
-  column: 'createdAt' | 'updatedAt' | 'lastUpdatedById',
+  column: 'createdAt' | 'updatedAt' | 'lastUpdatedById' | 'rowNo',
   propertyType: string,
   cond: Condition,
 ): Expression<SqlBool> {
   const ref = eb.ref(column);
   const val = cond.value;
+
+  // id — the per-base row number; plain numeric comparisons.
+  if (propertyType === 'id') {
+    return numericConditionOn(eb, ref, cond);
+  }
 
   // lastEditedBy — UUID column; behaves like select (uuid equality, in, isEmpty).
   if (propertyType === 'lastEditedBy') {

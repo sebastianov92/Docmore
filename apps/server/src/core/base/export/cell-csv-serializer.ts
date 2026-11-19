@@ -36,7 +36,13 @@ export function serializeCellForCsv(
     case BasePropertyType.LONG_TEXT:
     case BasePropertyType.URL:
     case BasePropertyType.EMAIL:
+    case BasePropertyType.PHONE:
       return String(value);
+
+    case BasePropertyType.ID: {
+      const prefix = (property.typeOptions as any)?.prefix ?? '';
+      return `${prefix}${value}`;
+    }
 
     case BasePropertyType.NUMBER:
       return typeof value === 'number' ? String(value) : String(value ?? '');

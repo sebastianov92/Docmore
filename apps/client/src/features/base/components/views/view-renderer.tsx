@@ -7,6 +7,8 @@ import {
 import { BaseTable } from "@/features/base/components/base-table";
 import { BaseKanban } from "@/features/base/components/views/kanban/base-kanban";
 import { BaseCalendar } from "@/features/base/components/views/calendar/base-calendar";
+import { BaseList } from "@/features/base/components/views/list/base-list";
+import { BaseGallery } from "@/features/base/components/views/gallery/base-gallery";
 
 type ViewRendererProps = {
   base: IBase;
@@ -32,6 +34,8 @@ type ViewRendererProps = {
   scrollportEl: HTMLDivElement | null;
   stickyBandPrelude?: React.ReactNode;
   editable?: boolean;
+  // false while the base is locked: no new properties.
+  canEditStructure?: boolean;
 };
 
 export function ViewRenderer(props: ViewRendererProps) {
@@ -44,6 +48,38 @@ export function ViewRenderer(props: ViewRendererProps) {
         effectiveView={props.effectiveView}
         editable={Boolean(props.editable)}
         onCardClick={props.onCardClick}
+      />
+    );
+  }
+
+  if (viewType === "list") {
+    return (
+      <BaseList
+        base={props.base}
+        rows={props.rows}
+        effectiveView={props.effectiveView}
+        embedded={props.embedded}
+        onCardClick={props.onCardClick}
+        onAddRow={props.onAddRow}
+        hasNextPage={props.hasNextPage}
+        isFetchingNextPage={props.isFetchingNextPage}
+        onFetchNextPage={props.onFetchNextPage}
+      />
+    );
+  }
+
+  if (viewType === "gallery") {
+    return (
+      <BaseGallery
+        base={props.base}
+        rows={props.rows}
+        effectiveView={props.effectiveView}
+        embedded={props.embedded}
+        onCardClick={props.onCardClick}
+        onAddRow={props.onAddRow}
+        hasNextPage={props.hasNextPage}
+        isFetchingNextPage={props.isFetchingNextPage}
+        onFetchNextPage={props.onFetchNextPage}
       />
     );
   }

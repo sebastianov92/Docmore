@@ -19,6 +19,7 @@ import { User, Workspace } from '@docmost/db/types/entity.types';
 import { PageAccessService } from '../../page/page-access/page-access.service';
 import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
 import { OAuthScope } from '../../../common/decorators/oauth-scope.decorator';
+import { assertBaseUnlocked } from '../services/base-lock';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bases/views')
@@ -44,6 +45,7 @@ export class BaseViewController {
     }
 
     await this.pageAccessService.validateCanEdit(base, user);
+    assertBaseUnlocked(base);
 
     return this.baseViewService.create(user.id, workspace.id, dto);
   }
@@ -63,6 +65,7 @@ export class BaseViewController {
     }
 
     await this.pageAccessService.validateCanEdit(base, user);
+    assertBaseUnlocked(base);
 
     return this.baseViewService.update(dto, workspace.id, user.id);
   }
@@ -82,6 +85,7 @@ export class BaseViewController {
     }
 
     await this.pageAccessService.validateCanEdit(base, user);
+    assertBaseUnlocked(base);
 
     await this.baseViewService.delete(dto, workspace.id, user.id);
   }

@@ -40,8 +40,8 @@ export class BaseRepo {
       from base_views where page_id = ${fromPageId}::uuid
     `.execute(db);
     await sql`
-      insert into base_rows (page_id, cells, position, creator_id, last_updated_by_id, workspace_id)
-      select ${toPageId}::uuid, cells, position, ${userId}::uuid, ${userId}::uuid, workspace_id
+      insert into base_rows (page_id, cells, position, creator_id, last_updated_by_id, workspace_id, row_no, is_template)
+      select ${toPageId}::uuid, cells, position, ${userId}::uuid, ${userId}::uuid, workspace_id, row_no, is_template
       from base_rows where page_id = ${fromPageId}::uuid and deleted_at is null
     `.execute(db);
     await sql`

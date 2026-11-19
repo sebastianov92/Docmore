@@ -15,6 +15,8 @@ export const BasePropertyType = {
   CHECKBOX: 'checkbox',
   URL: 'url',
   EMAIL: 'email',
+  PHONE: 'phone',
+  ID: 'id',
   CREATED_AT: 'createdAt',
   LAST_EDITED_AT: 'lastEditedAt',
   LAST_EDITED_BY: 'lastEditedBy',
@@ -25,6 +27,7 @@ const SYSTEM_PROPERTY_TYPES: Set<string> = new Set([
   BasePropertyType.CREATED_AT,
   BasePropertyType.LAST_EDITED_AT,
   BasePropertyType.LAST_EDITED_BY,
+  BasePropertyType.ID,
   BasePropertyType.FORMULA,
 ]);
 
@@ -121,6 +124,11 @@ export const personTypeOptionsSchema = z
 
 export const emptyTypeOptionsSchema = z.object({}).passthrough();
 
+// ID: a per-base number assigned on insert, shown with an optional prefix.
+export const idTypeOptionsSchema = z
+  .object({ prefix: z.string().max(20).optional() })
+  .passthrough();
+
 // AST is treated as an opaque JSON tree by the server at this layer — the
 // shape is enforced at the formula package's parser, not at Zod. The Zod
 // schema validates only the envelope so a malformed blob can't corrupt the
@@ -150,6 +158,8 @@ const typeOptionsSchemaMap: Record<BasePropertyTypeValue, z.ZodType> = {
   [BasePropertyType.CHECKBOX]: checkboxTypeOptionsSchema,
   [BasePropertyType.URL]: urlTypeOptionsSchema,
   [BasePropertyType.EMAIL]: emailTypeOptionsSchema,
+  [BasePropertyType.PHONE]: textTypeOptionsSchema,
+  [BasePropertyType.ID]: idTypeOptionsSchema,
   [BasePropertyType.CREATED_AT]: emptyTypeOptionsSchema,
   [BasePropertyType.LAST_EDITED_AT]: emptyTypeOptionsSchema,
   [BasePropertyType.LAST_EDITED_BY]: emptyTypeOptionsSchema,
@@ -198,6 +208,12 @@ const cellValueSchemaMap: Partial<Record<BasePropertyTypeValue, z.ZodType>> = {
   [BasePropertyType.CHECKBOX]: z.boolean(),
   [BasePropertyType.URL]: z.url(),
   [BasePropertyType.EMAIL]: z.email(),
+  // digits with the usual separators; `+` only at the start
+  [BasePropertyType.PHONE]: z
+    .string()
+    .trim()
+    .regex(/^\+?[\d(][\d\s().-]{3,30}$/, 'Invalid phone number')
+    .refine((v) => v.replace(/\D/g, '').length >= 4, 'Invalid phone number'),
 };
 
 export function getCellValueSchema(
@@ -432,6 +448,9 @@ export const viewConfigSchema = z
     calendarPropertyId: basePropertyIdSchema.optional(),
     hiddenChoiceIds: z.array(z.string()).optional(),
     choiceOrder: z.array(z.string()).optional(),
+    // Gallery-only: card size and the file property shown as cover.
+    cardSize: z.enum(['small', 'medium', 'large']).optional(),
+    coverPropertyId: basePropertyIdSchema.optional(),
   })
   .passthrough();
 

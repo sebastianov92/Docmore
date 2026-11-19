@@ -165,6 +165,10 @@ export function useBaseSocket(pageId: string | undefined): void {
       switch (event.operation) {
         case "base:row:created": {
           const e = event as BaseRowCreated;
+          if (e.row?.isTemplate) {
+            queryClient.invalidateQueries({ queryKey: ["base-templates", pageId] });
+            break;
+          }
           queryClient.setQueriesData<InfiniteData<IPagination<IBaseRow>>>(
             { queryKey: ["base-rows", pageId] },
             (old) => {
@@ -184,6 +188,12 @@ export function useBaseSocket(pageId: string | undefined): void {
         }
         case "base:row:updated": {
           const e = event as BaseRowUpdated;
+          {
+            const templates = queryClient.getQueryData<IPagination<IBaseRow>>(["base-templates", pageId]);
+            if (templates?.items?.some((r) => r.id === e.rowId)) {
+              queryClient.invalidateQueries({ queryKey: ["base-templates", pageId] });
+            }
+          }
           queryClient.setQueriesData<InfiniteData<IPagination<IBaseRow>>>(
             { queryKey: ["base-rows", pageId] },
             (old) =>

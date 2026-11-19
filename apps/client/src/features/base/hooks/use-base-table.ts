@@ -34,6 +34,7 @@ export const SYSTEM_PROPERTY_TYPES = new Set([
   "createdAt",
   "lastEditedAt",
   "lastEditedBy",
+  "id",
   "formula",
 ]);
 
@@ -43,8 +44,10 @@ export function isSystemPropertyType(type: string): boolean {
 
 const columnHelper = createColumnHelper<IBaseRow>();
 
-function getSystemAccessor(type: string): ((row: IBaseRow) => unknown) | null {
+export function getSystemAccessor(type: string): ((row: IBaseRow) => unknown) | null {
   switch (type) {
+    case "id":
+      return (row) => row.rowNo ?? null;
     case "createdAt":
       return (row) => row.createdAt;
     case "lastEditedAt":

@@ -49,6 +49,7 @@ export function detectType(values: string[]): ImportableType {
   if (every((v) => /^-?\d{1,3}(,\d{3})*(\.\d+)?$|^-?\d+(\.\d+)?$/.test(v))) return "number";
   if (every((v) => /^\S+@\S+\.\S+$/.test(v))) return "email";
   if (every((v) => /^https?:\/\/\S+$/i.test(v))) return "url";
+  if (every((v) => /^\+?[\d(][\d\s().-]{5,30}$/.test(v) && /\d{6,}/.test(v.replace(/\D/g, "")))) return "phone";
   if (every((v) => /\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4}/.test(v) && !Number.isNaN(new Date(v).getTime()))) {
     return "date";
   }

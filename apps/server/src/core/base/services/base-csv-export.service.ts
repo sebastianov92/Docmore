@@ -106,6 +106,8 @@ export class BaseCsvExportService {
               value = row.updatedAt;
             } else if (type === BasePropertyType.LAST_EDITED_BY) {
               value = row.lastUpdatedById;
+            } else if (type === BasePropertyType.ID) {
+              value = row.rowNo;
             } else {
               value = cells[prop.id];
             }

@@ -99,11 +99,34 @@ export function flattenRows(
   return data.pages.flatMap((page) => page.items);
 }
 
+// Template rows of a base, kept apart from the data queries so the
+// infinite-list cache updates never touch them.
+export function useBaseTemplatesQuery(pageId: string | undefined) {
+  return useQuery<IPagination<IBaseRow>>({
+    queryKey: ["base-templates", pageId],
+    queryFn: () => listRows(pageId!, { templates: true, limit: 100 }),
+    enabled: !!pageId,
+    staleTime: 60_000,
+  });
+}
+
+export function isTemplateRowCached(pageId: string, rowId: string): boolean {
+  const cached = queryClient.getQueryData<IPagination<IBaseRow>>([
+    "base-templates",
+    pageId,
+  ]);
+  return Boolean(cached?.items?.some((r) => r.id === rowId));
+}
+
 export function useCreateRowMutation() {
   const { t } = useTranslation();
   return useMutation<IBaseRow, Error, CreateRowInput>({
     mutationFn: (data) => createRow({ ...data, requestId: newRequestId() }),
     onSuccess: (newRow) => {
+      if (newRow.isTemplate) {
+        queryClient.invalidateQueries({ queryKey: ["base-templates", newRow.pageId] });
+        return;
+      }
       queryClient.setQueriesData<InfiniteData<IPagination<IBaseRow>>>(
         { queryKey: ["base-rows", newRow.pageId] },
         (old) => {
@@ -181,6 +204,9 @@ export function useUpdateRowMutation() {
       });
     },
     onSuccess: (updatedRow) => {
+      if (updatedRow.isTemplate || isTemplateRowCached(updatedRow.pageId, updatedRow.id)) {
+        queryClient.invalidateQueries({ queryKey: ["base-templates", updatedRow.pageId] });
+      }
       queryClient.setQueriesData<InfiniteData<IPagination<IBaseRow>>>(
         { queryKey: ["base-rows", updatedRow.pageId] },
         (old) => {
@@ -241,6 +267,9 @@ export function useDeleteRowMutation() {
         message: t("Failed to delete row"),
         color: "red",
       });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["base-templates", variables.pageId] });
     },
   });
 }

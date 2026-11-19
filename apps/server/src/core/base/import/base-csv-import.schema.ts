@@ -15,6 +15,7 @@ export const IMPORTABLE_TYPES = [
   'checkbox',
   'url',
   'email',
+  'phone',
 ] as const;
 
 export const CSV_IMPORT_LIMITS = {
