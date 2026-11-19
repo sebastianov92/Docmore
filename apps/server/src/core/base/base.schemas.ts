@@ -488,6 +488,15 @@ export const viewConfigSchema = z
     timelineZoom: z.enum(['day', 'week', 'month']).optional(),
     // Table/list: show sub-items nested under their parent.
     subItems: z.boolean().optional(),
+    // Table: second grouping level under groupByPropertyId.
+    subGroupByPropertyId: basePropertyIdSchema.optional(),
+    // Chart: what is counted/summed and how it is drawn.
+    chartType: z.enum(['bar', 'line', 'pie', 'donut', 'number']).optional(),
+    chartXPropertyId: basePropertyIdSchema.optional(),
+    chartYPropertyId: basePropertyIdSchema.optional(),
+    chartAggregate: z.enum(['count', 'sum', 'avg', 'min', 'max']).optional(),
+    chartDateBucket: z.enum(['day', 'week', 'month', 'year']).optional(),
+    chartShowValues: z.boolean().optional(),
   })
   .passthrough();
 

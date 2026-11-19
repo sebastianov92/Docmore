@@ -20,8 +20,12 @@ import { GridRow } from "./grid-row";
 import { AddRowButton } from "./add-row-button";
 import { SelectionActionBar } from "./selection-action-bar";
 import classes from "@/features/base/styles/grid.module.css";
+import { GridGroupHeader } from "./grid-group-header";
+import { buildGridItems, GridGroupBy, GridItem } from "./grid-groups";
+import { useTranslation } from "react-i18next";
 
 const ROW_HEIGHT = 36;
+const GROUP_HEADER_HEIGHT = 32;
 const OVERSCAN = 10;
 
 // Hoisted to module scope so we don't allocate a fresh options object
@@ -60,6 +64,10 @@ type GridContainerProps = {
    * toolbar render outside the scrollport).
    */
   stickyBandPrelude?: React.ReactNode;
+  // Group (and sub-group) rows by a select/status property.
+  groupBy?: GridGroupBy;
+  // Adds a row that starts with these cells (from a group heading).
+  onAddRowWithCells?: (cells: Record<string, unknown>) => void;
 };
 
 export function GridContainer({
@@ -77,12 +85,34 @@ export function GridContainer({
   onFetchNextPage,
   scrollElement,
   stickyBandPrelude,
+  groupBy,
+  onAddRowWithCells,
 }: GridContainerProps) {
   const headerRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   useHorizontalScrollSync(bodyRef, headerRef);
   const lastTriggeredRowsLenRef = useRef(0);
   const rows = table.getRowModel().rows;
+  const { t } = useTranslation();
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  // What the virtualizer walks: plain rows, or group headings and rows.
+  const items = useMemo<GridItem[]>(
+    () =>
+      groupBy
+        ? buildGridItems(rows, groupBy, collapsedGroups, t("No value"))
+        : rows.map((row) => ({ kind: "row" as const, row })),
+    [rows, groupBy, collapsedGroups, t],
+  );
+  const visibleRows = useMemo(() => items.flatMap((i) => (i.kind === "row" ? [i.row] : [])), [items]);
+  const rowIndexById = useMemo(() => new Map(visibleRows.map((r, i) => [r.id, i])), [visibleRows]);
 
   const [editingCell, setEditingCell] = useAtom(editingCellAtomFamily(pageId)) as unknown as [EditingCell, (val: EditingCell) => void];
   const [, setActivePropertyMenu] = useAtom(activePropertyMenuAtomFamily(pageId)) as unknown as [string | null, (val: string | null) => void];
@@ -177,9 +207,13 @@ export function GridContainer({
   }, [isWindowScroll]);
 
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    count: items.length,
     getScrollElement: () => scrollElement as Element | null,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => (items[index]?.kind === "header" ? GROUP_HEADER_HEIGHT : ROW_HEIGHT),
+    getItemKey: (index) => {
+      const item = items[index];
+      return item ? (item.kind === "header" ? `h:${item.key}` : item.row.id) : index;
+    },
     overscan: OVERSCAN,
     scrollMargin,
     ...windowScrollOptions,
@@ -204,11 +238,11 @@ export function GridContainer({
     if (!hasNextPage || isFetchingNextPage || !onFetchNextPage) return;
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
-    if (lastItem.index < rows.length - OVERSCAN * 2) return;
+    if (lastItem.index < items.length - OVERSCAN * 2) return;
     if (rows.length <= lastTriggeredRowsLenRef.current) return;
     lastTriggeredRowsLenRef.current = rows.length;
     onFetchNextPage();
-  }, [virtualItems, rows.length, hasNextPage, isFetchingNextPage, onFetchNextPage]);
+  }, [virtualItems, rows.length, items.length, hasNextPage, isFetchingNextPage, onFetchNextPage]);
 
   useEffect(() => {
     // When the underlying row set shrinks (filter changed, sort toggled,
@@ -269,7 +303,7 @@ export function GridContainer({
       ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0)
       : 0;
 
-  const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const rowIds = useMemo(() => visibleRows.map((r) => r.id), [visibleRows]);
 
   const handleRowReorder = useCallback(
     (rowId: string, targetRowId: string, position: "above" | "below") => {
@@ -342,13 +376,24 @@ export function GridContainer({
             <div style={{ height: paddingTop, gridColumn: "1 / -1" }} />
           )}
           {virtualItems.map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            if (!row) return null;
+            const item = items[virtualRow.index];
+            if (!item) return null;
+            if (item.kind === "header") {
+              return (
+                <GridGroupHeader
+                  key={`h:${item.key}`}
+                  item={item}
+                  onToggle={toggleGroup}
+                  onAddRow={onAddRowWithCells}
+                />
+              );
+            }
+            const row = item.row;
             return (
               <GridRow
                 key={row.id}
                 row={row}
-                rowIndex={virtualRow.index}
+                rowIndex={rowIndexById.get(row.id) ?? virtualRow.index}
                 onCellUpdate={onCellUpdate}
                 orderedRowIds={rowIds}
                 columnVisibility={table.getState().columnVisibility}

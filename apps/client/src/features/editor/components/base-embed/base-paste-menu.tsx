@@ -74,7 +74,7 @@ export function BasePasteMenu({ editor }: EditorMenuProps) {
     if (pos === null) return;
 
     dismiss();
-    if (convertMentionToBaseEmbed(editor, pos)) {
+    if (convertMentionToBaseEmbed(editor, pos, basePasteMenuKey.getState(editor.state)?.viewId ?? null)) {
       editor.commands.focus(undefined, { scrollIntoView: false });
     }
   }, [dismiss, editor]);

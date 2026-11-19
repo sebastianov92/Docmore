@@ -197,6 +197,7 @@ export function BaseToolbar({
         groupByPropertyId: null,
         hiddenChoiceIds: null,
         choiceOrder: null,
+        subGroupByPropertyId: null,
       } as any,
     });
   }, [activeView, base.id, updateViewMutation]);
@@ -297,12 +298,22 @@ export function BaseToolbar({
           size="xs"
         />
       )}
-      {isList && canEdit && (
+      {(isList || isTable) && canEdit && (
         <KanbanGroupByPicker
           properties={base.properties}
           value={activeView?.config?.groupByPropertyId ?? null}
           onChange={handleGroupByChange}
           onClear={handleGroupByClear}
+          size="xs"
+        />
+      )}
+      {isTable && canEdit && activeView?.config?.groupByPropertyId && (
+        <KanbanGroupByPicker
+          properties={base.properties.filter((p) => p.id !== activeView?.config?.groupByPropertyId)}
+          value={activeView?.config?.subGroupByPropertyId ?? null}
+          onChange={(propertyId) => setViewConfig({ subGroupByPropertyId: propertyId })}
+          onClear={() => setViewConfig({ subGroupByPropertyId: null })}
+          placeholder={t("Sub-group by…")}
           size="xs"
         />
       )}

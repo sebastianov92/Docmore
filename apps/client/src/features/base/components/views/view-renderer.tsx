@@ -10,6 +10,7 @@ import { BaseCalendar } from "@/features/base/components/views/calendar/base-cal
 import { BaseList } from "@/features/base/components/views/list/base-list";
 import { BaseGallery } from "@/features/base/components/views/gallery/base-gallery";
 import { BaseTimeline } from "@/features/base/components/views/timeline/base-timeline";
+import { BaseChart } from "@/features/base/components/views/chart/base-chart";
 
 type ViewRendererProps = {
   base: IBase;
@@ -37,6 +38,8 @@ type ViewRendererProps = {
   editable?: boolean;
   // false while the base is locked: no new properties.
   canEditStructure?: boolean;
+  // Adds a row that starts with these cells (group headings).
+  onAddRowWithCells?: (cells: Record<string, unknown>) => void;
 };
 
 export function ViewRenderer(props: ViewRendererProps) {
@@ -49,6 +52,17 @@ export function ViewRenderer(props: ViewRendererProps) {
         effectiveView={props.effectiveView}
         editable={Boolean(props.editable)}
         onCardClick={props.onCardClick}
+      />
+    );
+  }
+
+  if (viewType === "chart") {
+    return (
+      <BaseChart
+        base={props.base}
+        effectiveView={props.effectiveView}
+        embedded={props.embedded}
+        editable={Boolean(props.editable)}
       />
     );
   }

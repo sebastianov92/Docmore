@@ -15,6 +15,7 @@ import { useClipboard } from "@/hooks/use-clipboard";
 import { getAppUrl } from "@/lib/config.ts";
 import { buildPageUrl } from "@/features/page/page.utils.ts";
 import classes from "./base-embed.module.css";
+import { LinkedViewPicker } from "./linked-view-picker";
 
 const SIDE_GUTTER = 8;
 
@@ -54,10 +55,12 @@ function applyExtension(wrapper: HTMLDivElement) {
   );
 }
 
-export function BaseEmbedView({ node, editor, deleteNode }: NodeViewProps) {
+export function BaseEmbedView({ node, editor, deleteNode, updateAttributes }: NodeViewProps) {
   const { t } = useTranslation();
   const pageId = node.attrs.pageId as string | null;
   const pendingKey = node.attrs.pendingKey as string | null;
+  const viewId = (node.attrs.viewId as string | null) ?? null;
+  const pick = Boolean(node.attrs.pick) && !pageId;
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const hasBases = useHasFeature(Feature.BASES);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -113,7 +116,7 @@ export function BaseEmbedView({ node, editor, deleteNode }: NodeViewProps) {
   // Error/invalid states render a compact message, not a tall reserved box.
   // The 200px min-height (which avoids a layout jump when the real table
   // mounts) is reserved only for the skeleton/loading/table states.
-  const isCompact = !pendingKey && (!pageId || isError);
+  const isCompact = !pendingKey && !pick && (!pageId || isError);
 
   // Also on the skeleton, so a placeholder stuck pending can still be removed.
   const showControls = isEditable;
@@ -127,6 +130,14 @@ export function BaseEmbedView({ node, editor, deleteNode }: NodeViewProps) {
     // to the real table doesn't visibly collapse a large fake table
     // down to a small empty one.
     content = <BaseTableSkeleton rows={1} columns={3} />;
+  } else if (pick) {
+    content = (
+      <LinkedViewPicker
+        editor={editor}
+        onPick={(id, view) => updateAttributes({ pageId: id, viewId: view, pick: null })}
+        onCancel={() => deleteNode()}
+      />
+    );
   } else if (!pageId) {
     content = (
       <Box p="md">
@@ -151,6 +162,10 @@ export function BaseEmbedView({ node, editor, deleteNode }: NodeViewProps) {
         pageId={pageId}
         embedded
         editable={hasBases && isEditable && (base?.permissions?.canEdit ?? false)}
+        fixedViewId={viewId}
+        onFixedViewChange={(id) => {
+          if (isEditable) updateAttributes({ viewId: id });
+        }}
       />
     );
   }

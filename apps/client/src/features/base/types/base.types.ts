@@ -213,9 +213,18 @@ export type ViewConfig = {
   timelineZoom?: 'day' | 'week' | 'month';
   // Table/list: nest sub-items under their parent
   subItems?: boolean;
+  // Table: second grouping level
+  subGroupByPropertyId?: string;
+  // Chart
+  chartType?: 'bar' | 'line' | 'pie' | 'donut' | 'number';
+  chartXPropertyId?: string;
+  chartYPropertyId?: string;
+  chartAggregate?: 'count' | 'sum' | 'avg' | 'min' | 'max';
+  chartDateBucket?: 'day' | 'week' | 'month' | 'year';
+  chartShowValues?: boolean;
 };
 
-export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery' | 'timeline';
+export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery' | 'timeline' | 'chart';
 
 export type ReferenceUser = { id: string; name: string | null; avatarUrl: string | null };
 export type ReferencePage = {

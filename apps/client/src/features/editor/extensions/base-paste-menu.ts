@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
-export type BasePasteMenuState = { pos: number } | null;
+export type BasePasteMenuState = { pos: number; viewId?: string | null } | null;
 
 export const basePasteMenuKey = new PluginKey<BasePasteMenuState>(
   "basePasteMenu",

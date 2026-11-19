@@ -1,0 +1,103 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+  padding: 8px 12px 16px;
+}
+
+.root[data-standalone="true"] {
+  flex: 1;
+  overflow: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plot {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.svg {
+  display: block;
+  font-family: inherit;
+}
+
+.grid {
+  stroke: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  stroke-width: 1;
+}
+
+.axisText {
+  fill: var(--mantine-color-dimmed);
+  font-size: 11px;
+}
+
+.valueText {
+  fill: light-dark(var(--mantine-color-gray-8), var(--mantine-color-dark-0));
+  font-size: 11px;
+}
+
+.mark {
+  transition: opacity 120ms ease;
+}
+
+.mark:hover {
+  opacity: 0.75;
+}
+
+.ring {
+  stroke: var(--mantine-color-body);
+  stroke-width: 2;
+}
+
+.pieWrap {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--mantine-font-size-sm);
+  min-width: 180px;
+}
+
+.legendRow {
+  display: grid;
+  grid-template-columns: 12px minmax(80px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.bigNumber {
+  padding: 24px 8px;
+}
+
+.bigValue {
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.empty {
+  padding: 24px 12px;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}

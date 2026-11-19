@@ -11,6 +11,8 @@ declare module '@tiptap/core' {
       insertBaseEmbed: (attrs: {
         pageId: string | null;
         pendingKey?: string | null;
+        viewId?: string | null;
+        pick?: boolean | null;
       }) => ReturnType;
     };
   }
@@ -48,6 +50,19 @@ export const BaseEmbed = Node.create<BaseEmbedOptions>({
         parseHTML: (el) => el.getAttribute('data-page-id'),
         renderHTML: (attrs) =>
           attrs.pageId ? { 'data-page-id': attrs.pageId } : {},
+      },
+      // The view this embed shows; the base page's own choice otherwise.
+      viewId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-view-id'),
+        renderHTML: (attrs) =>
+          attrs.viewId ? { 'data-view-id': attrs.viewId } : {},
+      },
+      // Transient: the slash command asks which base and view to link.
+      pick: {
+        default: null,
+        parseHTML: () => null,
+        renderHTML: () => ({}),
       },
       // Transient marker set when the slash command inserts the embed
       // before the server has assigned a pageId. The view renders a

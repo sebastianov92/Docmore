@@ -2,7 +2,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { getBlockPlacement } from "@/features/editor/utils/block-placement";
 
-function getEmbedPlacement(doc: ProseMirrorNode, pos: number) {
+function getEmbedPlacement(doc: ProseMirrorNode, pos: number, viewId: string | null = null) {
   const mention = doc.nodeAt(pos);
   const baseType = doc.type.schema.nodes.base;
   if (mention?.type.name !== "mention" || !baseType) return null;
@@ -11,7 +11,7 @@ function getEmbedPlacement(doc: ProseMirrorNode, pos: number) {
     doc,
     pos,
     pos + mention.nodeSize,
-    baseType.create({ pageId: mention.attrs.entityId }),
+    baseType.create({ pageId: mention.attrs.entityId, viewId }),
   );
 }
 
@@ -22,8 +22,8 @@ export function canConvertMentionToBaseEmbed(
   return getEmbedPlacement(doc, pos) !== null;
 }
 
-export function convertMentionToBaseEmbed(editor: Editor, pos: number): boolean {
-  const placement = getEmbedPlacement(editor.state.doc, pos);
+export function convertMentionToBaseEmbed(editor: Editor, pos: number, viewId: string | null = null): boolean {
+  const placement = getEmbedPlacement(editor.state.doc, pos, viewId);
   if (!placement) return false;
 
   return editor.commands.command(({ tr }) => {

@@ -56,7 +56,7 @@ export function stripPropertyFromViewConfig(
   if ((config as any).coverPropertyId === propertyId) {
     delete next.coverPropertyId;
   }
-  for (const key of ['timelineStartPropertyId', 'timelineEndPropertyId']) {
+  for (const key of ['timelineStartPropertyId', 'timelineEndPropertyId', 'subGroupByPropertyId', 'chartXPropertyId', 'chartYPropertyId']) {
     if ((config as any)[key] === propertyId) delete next[key];
   }
 
@@ -99,10 +99,15 @@ export function clearKanbanGroupingFromViewConfig(
   propertyId: string,
 ): ViewConfig {
   if (!config) return {};
-  if (config.groupByPropertyId !== propertyId) return config;
+  const isGroup = config.groupByPropertyId === propertyId;
+  const isSubGroup = (config as any).subGroupByPropertyId === propertyId;
+  if (!isGroup && !isSubGroup) return config;
   const next: Record<string, unknown> = { ...config };
-  delete next.groupByPropertyId;
-  delete next.hiddenChoiceIds;
-  delete next.choiceOrder;
+  if (isGroup) {
+    delete next.groupByPropertyId;
+    delete next.hiddenChoiceIds;
+    delete next.choiceOrder;
+  }
+  if (isSubGroup) delete next.subGroupByPropertyId;
   return next as ViewConfig;
 }

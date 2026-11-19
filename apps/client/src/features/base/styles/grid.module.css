@@ -652,3 +652,64 @@
   bottom: 0;
   height: 2px;
 }
+
+/* Group headings of a grouped table span every column; the content sticks
+ * to the scrollport's start the same way pinned cells do. */
+.groupHeader {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  background-color: light-dark(
+    var(--mantine-color-gray-0),
+    var(--mantine-color-dark-6)
+  );
+  border-bottom: 1px solid
+    light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+  font-size: var(--mantine-font-size-sm);
+}
+
+.groupHeaderInner {
+  position: sticky;
+  left: calc(-1 * var(--embed-grid-pad-left, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.groupToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--mantine-radius-sm);
+  background: transparent;
+  color: var(--mantine-color-dimmed);
+  cursor: pointer;
+}
+
+.groupToggle:hover {
+  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4));
+}
+
+.groupChip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 500;
+  background-color: light-dark(
+    var(--mantine-color-gray-1),
+    var(--mantine-color-dark-5)
+  );
+}
+
+.groupCount {
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}

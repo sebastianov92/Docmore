@@ -21,6 +21,8 @@ import {
   IconLayoutList,
   IconLayoutGrid,
   IconTimeline,
+  IconChartBar,
+  IconLink,
 } from "@tabler/icons-react";
 import { BaseViewType } from "@/features/base/types/base.types";
 
@@ -31,6 +33,7 @@ export const VIEW_ICONS: Record<BaseViewType, typeof IconTable> = {
   list: IconLayoutList,
   gallery: IconLayoutGrid,
   timeline: IconTimeline,
+  chart: IconChartBar,
 };
 import { IBaseView } from "@/features/base/types/base.types";
 import {
@@ -39,6 +42,11 @@ import {
 } from "@/features/base/queries/base-view-query";
 import { useTranslation } from "react-i18next";
 import cellClasses from "@/features/base/styles/cells.module.css";
+import { usePageQuery } from "@/features/page/queries/page-query";
+import { useClipboard } from "@/hooks/use-clipboard";
+import { getAppUrl } from "@/lib/config.ts";
+import { buildPageUrl } from "@/features/page/page.utils.ts";
+import { notifications } from "@mantine/notifications";
 
 type ViewTabsProps = {
   views: IBaseView[];
@@ -98,6 +106,21 @@ export function ViewTabs({
     [handleRenameCommit],
   );
 
+  // Link that opens the base on this view; pasted into a page it embeds
+  // the view (dashboards are pages of such embeds).
+  const { data: viewPage } = usePageQuery({ pageId });
+  const clipboard = useClipboard({ timeout: 500 });
+  const handleCopyLink = useCallback(
+    (viewId: string) => {
+      if (!viewPage) return;
+      clipboard.copy(
+        getAppUrl() + buildPageUrl(viewPage.space?.slug, viewPage.slugId, viewPage.title) + `?view=${viewId}`,
+      );
+      notifications.show({ message: t("Link copied") });
+    },
+    [viewPage, clipboard, t],
+  );
+
   const handleDelete = useCallback(
     (viewId: string) => {
       if (views.length <= 1) return;
@@ -126,6 +149,7 @@ export function ViewTabs({
           onRenameCommit={handleRenameCommit}
           onRenameKeyDown={handleRenameKeyDown}
           onDelete={() => handleDelete(view.id)}
+          onCopyLink={() => handleCopyLink(view.id)}
         />
       ))}
       {onAddView && (
@@ -156,6 +180,9 @@ export function ViewTabs({
             <Menu.Item leftSection={<IconTimeline size={14} />} onClick={() => onAddView("timeline")}>
               {t("Timeline")}
             </Menu.Item>
+            <Menu.Item leftSection={<IconChartBar size={14} />} onClick={() => onAddView("chart")}>
+              {t("Chart")}
+            </Menu.Item>
           </Menu.Dropdown>
         </Menu>
       )}
@@ -175,6 +202,7 @@ function ViewTab({
   onRenameCommit,
   onRenameKeyDown,
   onDelete,
+  onCopyLink,
 }: {
   view: IBaseView;
   isActive: boolean;
@@ -187,6 +215,7 @@ function ViewTab({
   onRenameCommit: () => void;
   onRenameKeyDown: (e: React.KeyboardEvent) => void;
   onDelete: () => void;
+  onCopyLink: () => void;
 }) {
   const { t } = useTranslation();
   const [menuOpened, setMenuOpened] = useState(false);
@@ -277,6 +306,18 @@ function ViewTab({
       </Popover.Target>
       <Popover.Dropdown ref={dropdownRef} p={4}>
         <Stack gap={0}>
+          <UnstyledButton
+            className={cellClasses.menuItem}
+            onClick={() => {
+              setMenuOpened(false);
+              onCopyLink();
+            }}
+          >
+            <Group gap={8} wrap="nowrap">
+              <IconLink size={14} />
+              <Text size="sm">{t("Copy link to view")}</Text>
+            </Group>
+          </UnstyledButton>
           <UnstyledButton
             className={cellClasses.menuItem}
             onClick={() => {

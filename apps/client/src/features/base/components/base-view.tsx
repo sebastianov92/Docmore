@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
 import { Text, Stack } from "@mantine/core";
 import { useAtom } from "jotai";
 import { IconDatabase } from "@tabler/icons-react";
@@ -57,6 +63,10 @@ type BaseViewProps = {
   editable?: boolean;
   // Rendered above the toolbar on the standalone page (the page title).
   titleSlot?: ReactNode;
+  // An embed shows this view, apart from the base page's own choice;
+  // switching tabs in it reports the new view (the embed remembers it).
+  fixedViewId?: string | null;
+  onFixedViewChange?: (viewId: string) => void;
 };
 
 export function BaseView({
@@ -64,6 +74,8 @@ export function BaseView({
   embedded,
   editable,
   titleSlot,
+  fixedViewId,
+  onFixedViewChange,
 }: BaseViewProps) {
   const { t } = useTranslation();
   // Subscribe to the base's realtime room so other clients' edits,
@@ -72,9 +84,17 @@ export function BaseView({
   const { data: base, isLoading: baseLoading, error: baseError } =
     useBaseQuery(pageId);
 
-  const [activeViewId, setActiveViewId] = useAtom(
+  const [sharedViewId, setSharedViewId] = useAtom(
     activeViewIdAtomFamily(pageId),
   ) as unknown as [string | null, (val: string | null) => void];
+  // Embeds keep their own view so two embeds of one base can differ.
+  const isFixed = fixedViewId !== undefined;
+  const [localViewId, setLocalViewId] = useState<string | null>(fixedViewId ?? null);
+  const activeViewId = isFixed ? localViewId : sharedViewId;
+  const setActiveViewId = useCallback(
+    (id: string | null) => (isFixed ? setLocalViewId(id) : setSharedViewId(id)),
+    [isFixed, setSharedViewId],
+  );
 
   const views = base?.views ?? [];
   const activeView = useMemo(() => {
@@ -221,7 +241,8 @@ export function BaseView({
     isCalendar ||
     effectiveView?.type === "list" ||
     effectiveView?.type === "gallery" ||
-    effectiveView?.type === "timeline";
+    effectiveView?.type === "timeline" ||
+    effectiveView?.type === "chart";
 
   const handleCellUpdate = useCallback(
     (rowId: string, propertyId: string, value: unknown) => {
@@ -238,6 +259,13 @@ export function BaseView({
     createRowMutation.mutate({ pageId });
   }, [pageId, createRowMutation]);
 
+  const handleAddRowWithCells = useCallback(
+    (cells: Record<string, unknown>) => {
+      createRowMutation.mutate({ pageId, cells });
+    },
+    [pageId, createRowMutation],
+  );
+
   const handleToggleLock = useCallback(() => {
     updateBaseMutation.mutate({ pageId, locked: !base?.baseLocked });
   }, [pageId, base?.baseLocked, updateBaseMutation]);
@@ -245,9 +273,20 @@ export function BaseView({
   const handleViewChange = useCallback(
     (viewId: string) => {
       setActiveViewId(viewId);
+      if (isFixed) onFixedViewChange?.(viewId);
     },
-    [setActiveViewId],
+    [setActiveViewId, isFixed, onFixedViewChange],
   );
+
+  // A link to the base may name the view to open (?view=<id>).
+  const hasViews = views.length > 0;
+  useEffect(() => {
+    if (embedded || isFixed || !hasViews) return;
+    const wanted = new URLSearchParams(window.location.search).get("view");
+    if (wanted && views.some((v) => v.id === wanted)) setSharedViewId(wanted);
+    // only once the views are known
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasViews]);
 
   const handleAddView = useCallback(
     (type: BaseViewType = "table") => {
@@ -258,8 +297,17 @@ export function BaseView({
         list: t("List"),
         gallery: t("Gallery"),
         timeline: t("Timeline"),
+        chart: t("Chart"),
       };
       const config: Record<string, unknown> = {};
+      if (type === "chart") {
+        const x =
+          base?.properties.find((p) => p.type === "select" || p.type === "status") ??
+          base?.properties.find((p) => p.type === "date");
+        if (x) config.chartXPropertyId = x.id;
+        config.chartType = "bar";
+        config.chartShowValues = true;
+      }
       if (type === "timeline") {
         const dates = base?.properties.filter((p) => p.type === "date") ?? [];
         if (dates[0]) config.timelineStartPropertyId = dates[0].id;
@@ -374,12 +422,33 @@ export function BaseView({
         } else {
           newPosition = generateJitteredKeyBetween(lowerPos, upperPos);
         }
-        reorderRowMutation.mutate({ rowId, pageId, position: newPosition });
+        // Dropped into another group of a grouped table: the row takes
+        // that group's values along with its new position.
+        const groupKeys =
+          effectiveView?.type === "table"
+            ? [effectiveView.config?.groupByPropertyId, effectiveView.config?.subGroupByPropertyId].filter(
+                (k): k is string => Boolean(k),
+              )
+            : [];
+        const target = rows.find((r) => r.id === targetRowId);
+        const dragged = rows.find((r) => r.id === rowId);
+        const cells: Record<string, unknown> = {};
+        if (target && dragged) {
+          for (const k of groupKeys) {
+            const want = target.cells?.[k] ?? null;
+            if ((dragged.cells?.[k] ?? null) !== want) cells[k] = want;
+          }
+        }
+        if (Object.keys(cells).length > 0) {
+          updateRowMutation.mutate({ rowId, pageId, cells, position: newPosition });
+        } else {
+          reorderRowMutation.mutate({ rowId, pageId, position: newPosition });
+        }
       } catch {
         // Position computation failed — skip silently.
       }
     },
-    [rows, pageId, reorderRowMutation],
+    [rows, pageId, reorderRowMutation, updateRowMutation, effectiveView],
   );
 
   if (baseLoading || rowsLoading) {
@@ -440,6 +509,7 @@ export function BaseView({
           onFetchNextPage={fetchNextPage}
           onCellUpdate={handleCellUpdate}
           onAddRow={canSave ? handleAddRow : undefined}
+          onAddRowWithCells={canSave ? handleAddRowWithCells : undefined}
           editable={canSave}
           canEditStructure={structureEditable}
           onColumnReorder={handleColumnReorder}
@@ -502,6 +572,7 @@ export function BaseView({
               onFetchNextPage={fetchNextPage}
               onCellUpdate={handleCellUpdate}
               onAddRow={canSave ? handleAddRow : undefined}
+              onAddRowWithCells={canSave ? handleAddRowWithCells : undefined}
               onColumnReorder={handleColumnReorder}
               onResizeEnd={handleResizeEnd}
               onRowReorder={handleRowReorder}
@@ -526,6 +597,7 @@ export function BaseView({
               onFetchNextPage={fetchNextPage}
               onCellUpdate={handleCellUpdate}
               onAddRow={canSave ? handleAddRow : undefined}
+              onAddRowWithCells={canSave ? handleAddRowWithCells : undefined}
               onColumnReorder={handleColumnReorder}
               onResizeEnd={handleResizeEnd}
               onRowReorder={handleRowReorder}

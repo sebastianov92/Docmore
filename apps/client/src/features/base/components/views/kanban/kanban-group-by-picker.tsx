@@ -11,6 +11,7 @@ type KanbanGroupByPickerProps = {
   size?: "xs" | "sm" | "md";
   // List views may drop the grouping again.
   onClear?: () => void;
+  placeholder?: string;
 };
 
 export function KanbanGroupByPicker({
@@ -19,6 +20,7 @@ export function KanbanGroupByPicker({
   onChange,
   size = "sm",
   onClear,
+  placeholder,
 }: KanbanGroupByPickerProps) {
   const { t } = useTranslation();
   const data = useMemo(
@@ -30,7 +32,7 @@ export function KanbanGroupByPicker({
   );
   return (
     <Select
-      placeholder={t("Group by…")}
+      placeholder={placeholder ?? t("Group by…")}
       data={data}
       value={value}
       onChange={(v) => (v ? onChange(v) : onClear?.())}

@@ -32,6 +32,7 @@ import {
   IconMoodSmile,
   IconRotate2,
   IconSuperscript,
+  IconChartBar,
 } from "@tabler/icons-react";
 import {
   CommandProps,
@@ -396,6 +397,21 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       requiresBases: true,
       command: ({ editor, range }: CommandProps) => {
         insertBaseEmbedBlock(editor, { range, template: "kanban" });
+      },
+    },
+    {
+      title: "Linked view",
+      description: "Show a view of an existing base (charts make dashboards)",
+      searchTerms: ["linked", "view", "chart", "dashboard", "panel", "embed", "base", "graph"],
+      icon: IconChartBar,
+      requiresBases: true,
+      command: ({ editor, range }: CommandProps) => {
+        editor
+          .chain()
+          .focus()
+          .deleteRange(range)
+          .insertBaseEmbed({ pageId: null, pick: true })
+          .run();
       },
     },
     {

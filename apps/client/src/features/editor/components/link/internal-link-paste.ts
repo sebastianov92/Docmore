@@ -45,7 +45,14 @@ export const handleInternalLink =
 
         const transaction = view.state.tr.replaceWith(pos, pos, node);
         if (page.isBase && canConvertMentionToBaseEmbed(transaction.doc, pos)) {
-          transaction.setMeta(basePasteMenuKey, { pos });
+          // a view link (?view=<id>) embeds that view
+          let viewId: string | null = null;
+          try {
+            viewId = new URL(url, window.location.origin).searchParams.get("view");
+          } catch {
+            viewId = null;
+          }
+          transaction.setMeta(basePasteMenuKey, { pos, viewId });
         }
         view.dispatch(transaction);
       },
