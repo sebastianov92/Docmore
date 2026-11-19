@@ -12,6 +12,7 @@ import { usePaginateAndSearch } from "@/hooks/use-paginate-and-search";
 import useUserRole from "@/hooks/use-user-role";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
 import { SpaceListStatus } from "@/features/space/types/space.types";
+import BrowseSpaces from "@/features/space/components/browse-spaces";
 
 export default function Spaces() {
   const { t } = useTranslation();
@@ -73,6 +74,7 @@ export default function Spaces() {
             onPrev={goPrev}
           />
         </Box>
+        <BrowseSpaces />
       </Container>
     </>
   );

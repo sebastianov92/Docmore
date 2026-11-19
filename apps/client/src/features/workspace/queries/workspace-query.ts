@@ -20,6 +20,10 @@ import {
   deleteWorkspaceMember,
   deactivateWorkspaceMember,
   activateWorkspaceMember,
+  createInviteRequest,
+  getInviteRequests,
+  getMyInviteRequests,
+  reviewInviteRequest,
 } from "@/features/workspace/services/workspace-service";
 import { IPagination, QueryParams } from "@/lib/types.ts";
 import { notifications } from "@mantine/notifications";
@@ -249,5 +253,58 @@ export function useAppVersion(
     staleTime: 60 * 60 * 1000, // 1 hr
     enabled: isEnabled,
     refetchOnMount: true,
+  });
+}
+
+export function useInviteRequestsQuery(enabled = true) {
+  return useQuery({
+    queryKey: ["invite-requests"],
+    queryFn: () => getInviteRequests(),
+    enabled,
+  });
+}
+
+export function useMyInviteRequestsQuery(enabled = true) {
+  return useQuery({
+    queryKey: ["invite-requests", "mine"],
+    queryFn: () => getMyInviteRequests(),
+    enabled,
+  });
+}
+
+export function useCreateInviteRequestMutation() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { emails: string[]; note?: string }) => createInviteRequest(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["invite-requests"] });
+      notifications.show({
+        message:
+          result.requested.length > 0
+            ? t("Request sent to the admins")
+            : t("Those people are already members or already requested"),
+      });
+    },
+    onError: (error: any) => {
+      notifications.show({ message: error?.response?.data?.message || t("Something went wrong"), color: "red" });
+    },
+  });
+}
+
+export function useReviewInviteRequestMutation() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ requestId, approve }: { requestId: string; approve: boolean }) =>
+      reviewInviteRequest(requestId, approve),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["invite-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["invitations"] });
+      notifications.show({ message: variables.approve ? t("Invitation sent") : t("Request rejected") });
+    },
+    onError: (error: any) => {
+      notifications.show({ message: error?.response?.data?.message || t("Something went wrong"), color: "red" });
+    },
   });
 }

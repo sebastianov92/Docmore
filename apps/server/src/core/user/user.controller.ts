@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Post,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -14,6 +15,8 @@ import { OAuthScope } from '../../common/decorators/oauth-scope.decorator';
 import { AuthWorkspace } from '../../common/decorators/auth-workspace.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
+import { UserRepo } from '@docmost/db/repos/user/user.repo';
+import { UserIdDto } from './dto/user-id.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -21,6 +24,7 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly workspaceRepo: WorkspaceRepo,
+    private readonly userRepo: UserRepo,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -42,6 +46,32 @@ export class UserController {
     };
 
     return { user: authUser, workspace: workspaceInfo };
+  }
+
+  // Public profile of a workspace member (people directory).
+  @HttpCode(HttpStatus.OK)
+  @Post('info')
+  @OAuthScope('read')
+  async getMemberInfo(
+    @Body() dto: UserIdDto,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const member = await this.userRepo.findById(dto.userId, workspace.id);
+    if (!member || member.deletedAt) {
+      throw new NotFoundException('User not found');
+    }
+    return {
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      avatarUrl: member.avatarUrl,
+      role: member.role,
+      timezone: member.timezone,
+      locale: member.locale,
+      createdAt: member.createdAt,
+      lastActiveAt: member.lastActiveAt,
+      deactivatedAt: member.deactivatedAt,
+    };
   }
 
   @HttpCode(HttpStatus.OK)

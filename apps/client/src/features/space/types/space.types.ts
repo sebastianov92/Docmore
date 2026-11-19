@@ -25,6 +25,30 @@ export interface ISpaceSettings {
 
 export type SpaceListStatus = "active" | "archived" | "all";
 
+// open: anyone joins · closed: listed, join by request · private: hidden
+export type SpaceVisibility = "open" | "closed" | "private";
+
+export interface IBrowseSpace {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logo: string | null;
+  visibility: SpaceVisibility;
+  memberCount: number;
+  requested: boolean;
+}
+
+export interface ISpaceJoinRequest {
+  id: string;
+  note: string | null;
+  createdAt: string;
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+}
+
 export type ISpaceHomePage = {
   id: string;
   slugId: string;
@@ -38,6 +62,7 @@ export interface ISpace {
   description: string;
   logo?: string;
   slug: string;
+  visibility?: SpaceVisibility;
   isPersonal?: boolean;
   hostname: string;
   creatorId: string;

@@ -28,6 +28,7 @@ import { formatMemberCount } from "@/lib";
 import { useTranslation } from "react-i18next";
 import { SearchInput } from "@/components/common/search-input.tsx";
 import { AutoTooltipText } from "@/components/ui/auto-tooltip-text.tsx";
+import SpaceJoinRequests from "@/features/space/components/space-join-requests";
 
 type MemberType = "user" | "group";
 
@@ -135,6 +136,7 @@ export default function SpaceMembersList({
 
   return (
     <>
+      {!readOnly && <SpaceJoinRequests spaceId={spaceId} />}
       <SearchInput onSearch={handleSearch} />
       <ScrollArea h={450} viewportRef={viewportRef}>
         <Table.ScrollContainer minWidth={500}>

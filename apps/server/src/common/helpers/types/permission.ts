@@ -17,6 +17,7 @@ export enum SpaceRole {
 
 export enum SpaceVisibility {
   OPEN = 'open', // any workspace member can see that it exists and join.
+  CLOSED = 'closed', // listed for everyone; joining needs a space admin's approval
   PRIVATE = 'private', // only added space users can see
 }
 

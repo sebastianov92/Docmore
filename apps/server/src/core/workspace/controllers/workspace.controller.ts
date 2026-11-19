@@ -40,6 +40,8 @@ import { ListWorkspaceUsersDto } from '../dto/list-workspace-users.dto';
 import { resolveWorkspaceUserListStatus } from '../workspace.util';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
+import { WorkspaceInviteRequestService } from '../services/workspace-invite-request.service';
+import { CreateInviteRequestDto, InviteRequestIdDto } from '../dto/invite-request.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workspace')
@@ -51,6 +53,7 @@ export class WorkspaceController {
     private readonly workspaceRepo: WorkspaceRepo,
     private environmentService: EnvironmentService,
     private licenseCheckService: LicenseCheckService,
+    private readonly inviteRequestService: WorkspaceInviteRequestService,
   ) {}
 
   @Public()
@@ -226,6 +229,67 @@ export class WorkspaceController {
       workspace.id,
       pagination,
     );
+  }
+
+  // Invite requests: any member asks, admins approve (which sends the invite).
+  @HttpCode(HttpStatus.OK)
+  @Post('invite-requests/create')
+  async createInviteRequest(
+    @Body() dto: CreateInviteRequestDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.inviteRequestService.create(user, workspace, dto.emails, dto.note);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('invite-requests/mine')
+  async myInviteRequests(
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.inviteRequestService.listMine(user.id, workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('invite-requests')
+  async listInviteRequests(
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const ability = this.workspaceAbility.createForUser(user, workspace);
+    if (ability.cannot(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Member)) {
+      throw new ForbiddenException();
+    }
+    return this.inviteRequestService.listPending(workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('invite-requests/approve')
+  async approveInviteRequest(
+    @Body() dto: InviteRequestIdDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const ability = this.workspaceAbility.createForUser(user, workspace);
+    if (ability.cannot(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Member)) {
+      throw new ForbiddenException();
+    }
+    return this.inviteRequestService.review(user, workspace, dto.requestId, true);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('invite-requests/reject')
+  async rejectInviteRequest(
+    @Body() dto: InviteRequestIdDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const ability = this.workspaceAbility.createForUser(user, workspace);
+    if (ability.cannot(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Member)) {
+      throw new ForbiddenException();
+    }
+    return this.inviteRequestService.review(user, workspace, dto.requestId, false);
   }
 
   @Public()

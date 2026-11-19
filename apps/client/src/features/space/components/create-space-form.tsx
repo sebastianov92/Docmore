@@ -8,9 +8,12 @@ import { useCreateSpaceMutation } from "@/features/space/queries/space-query.ts"
 import { computeSpaceSlug } from "@/lib";
 import { getSpaceUrl } from "@/lib/config.ts";
 import { useTranslation } from "react-i18next";
+import { SpaceVisibilitySelect } from "@/features/space/components/visibility-select";
+import { SpaceVisibility } from "@/features/space/types/space.types";
 
 const formSchema = z.object({
   name: z.string().trim().min(2).max(100),
+  visibility: z.enum(["open", "closed", "private"]).optional(),
   slug: z
     .string()
     .trim()
@@ -35,6 +38,7 @@ export function CreateSpaceForm() {
     initialValues: {
       name: "",
       slug: "",
+      visibility: "private" as SpaceVisibility,
       description: "",
     },
   });
@@ -57,11 +61,13 @@ export function CreateSpaceForm() {
   const handleSubmit = async (data: {
     name?: string;
     slug?: string;
+    visibility?: SpaceVisibility;
     description?: string;
   }) => {
     const spaceData = {
       name: data.name,
       slug: data.slug,
+      visibility: data.visibility,
       description: data.description,
     };
 
@@ -108,6 +114,11 @@ export function CreateSpaceForm() {
               variant="filled"
               errorProps={{ role: "alert" }}
               {...form.getInputProps("slug")}
+            />
+
+            <SpaceVisibilitySelect
+              value={form.values.visibility}
+              onChange={(v) => form.setFieldValue("visibility", v)}
             />
 
             <Textarea

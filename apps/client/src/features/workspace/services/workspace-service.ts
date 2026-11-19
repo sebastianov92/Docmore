@@ -11,6 +11,7 @@ import {
 } from "../types/workspace.types";
 import { IPagination, QueryParams } from "@/lib/types.ts";
 import { ISetupWorkspace } from "@/features/auth/types/auth.types.ts";
+import { IInviteRequest } from "@/features/workspace/types/workspace.types.ts";
 
 export async function getWorkspace(): Promise<IWorkspace> {
   const req = await api.post<IWorkspace>("/workspace/info");
@@ -121,4 +122,24 @@ export async function createWorkspace(
 export async function getAppVersion(): Promise<IVersion> {
   const req = await api.post("/version");
   return req.data;
+}
+
+// Invite requests: members ask, admins approve (which sends the invite).
+export async function createInviteRequest(data: { emails: string[]; note?: string }) {
+  const req = await api.post<{ requested: string[]; skipped: string[] }>("/workspace/invite-requests/create", data);
+  return req.data;
+}
+
+export async function getInviteRequests(): Promise<{ items: IInviteRequest[] }> {
+  const req = await api.post("/workspace/invite-requests");
+  return req.data;
+}
+
+export async function getMyInviteRequests(): Promise<{ items: IInviteRequest[] }> {
+  const req = await api.post("/workspace/invite-requests/mine");
+  return req.data;
+}
+
+export async function reviewInviteRequest(requestId: string, approve: boolean): Promise<void> {
+  await api.post(approve ? "/workspace/invite-requests/approve" : "/workspace/invite-requests/reject", { requestId });
 }

@@ -39,6 +39,14 @@ import { CreateSpaceDto } from './dto/create-space.dto';
 import { ListSpacesDto } from './dto/list-spaces.dto';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { ApiKeyScope } from '../../common/decorators/api-key-scope.decorator';
+import { SpaceJoinService } from './services/space-join.service';
+import {
+  BrowseSpacesDto,
+  CreateJoinRequestDto,
+  JoinRequestIdDto,
+  JoinSpaceDto,
+  ListJoinRequestsDto,
+} from './dto/space-join.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('spaces')
@@ -51,6 +59,7 @@ export class SpaceController {
     private readonly workspaceAbility: WorkspaceAbilityFactory,
     private readonly spaceRepo: SpaceRepo,
     private readonly pagePermissionRepo: PagePermissionRepo,
+    private readonly spaceJoinService: SpaceJoinService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -91,6 +100,81 @@ export class SpaceController {
     }
 
     return result;
+  }
+
+  // Spaces the user could join (open or closed, not private).
+  @HttpCode(HttpStatus.OK)
+  @Post('browse')
+  async browse(
+    @Body() dto: BrowseSpacesDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.spaceJoinService.browse(user, workspace.id, dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('join')
+  async join(
+    @Body() dto: JoinSpaceDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.spaceJoinService.join(user, workspace, dto.spaceId);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('join-requests/create')
+  async createJoinRequest(
+    @Body() dto: CreateJoinRequestDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.spaceJoinService.request(user, workspace, dto.spaceId, dto.note);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('join-requests')
+  async listJoinRequests(
+    @Body() dto: ListJoinRequestsDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const ability = await this.spaceAbility.createForUser(user, dto.spaceId);
+    if (ability.cannot(SpaceCaslAction.Manage, SpaceCaslSubject.Member)) {
+      throw new ForbiddenException();
+    }
+    return this.spaceJoinService.listPending(dto.spaceId, workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('join-requests/approve')
+  async approveJoinRequest(
+    @Body() dto: JoinRequestIdDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const request = await this.spaceJoinService.findRequest(dto.requestId, workspace.id);
+    const ability = await this.spaceAbility.createForUser(user, request.spaceId);
+    if (ability.cannot(SpaceCaslAction.Manage, SpaceCaslSubject.Member)) {
+      throw new ForbiddenException();
+    }
+    return this.spaceJoinService.review(user, workspace, dto.requestId, true);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('join-requests/reject')
+  async rejectJoinRequest(
+    @Body() dto: JoinRequestIdDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    const request = await this.spaceJoinService.findRequest(dto.requestId, workspace.id);
+    const ability = await this.spaceAbility.createForUser(user, request.spaceId);
+    if (ability.cannot(SpaceCaslAction.Manage, SpaceCaslSubject.Member)) {
+      throw new ForbiddenException();
+    }
+    return this.spaceJoinService.review(user, workspace, dto.requestId, false);
   }
 
   @HttpCode(HttpStatus.OK)

@@ -6,10 +6,13 @@ import { z } from "zod/v4";
 import { useUpdateSpaceMutation } from "@/features/space/queries/space-query.ts";
 import { ISpace } from "@/features/space/types/space.types.ts";
 import { useTranslation } from "react-i18next";
+import { SpaceVisibilitySelect } from "@/features/space/components/visibility-select";
+import { SpaceVisibility } from "@/features/space/types/space.types";
 
 const formSchema = z.object({
   name: z.string().min(2).max(100),
   description: z.string().max(500),
+  visibility: z.enum(["open", "closed", "private"]),
   slug: z
     .string()
     .min(2)
@@ -35,6 +38,7 @@ export function EditSpaceForm({ space, readOnly }: EditSpaceFormProps) {
       name: space?.name,
       description: space?.description || "",
       slug: space.slug,
+      visibility: (space.visibility ?? "private") as SpaceVisibility,
     },
   });
 
@@ -42,6 +46,7 @@ export function EditSpaceForm({ space, readOnly }: EditSpaceFormProps) {
     name?: string;
     description?: string;
     slug?: string;
+    visibility?: SpaceVisibility;
   }) => {
     const spaceData: Partial<ISpace> = {
       spaceId: space.id,
@@ -51,6 +56,10 @@ export function EditSpaceForm({ space, readOnly }: EditSpaceFormProps) {
     }
     if (form.isDirty("description")) {
       spaceData.description = values.description;
+    }
+
+    if (form.isDirty("visibility")) {
+      spaceData.visibility = values.visibility;
     }
 
     if (form.isDirty("slug")) {
@@ -81,6 +90,12 @@ export function EditSpaceForm({ space, readOnly }: EditSpaceFormProps) {
               variant="filled"
               readOnly={readOnly}
               {...form.getInputProps("slug")}
+            />
+
+            <SpaceVisibilitySelect
+              value={form.values.visibility}
+              onChange={(v) => form.setFieldValue("visibility", v)}
+              readOnly={readOnly}
             />
 
             <Textarea

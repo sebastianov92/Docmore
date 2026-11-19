@@ -274,6 +274,7 @@ export class SpaceService {
           name: updateSpaceDto.name,
           description: updateSpaceDto.description,
           slug: updateSpaceDto.slug,
+          visibility: updateSpaceDto.visibility,
           homePageId,
         },
         updateSpaceDto.spaceId,
@@ -283,7 +284,7 @@ export class SpaceService {
     });
 
     const columnChanges = diffAuditTrackedFields(
-      ['name', 'slug', 'description'],
+      ['name', 'slug', 'description', 'visibility'],
       updateSpaceDto,
       spaceBefore,
       updatedSpace,

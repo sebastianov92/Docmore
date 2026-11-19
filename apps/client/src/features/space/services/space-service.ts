@@ -6,6 +6,8 @@ import {
   IRemoveSpaceMember,
   ISpace,
   ISpaceMember,
+  IBrowseSpace,
+  ISpaceJoinRequest,
 } from "@/features/space/types/space.types";
 import { IPagination, QueryParams } from "@/lib/types.ts";
 import { saveAs } from "file-saver";
@@ -15,6 +17,33 @@ export async function getSpaces(
 ): Promise<IPagination<ISpace>> {
   const req = await api.post("/spaces", params);
   return req.data;
+}
+
+// Spaces the user could join (open or closed, not private).
+export async function browseSpaces(
+  params?: QueryParams,
+): Promise<IPagination<IBrowseSpace>> {
+  const req = await api.post("/spaces/browse", params);
+  return req.data;
+}
+
+export async function joinSpace(spaceId: string): Promise<{ joined: boolean; role: string }> {
+  const req = await api.post("/spaces/join", { spaceId });
+  return req.data;
+}
+
+export async function requestJoinSpace(spaceId: string, note?: string): Promise<{ requested: boolean }> {
+  const req = await api.post("/spaces/join-requests/create", { spaceId, note });
+  return req.data;
+}
+
+export async function getJoinRequests(spaceId: string): Promise<{ items: ISpaceJoinRequest[] }> {
+  const req = await api.post("/spaces/join-requests", { spaceId });
+  return req.data;
+}
+
+export async function reviewJoinRequest(requestId: string, approve: boolean): Promise<void> {
+  await api.post(approve ? "/spaces/join-requests/approve" : "/spaces/join-requests/reject", { requestId });
 }
 
 export async function getSpaceById(spaceId: string): Promise<ISpace> {

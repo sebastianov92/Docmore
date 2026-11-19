@@ -10,6 +10,9 @@ import { useTranslation } from "react-i18next";
 import { useAtom } from "jotai";
 import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
+import InviteRequestsTable from "@/features/workspace/components/members/components/invite-requests-table";
+import RequestInviteModal from "@/features/workspace/components/members/components/request-invite-modal";
+import { useInviteRequestsQuery } from "@/features/workspace/queries/workspace-query.ts";
 
 export default function WorkspaceMembers() {
   const { t } = useTranslation();
@@ -18,17 +21,19 @@ export default function WorkspaceMembers() {
   const [searchParams] = useSearchParams();
   const { isAdmin } = useUserRole();
   const navigate = useNavigate();
+  const { data: requestsData } = useInviteRequestsQuery(isAdmin);
+  const requestCount = requestsData?.items?.length ?? 0;
 
   useEffect(() => {
     const currentTab = searchParams.get("tab");
-    if (currentTab === "invites") {
+    if (currentTab === "invites" || currentTab === "requests") {
       setSegmentValue(currentTab);
     }
   }, [searchParams.get("tab")]);
 
   const handleSegmentChange = (value: string) => {
     setSegmentValue(value);
-    if (value === "invites") {
+    if (value === "invites" || value === "requests") {
       navigate(`?tab=${value}`);
     } else {
       navigate("");
@@ -53,16 +58,28 @@ export default function WorkspaceMembers() {
               value: "members",
             },
             { label: t("Pending"), value: "invites" },
+            ...(isAdmin
+              ? [
+                  {
+                    label:
+                      t("Requests") +
+                      (requestCount ? ` (${requestCount})` : ""),
+                    value: "requests",
+                  },
+                ]
+              : []),
           ]}
           withItemsBorders={false}
         />
 
-        {isAdmin && <WorkspaceInviteModal />}
+        {isAdmin ? <WorkspaceInviteModal /> : <RequestInviteModal />}
       </Group>
 
       <Space h="lg" />
 
-      {segmentValue === "invites" ? (
+      {segmentValue === "requests" && isAdmin ? (
+        <InviteRequestsTable />
+      ) : segmentValue === "invites" ? (
         <WorkspaceInvitesTable />
       ) : (
         <WorkspaceMembersTable />

@@ -37,6 +37,7 @@ describe('SpaceController home page', () => {
       {} as any,
       {} as any,
       pagePermissionRepo as any,
+      {} as any,
     );
 
     return { controller, spaceService, space, pagePermissionRepo };

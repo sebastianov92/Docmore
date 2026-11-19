@@ -12,6 +12,7 @@ import {
   IChangeSpaceMemberRole,
   IRemoveSpaceMember,
   ISpace,
+  IBrowseSpace,
 } from "@/features/space/types/space.types";
 import {
   addSpaceMember,
@@ -34,6 +35,7 @@ import { getRecentChanges } from "@/features/page/services/page-service.ts";
 import { useEffect } from "react";
 import { getApiErrorMessage } from "@/lib/api-error.ts";
 import { validate as isValidUuid } from "uuid";
+import { browseSpaces, joinSpace, requestJoinSpace, getJoinRequests, reviewJoinRequest } from "@/features/space/services/space-service";
 
 const ARCHIVED_PROBE_PARAMS: QueryParams = { status: "archived", limit: 1 };
 
@@ -379,6 +381,74 @@ export function useChangeSpaceMemberRoleMutation() {
         message: getApiErrorMessage(error, t("Something went wrong")),
         color: "red",
       });
+    },
+  });
+}
+
+// Joinable spaces (open or closed) the user is not in yet.
+export function useBrowseSpacesQuery(params?: QueryParams) {
+  return useQuery<IPagination<IBrowseSpace>, Error>({
+    queryKey: ["browse-spaces", params],
+    queryFn: () => browseSpaces(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+function refreshSpaceLists() {
+  queryClient.invalidateQueries({ queryKey: ["browse-spaces"] });
+  queryClient.invalidateQueries({ queryKey: ["spaces"] });
+  queryClient.invalidateQueries({
+    predicate: (q) => String(q.queryKey[0]).toLowerCase().includes("member"),
+  });
+}
+
+export function useJoinSpaceMutation() {
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: (spaceId: string) => joinSpace(spaceId),
+    onSuccess: () => {
+      refreshSpaceLists();
+      notifications.show({ message: t("You joined the space") });
+    },
+    onError: (error: any) => {
+      notifications.show({ message: error?.response?.data?.message || t("Could not join"), color: "red" });
+    },
+  });
+}
+
+export function useRequestJoinSpaceMutation() {
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: ({ spaceId, note }: { spaceId: string; note?: string }) => requestJoinSpace(spaceId, note),
+    onSuccess: () => {
+      refreshSpaceLists();
+      notifications.show({ message: t("Request sent to the space admins") });
+    },
+    onError: (error: any) => {
+      notifications.show({ message: error?.response?.data?.message || t("Could not send the request"), color: "red" });
+    },
+  });
+}
+
+export function useJoinRequestsQuery(spaceId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["join-requests", spaceId],
+    queryFn: () => getJoinRequests(spaceId),
+    enabled: !!spaceId && enabled,
+  });
+}
+
+export function useReviewJoinRequestMutation() {
+  const { t } = useTranslation();
+  return useMutation({
+    mutationFn: ({ requestId, approve }: { requestId: string; approve: boolean }) =>
+      reviewJoinRequest(requestId, approve),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["join-requests"] });
+      refreshSpaceLists();
+    },
+    onError: (error: any) => {
+      notifications.show({ message: error?.response?.data?.message || t("Something went wrong"), color: "red" });
     },
   });
 }

@@ -107,6 +107,18 @@ export interface IInvitation {
   enforceSso: boolean;
 }
 
+export interface IInviteRequest {
+  id: string;
+  email: string;
+  note: string | null;
+  createdAt: string;
+  status?: string;
+  reviewedAt?: string | null;
+  requesterId?: string;
+  requesterName?: string;
+  requesterAvatarUrl?: string | null;
+}
+
 export interface IInvitationLink {
   inviteLink: string;
 }

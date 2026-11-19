@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -17,6 +18,11 @@ export class CreateSpaceDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  // open: anyone joins · closed: listed, join by request · private: hidden
+  @IsOptional()
+  @IsIn(['open', 'closed', 'private'])
+  visibility?: string;
 
   @MinLength(2)
   @MaxLength(100)

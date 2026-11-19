@@ -150,6 +150,14 @@ export const AuditEvent = {
   // Admin tools
   SEARCH_ADMIN_CONTENT: 'search.admin_content',
   AUDIT_EXPORTED: 'audit.exported',
+  // Joining spaces and asking for invites
+  SPACE_JOINED: 'space.joined',
+  SPACE_JOIN_REQUESTED: 'space.join_requested',
+  SPACE_JOIN_REQUEST_APPROVED: 'space.join_request_approved',
+  SPACE_JOIN_REQUEST_REJECTED: 'space.join_request_rejected',
+  WORKSPACE_INVITE_REQUESTED: 'workspace.invite_requested',
+  WORKSPACE_INVITE_REQUEST_APPROVED: 'workspace.invite_request_approved',
+  WORKSPACE_INVITE_REQUEST_REJECTED: 'workspace.invite_request_rejected',
 } as const;
 
 export type AuditEventType = (typeof AuditEvent)[keyof typeof AuditEvent];
