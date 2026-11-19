@@ -62,6 +62,11 @@ export class UpdateAiSettingsDto {
   @ValidateNested()
   @Type(() => ModelChoiceDto)
   embedding?: ModelChoiceDto | null;
+
+  // Per-person limits; validated by hand in the service.
+  @IsOptional()
+  @IsObject()
+  limits?: Record<string, unknown>;
 }
 
 export class ListModelsDto {

@@ -17,6 +17,7 @@ import { AttachmentModule } from '../attachment/attachment.module';
 import { StorageModule } from '../../integrations/storage/storage.module';
 import { BaseModule } from '../base/base.module';
 import { AiBaseToolsService } from './chat/ai-base-tools.service';
+import { AiUsageService } from './ai-usage.service';
 
 // Built-in AI: provider credentials, model discovery, Ask AI in the editor,
 // page embeddings with AI Answers in search, and the chat with tools over
@@ -25,6 +26,7 @@ import { AiBaseToolsService } from './chat/ai-base-tools.service';
   imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule],
   controllers: [AiController, AiChatController],
   providers: [
+    AiUsageService,
     AiSettingsService,
     AiProviderService,
     AiGenerateService,

@@ -11,7 +11,10 @@ import {
 } from "../types/workspace.types";
 import { IPagination, QueryParams } from "@/lib/types.ts";
 import { ISetupWorkspace } from "@/features/auth/types/auth.types.ts";
-import { IInviteRequest } from "@/features/workspace/types/workspace.types.ts";
+import {
+  IInviteRequest,
+  IWorkspaceDomains,
+} from "@/features/workspace/types/workspace.types.ts";
 
 export async function getWorkspace(): Promise<IWorkspace> {
   const req = await api.post<IWorkspace>("/workspace/info");
@@ -142,4 +145,26 @@ export async function getMyInviteRequests(): Promise<{ items: IInviteRequest[] }
 
 export async function reviewInviteRequest(requestId: string, approve: boolean): Promise<void> {
   await api.post(approve ? "/workspace/invite-requests/approve" : "/workspace/invite-requests/reject", { requestId });
+}
+
+// Verified domains: DNS TXT proof, then optional self sign-up.
+export async function getWorkspaceDomains(): Promise<IWorkspaceDomains> {
+  const req = await api.post("/workspace/domains");
+  return req.data;
+}
+export async function addWorkspaceDomain(domain: string): Promise<IWorkspaceDomains> {
+  const req = await api.post("/workspace/domains/add", { domain });
+  return req.data;
+}
+export async function verifyWorkspaceDomain(domain: string): Promise<IWorkspaceDomains> {
+  const req = await api.post("/workspace/domains/verify", { domain });
+  return req.data;
+}
+export async function removeWorkspaceDomain(domain: string): Promise<IWorkspaceDomains> {
+  const req = await api.post("/workspace/domains/remove", { domain });
+  return req.data;
+}
+export async function setWorkspaceDomainAutoJoin(autoJoin: boolean): Promise<IWorkspaceDomains> {
+  const req = await api.post("/workspace/domains/auto-join", { autoJoin });
+  return req.data;
 }

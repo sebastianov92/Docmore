@@ -16,6 +16,7 @@ import SsoProviderList from "@/features/sso/components/sso-provider-list.tsx";
 import DisablePublicSharingSetting from "@/features/security/components/disable-public-sharing-setting.tsx";
 import DisableExportSetting from "@/features/security/components/disable-export-setting.tsx";
 import TrashRetentionSetting from "@/features/security/components/trash-retention-setting.tsx";
+import VerifiedDomainsSetting from "@/features/sso/components/verified-domains-setting.tsx";
 
 // Settings > Security & SSO. Two-factor enforcement stays under General.
 export default function Security() {
@@ -75,6 +76,9 @@ export default function Security() {
       <Divider my="lg" />
 
       <AllowedDomainsSetting />
+      <Divider my="lg" />
+
+      <VerifiedDomainsSetting />
       <Divider my="lg" />
 
       <Group justify="space-between" align="flex-start" mb="md" wrap="nowrap">

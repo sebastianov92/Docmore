@@ -1,4 +1,17 @@
-import { Alert, Button, Divider, Group, Loader, Stack, Switch, Text, Title, Tooltip } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  Stack,
+  Switch,
+  Text,
+  Title,
+  Tooltip,
+  NumberInput,
+  MultiSelect,
+} from "@mantine/core";
 import { IconInfoCircle, IconRefresh } from "@tabler/icons-react";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
@@ -161,6 +174,57 @@ export default function AiSettings() {
           </ResponsiveSettingsRow>
         </Stack>
       )}
+
+      <Divider my="xl" />
+
+      <Title order={4} mb="xs">
+        {t("Limits per person")}
+      </Title>
+      <Stack gap="md">
+        <ResponsiveSettingsRow>
+          <ResponsiveSettingsContent>
+            <Text size="md">{t("Daily requests per person")}</Text>
+            <Text size="sm" c="dimmed">
+              {t("Ask AI, AI answers and chat messages count. 0 means no limit.")}
+            </Text>
+          </ResponsiveSettingsContent>
+          <ResponsiveSettingsControl>
+            <NumberInput
+              min={0}
+              max={100000}
+              value={settings?.limits?.dailyRequestsPerUser ?? 0}
+              onChange={(v) =>
+                update.mutate({ limits: { dailyRequestsPerUser: Number(v) || null } })
+              }
+              w={120}
+              aria-label={t("Daily requests per person")}
+              data-testid="ai-daily-limit"
+            />
+          </ResponsiveSettingsControl>
+        </ResponsiveSettingsRow>
+        <ResponsiveSettingsRow>
+          <ResponsiveSettingsContent>
+            <Text size="md">{t("Who can use AI")}</Text>
+            <Text size="sm" c="dimmed">
+              {t("Roles allowed to use AI features. Empty means everyone.")}
+            </Text>
+          </ResponsiveSettingsContent>
+          <ResponsiveSettingsControl>
+            <MultiSelect
+              data={[
+                { value: "owner", label: t("Owner") },
+                { value: "admin", label: t("Admin") },
+                { value: "member", label: t("Member") },
+              ]}
+              value={settings?.limits?.allowedRoles ?? []}
+              onChange={(roles) => update.mutate({ limits: { allowedRoles: roles.length ? roles : null } })}
+              placeholder={t("Everyone")}
+              w={260}
+              aria-label={t("Who can use AI")}
+            />
+          </ResponsiveSettingsControl>
+        </ResponsiveSettingsRow>
+      </Stack>
 
       <Divider my="xl" />
 

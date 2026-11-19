@@ -20,6 +20,7 @@ import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { AiChatService } from './ai-chat.service';
 import { MAX_CHAT_FILE_BYTES } from './ai-chat.constants';
 import { ChatIdDto, ListChatsDto, SearchChatsDto, SendMessageDto, UpdateChatDto } from './dto/ai-chat.dto';
+import { AiUsageService } from '../ai-usage.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai/chats')
@@ -27,6 +28,7 @@ export class AiChatController {
   constructor(
     private readonly chats: AiChatService,
     private readonly workspaceRepo: WorkspaceRepo,
+    private readonly usage: AiUsageService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -105,6 +107,7 @@ export class AiChatController {
     @Res() res: FastifyReply,
   ) {
     await this.assertChatOn(workspace);
+    await this.usage.assertAllowed(workspace, user);
     await this.chats.validateSend(user, workspace, dto);
     const raw = res.raw;
     raw.writeHead(200, {

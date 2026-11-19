@@ -52,3 +52,7 @@ export async function getCollabToken(): Promise<ICollabToken> {
   return req.data;
 }
 
+// Self sign-up for an email on a verified domain with auto-join on.
+export async function domainSignup(data: { name: string; email: string; password: string }): Promise<void> {
+  await api.post("/auth/domain-signup", data);
+}

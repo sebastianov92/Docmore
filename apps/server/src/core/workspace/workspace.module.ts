@@ -6,6 +6,7 @@ import { WorkspaceInvitationService } from './services/workspace-invitation.serv
 import { TokenModule } from '../auth/token.module';
 import { IntegrationModule } from '../integration/integration.module';
 import { WorkspaceInviteRequestService } from './services/workspace-invite-request.service';
+import { WorkspaceDomainService } from './services/workspace-domain.service';
 
 @Module({
   imports: [SpaceModule, TokenModule, IntegrationModule],
@@ -14,7 +15,8 @@ import { WorkspaceInviteRequestService } from './services/workspace-invite-reque
     WorkspaceService,
     WorkspaceInvitationService,
     WorkspaceInviteRequestService,
+    WorkspaceDomainService,
   ],
-  exports: [WorkspaceService],
+  exports: [WorkspaceService, WorkspaceDomainService],
 })
 export class WorkspaceModule {}

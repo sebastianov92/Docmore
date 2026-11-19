@@ -36,10 +36,17 @@ export interface AiProviderView {
   checkedAt: string | null;
 }
 
+export interface AiLimits {
+  dailyRequestsPerUser: number | null;
+  allowedRoles: string[] | null;
+  blockedUserIds: string[];
+}
+
 export interface AiSettingsView {
   providers: Record<AiProviderId, AiProviderView>;
   generation: ModelChoice | null;
   embedding: ModelChoice | null;
+  limits: AiLimits;
   envFallback: { provider: string; model: string | null } | null;
 }
 
@@ -54,6 +61,7 @@ export interface UpdateAiSettings {
   providers?: Partial<Record<AiProviderId, AiProviderPatch>>;
   generation?: ModelChoice | null;
   embedding?: ModelChoice | null;
+  limits?: Partial<AiLimits>;
 }
 
 export interface AiConfig {
@@ -65,6 +73,8 @@ export interface AiConfig {
   embeddingModel: ModelChoice | null;
   vectorStore: boolean;
   availableActions: AiAction[];
+  // this person's standing: may they use AI, and how much is left today
+  limits?: { allowed: boolean; dailyRequestsPerUser: number | null; usedToday: number };
 }
 
 export interface AiAskParams {

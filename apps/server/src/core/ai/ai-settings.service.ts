@@ -23,10 +23,24 @@ export interface ModelChoice {
   model: string;
 }
 
+// Who may use AI and how much: null/0 = no daily cap; null roles = everyone.
+export interface AiLimits {
+  dailyRequestsPerUser: number | null;
+  allowedRoles: string[] | null;
+  blockedUserIds: string[];
+}
+
+export const DEFAULT_AI_LIMITS: AiLimits = {
+  dailyRequestsPerUser: null,
+  allowedRoles: null,
+  blockedUserIds: [],
+};
+
 export interface AiSettings {
   providers: Partial<Record<AiProviderId, StoredProvider>>;
   generation: ModelChoice | null;
   embedding: ModelChoice | null;
+  limits: AiLimits;
 }
 
 // What admins see: never the key itself.
@@ -46,6 +60,7 @@ export interface AiSettingsView {
   >;
   generation: ModelChoice | null;
   embedding: ModelChoice | null;
+  limits: AiLimits;
   envFallback: { provider: string; model: string | null } | null;
 }
 
@@ -76,6 +91,7 @@ export class AiSettingsService {
       providers: (asObject(row?.providers) as AiSettings['providers']) ?? {},
       generation: (asObject(row?.generation) as ModelChoice | null) ?? null,
       embedding: (asObject(row?.embedding) as ModelChoice | null) ?? null,
+      limits: { ...DEFAULT_AI_LIMITS, ...((asObject(row?.limits) as Partial<AiLimits>) ?? {}) },
     };
   }
 
@@ -100,6 +116,7 @@ export class AiSettingsService {
       providers,
       generation: settings.generation,
       embedding: settings.embedding,
+      limits: settings.limits,
       envFallback: envDriver
         ? { provider: envDriver, model: this.environment.getAiCompletionModel?.() ?? null }
         : null,
@@ -121,7 +138,8 @@ export class AiSettingsService {
     const embedding =
       dto.embedding === undefined ? current.embedding : this.readChoice(dto.embedding, providers, 'embedding');
 
-    await this.save(workspaceId, { providers, generation, embedding });
+    const limits = dto.limits === undefined ? current.limits : this.readLimits(dto.limits);
+    await this.save(workspaceId, { providers, generation, embedding, limits });
 
     // Vectors from one model mean nothing to another: start the index over.
     if (dto.embedding !== undefined && !sameChoice(current.embedding, embedding)) {
@@ -234,12 +252,31 @@ export class AiSettingsService {
       providers: settings.providers as any,
       generation: (settings.generation ?? null) as any,
       embedding: (settings.embedding ?? null) as any,
+      limits: (settings.limits ?? DEFAULT_AI_LIMITS) as any,
     };
     await this.db
       .insertInto('aiSettings')
       .values({ workspaceId, ...values })
       .onConflict((oc) => oc.column('workspaceId').doUpdateSet({ ...values, updatedAt: new Date() }))
       .execute();
+  }
+
+  private readLimits(raw: Partial<AiLimits>): AiLimits {
+    const daily =
+      raw.dailyRequestsPerUser === null || raw.dailyRequestsPerUser === undefined
+        ? null
+        : Math.max(0, Math.floor(Number(raw.dailyRequestsPerUser)));
+    if (daily !== null && Number.isNaN(daily)) {
+      throw new BadRequestException('dailyRequestsPerUser must be a number');
+    }
+    const roles =
+      raw.allowedRoles === null || raw.allowedRoles === undefined
+        ? null
+        : raw.allowedRoles.filter((r) => ['owner', 'admin', 'member'].includes(r));
+    const blocked = Array.isArray(raw.blockedUserIds)
+      ? raw.blockedUserIds.filter((id) => typeof id === 'string').slice(0, 500)
+      : [];
+    return { dailyRequestsPerUser: daily || null, allowedRoles: roles, blockedUserIds: blocked };
   }
 
   private decrypt(value: string): string | null {

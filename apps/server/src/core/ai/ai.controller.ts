@@ -26,6 +26,7 @@ import { AiGenerateService } from './ai-generate.service';
 import { AiEmbeddingService } from './embeddings/ai-embedding.service';
 import { AiAnswersService } from './embeddings/ai-answers.service';
 import { AskDto, GenerateDto, ListModelsDto, UpdateAiSettingsDto } from './dto/ai.dto';
+import { AiUsageService } from './ai-usage.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
@@ -38,25 +39,28 @@ export class AiController {
     private readonly answers: AiAnswersService,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
     private readonly workspaceRepo: WorkspaceRepo,
+    private readonly usage: AiUsageService,
   ) {}
 
   // What the client needs to know: which AI features are on and backed by a model.
   @HttpCode(HttpStatus.OK)
   @Post('config')
-  async config(@AuthWorkspace() workspace: Workspace) {
+  async config(@AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
     const ws = await this.workspaceRepo.findById(workspace.id);
+    const limits = await this.usage.status(workspace, user);
     const ai = ((ws?.settings as any)?.ai ?? {}) as Record<string, any>;
     const generation = await this.settings.generationChoice(workspace.id);
     const embedding = await this.settings.embeddingChoice(workspace.id);
     return {
       configured: Boolean(generation),
-      generative: ai.generative === true && Boolean(generation),
-      search: ai.search === true && Boolean(embedding) && this.embeddings.available,
-      chat: ai.chat === true,
+      generative: ai.generative === true && Boolean(generation) && limits.allowed,
+      search: ai.search === true && Boolean(embedding) && this.embeddings.available && limits.allowed,
+      chat: ai.chat === true && limits.allowed,
       model: generation,
       embeddingModel: embedding,
       vectorStore: this.embeddings.available,
       availableActions: AI_ACTIONS,
+      limits,
     };
   }
 
@@ -71,6 +75,7 @@ export class AiController {
     @Res() res: FastifyReply,
   ) {
     await this.assertSearchOn(workspace);
+    await this.usage.assertAllowed(workspace, user);
     if (!dto.query?.trim()) {
       throw new BadRequestException('Ask a question first');
     }
@@ -160,8 +165,13 @@ export class AiController {
 
   @HttpCode(HttpStatus.OK)
   @Post('generate')
-  async generateOnce(@Body() dto: GenerateDto, @AuthWorkspace() workspace: Workspace) {
+  async generateOnce(
+    @Body() dto: GenerateDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
     await this.assertGenerativeOn(workspace);
+    await this.usage.assertAllowed(workspace, user);
     const content = await this.generate.complete(workspace.id, {
       action: dto.action as AiAction,
       content: dto.content,
@@ -174,11 +184,13 @@ export class AiController {
   @Post('generate/stream')
   async generateStream(
     @Body() dto: GenerateDto,
+    @AuthUser() user: User,
     @AuthWorkspace() workspace: Workspace,
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
   ) {
     await this.assertGenerativeOn(workspace);
+    await this.usage.assertAllowed(workspace, user);
     const raw = res.raw;
     raw.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',

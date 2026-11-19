@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
   Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
 import {
@@ -38,6 +39,9 @@ import {
   AUDIT_SERVICE,
   IAuditService,
 } from '../../integrations/audit/audit.service';
+import { WorkspaceDomainService } from '../workspace/services/workspace-domain.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
 @SkipThrottle({ ...ALL_NAMED_THROTTLERS_SKIPPED, [AUTH_THROTTLER]: false })
 @UseGuards(ThrottlerGuard)
@@ -79,6 +83,30 @@ export class AuthController {
     }
 
     this.setAuthCookie(res, mfaResult.authToken);
+  }
+
+  // Self sign-up for emails on a verified domain with auto-join on.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('domain-signup')
+  async domainSignup(
+    @AuthWorkspace() workspace: Workspace,
+    @Res({ passthrough: true }) res: FastifyReply,
+    @Body() dto: CreateUserDto,
+  ) {
+    validateSsoEnforcement(workspace);
+    const domainService = this.moduleRef.get(WorkspaceDomainService, { strict: false });
+    if (!domainService.canAutoJoin(workspace, dto.email)) {
+      throw new ForbiddenException('Sign-up is not open for this email domain');
+    }
+    const authToken = await this.authService.register(dto, workspace.id);
+    this.auditService.log({
+      event: AuditEvent.USER_DOMAIN_SIGNUP,
+      resourceType: AuditResource.USER,
+      resourceId: null,
+      metadata: { email: dto.email.toLowerCase() },
+    });
+    this.setAuthCookie(res, authToken);
   }
 
   @UseGuards(SetupGuard)

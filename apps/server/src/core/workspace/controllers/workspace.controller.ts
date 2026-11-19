@@ -42,6 +42,8 @@ import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
 import { WorkspaceInviteRequestService } from '../services/workspace-invite-request.service';
 import { CreateInviteRequestDto, InviteRequestIdDto } from '../dto/invite-request.dto';
+import { WorkspaceDomainService } from '../services/workspace-domain.service';
+import { DomainAutoJoinDto, DomainDto } from '../dto/domain.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workspace')
@@ -54,6 +56,7 @@ export class WorkspaceController {
     private environmentService: EnvironmentService,
     private licenseCheckService: LicenseCheckService,
     private readonly inviteRequestService: WorkspaceInviteRequestService,
+    private readonly domainService: WorkspaceDomainService,
   ) {}
 
   @Public()
@@ -229,6 +232,65 @@ export class WorkspaceController {
       workspace.id,
       pagination,
     );
+  }
+
+  // Verified domains (DNS TXT) and self sign-up for their emails.
+  @HttpCode(HttpStatus.OK)
+  @Post('domains')
+  async listDomains(@AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
+    this.assertManageSettings(user, workspace);
+    return this.domainService.list(workspace.id);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('domains/add')
+  async addDomain(
+    @Body() dto: DomainDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    this.assertManageSettings(user, workspace);
+    return this.domainService.add(workspace.id, dto.domain);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('domains/verify')
+  async verifyDomain(
+    @Body() dto: DomainDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    this.assertManageSettings(user, workspace);
+    return this.domainService.verify(workspace.id, dto.domain);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('domains/remove')
+  async removeDomain(
+    @Body() dto: DomainDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    this.assertManageSettings(user, workspace);
+    return this.domainService.remove(workspace.id, dto.domain);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('domains/auto-join')
+  async setDomainAutoJoin(
+    @Body() dto: DomainAutoJoinDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    this.assertManageSettings(user, workspace);
+    return this.domainService.setAutoJoin(workspace.id, dto.autoJoin);
+  }
+
+  private assertManageSettings(user: User, workspace: Workspace) {
+    const ability = this.workspaceAbility.createForUser(user, workspace);
+    if (ability.cannot(WorkspaceCaslAction.Manage, WorkspaceCaslSubject.Settings)) {
+      throw new ForbiddenException();
+    }
   }
 
   // Invite requests: any member asks, admins approve (which sends the invite).

@@ -7,6 +7,16 @@ export interface AiSettingsTable {
   providers: Generated<Json>;
   generation: Json | null;
   embedding: Json | null;
+  limits: Json | null;
   createdAt: Generated<Timestamp>;
+  updatedAt: Generated<Timestamp>;
+}
+
+// ai_usage: requests per user per day, for the per-person limit.
+export interface AiUsageTable {
+  workspaceId: string;
+  userId: string;
+  day: Timestamp;
+  requests: Generated<number>;
   updatedAt: Generated<Timestamp>;
 }

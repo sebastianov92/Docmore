@@ -107,6 +107,19 @@ export interface IInvitation {
   enforceSso: boolean;
 }
 
+export interface IVerifiedDomain {
+  domain: string;
+  token: string;
+  createdAt: string;
+  verifiedAt: string | null;
+}
+
+export interface IWorkspaceDomains {
+  verified: IVerifiedDomain[];
+  autoJoin: boolean;
+  txtPrefix: string;
+}
+
 export interface IInviteRequest {
   id: string;
   email: string;
@@ -138,6 +151,8 @@ export interface IPublicWorkspace {
   enforceSso: boolean;
   authProviders: IAuthProvider[];
   defaultLocale: string;
+  // verified domains whose emails may sign up alone
+  domainSignup?: string[];
 }
 
 export interface IVersion {

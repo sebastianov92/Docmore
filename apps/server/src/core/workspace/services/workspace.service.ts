@@ -139,9 +139,19 @@ export class WorkspaceService {
 
     const { licenseKey, plan, settings, ...rest } = workspace;
 
+    const domains = ((settings as any)?.domains ?? {}) as {
+      verified?: Array<{ domain: string; verifiedAt: string | null }>;
+      autoJoin?: boolean;
+    };
+    const domainSignup =
+      domains.autoJoin === true
+        ? (domains.verified ?? []).filter((d) => d.verifiedAt).map((d) => d.domain)
+        : [];
+
     return {
       ...rest,
       defaultLocale: getWorkspaceDefaultLocale(workspace) ?? DEFAULT_LOCALE,
+      domainSignup,
     };
   }
 

@@ -11,6 +11,7 @@ import {
   Box,
   Anchor,
   Group,
+  Text,
 } from "@mantine/core";
 import classes from "./auth.module.css";
 import { useRedirectIfAuthenticated } from "@/features/auth/hooks/use-redirect-if-authenticated.ts";
@@ -124,6 +125,15 @@ export function LoginForm() {
                   {t("Sign In")}
                 </Button>
               </form>
+              {(data?.domainSignup?.length ?? 0) > 0 && (
+                <Text size="sm" ta="center" mt="md" data-testid="domain-signup-link">
+                  <Anchor component={Link} to="/signup" size="sm">
+                    {t("Sign up with your {{domains}} email", {
+                      domains: data!.domainSignup!.map((d) => `@${d}`).join(", "),
+                    })}
+                  </Anchor>
+                </Text>
+              )}
             </>
           )}
         </Box>

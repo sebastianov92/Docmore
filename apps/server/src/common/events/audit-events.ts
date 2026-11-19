@@ -158,6 +158,11 @@ export const AuditEvent = {
   WORKSPACE_INVITE_REQUESTED: 'workspace.invite_requested',
   WORKSPACE_INVITE_REQUEST_APPROVED: 'workspace.invite_request_approved',
   WORKSPACE_INVITE_REQUEST_REJECTED: 'workspace.invite_request_rejected',
+  // Verified domains and self sign-up
+  WORKSPACE_DOMAIN_ADDED: 'workspace.domain_added',
+  WORKSPACE_DOMAIN_VERIFIED: 'workspace.domain_verified',
+  WORKSPACE_DOMAIN_REMOVED: 'workspace.domain_removed',
+  USER_DOMAIN_SIGNUP: 'user.domain_signup',
 } as const;
 
 export type AuditEventType = (typeof AuditEvent)[keyof typeof AuditEvent];
