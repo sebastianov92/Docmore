@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { useRedirectToCloudSelect } from "@/ee/hooks/use-redirect-to-cloud-select.tsx";
 import { useTrackOrigin } from "@/hooks/use-track-origin";
 import AnnouncementBanners from "@/features/announcements/components/announcement-banners";
+import { UserPreferenceEffects } from "@/components/user-preference-effects";
 
 
 const SetupWorkspace = lazyWithPrefetch(() => import("@/pages/auth/setup-workspace.tsx"));
@@ -60,6 +61,8 @@ const PublicSpaceDirectoryPage = lazyWithPrefetch(
   () => import("@/pages/public-space/public-space-directory-page.tsx"),
 );
 const SpacesPage = lazyWithPrefetch(() => import("@/pages/spaces/spaces.tsx"));
+const PeoplePage = lazyWithPrefetch(() => import("@/pages/people/people-page.tsx"));
+const PersonPage = lazyWithPrefetch(() => import("@/pages/people/person-page.tsx"));
 const MfaChallengePage = lazyWithPrefetch(
   () => import("@/features/mfa/pages/mfa-challenge-page"),
 );
@@ -116,6 +119,7 @@ export default function App() {
 
   return (
     <Suspense fallback={null}>
+      <UserPreferenceEffects />
       <Routes>
         <Route index element={<Navigate to="/home" />} />
 
@@ -188,6 +192,8 @@ export default function App() {
           <Route path={"/ai"} element={<AiChat />} />
           <Route path={"/ai/chat/:chatId"} element={<AiChat />} />
           <Route path={"/spaces"} element={<SpacesPage />} />
+          <Route path={"/people"} element={<PeoplePage />} />
+          <Route path={"/people/:userId"} element={<PersonPage />} />
           <Route path={"/favorites"} element={<FavoritesPage />} />
           <Route path={"/labels/:labelName"} element={<LabelPage />} />
           <Route path={"/templates"} element={<TemplateList />} />

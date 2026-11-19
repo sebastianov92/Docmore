@@ -170,6 +170,7 @@ export class PageService {
       parentPageId: parentPageId,
       spaceId: createPageDto.spaceId,
       creatorId: userId,
+      ownerId: userId,
       workspaceId: workspaceId,
       lastUpdatedById: userId,
       isBase,
@@ -267,12 +268,31 @@ export class PageService {
       user,
     );
 
+    // The owner must be a member of this workspace.
+    let ownerFields: { ownerId?: string | null } = {};
+    if (updatePageDto.ownerId !== undefined) {
+      if (updatePageDto.ownerId) {
+        const owner = await this.db
+          .selectFrom('users')
+          .select(['id'])
+          .where('id', '=', updatePageDto.ownerId)
+          .where('workspaceId', '=', page.workspaceId)
+          .where('deletedAt', 'is', null)
+          .executeTakeFirst();
+        if (!owner) {
+          throw new BadRequestException('Owner must be a workspace member');
+        }
+      }
+      ownerFields = { ownerId: updatePageDto.ownerId };
+    }
+
     const invalidation = await executeTx(this.db, async (trx) => {
       await this.pageRepo.updatePage(
         {
           title: updatePageDto.title,
           icon: updatePageDto.icon,
           ...coverFields,
+          ...ownerFields,
           lastUpdatedById: user.id,
           updatedAt: new Date(),
           contributorIds: contributorIds,
@@ -340,6 +360,7 @@ export class PageService {
       includeSpace: true,
       includeContent: true,
       includeCreator: true,
+      includeOwner: true,
       includeLastUpdatedBy: true,
       includeContributors: true,
     });

@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  IsUUID,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -17,6 +18,12 @@ export type ContentOperation = 'append' | 'prepend' | 'replace';
 export class UpdatePageDto extends PartialType(CreatePageDto) {
   @IsString()
   pageId: string;
+
+  // The owner: a workspace member, or null to clear. Editors may change it.
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUUID()
+  ownerId?: string | null;
 
   @IsOptional()
   @IsString()

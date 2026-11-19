@@ -69,6 +69,26 @@ export class UserService {
       );
     }
 
+    if (typeof updateUserDto.pageFont !== 'undefined') {
+      return this.userRepo.updatePreference(userId, 'pageFont', updateUserDto.pageFont);
+    }
+
+    if (typeof updateUserDto.pageTextSize !== 'undefined') {
+      return this.userRepo.updatePreference(
+        userId,
+        'pageTextSize',
+        updateUserDto.pageTextSize,
+      );
+    }
+
+    if (typeof updateUserDto.highContrast !== 'undefined') {
+      return this.userRepo.updatePreference(
+        userId,
+        'highContrast',
+        updateUserDto.highContrast,
+      );
+    }
+
     const notificationSettings: Record<string, NotificationSettingKey> = {
       notificationPageUpdates: 'page.updated',
       notificationPageUserMention: 'page.userMention',

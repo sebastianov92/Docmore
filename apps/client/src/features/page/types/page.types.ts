@@ -12,6 +12,8 @@ export interface IPage {
   coverAttribution?: CoverAttribution | null;
   parentPageId: string;
   creatorId: string;
+  ownerId?: string | null;
+  owner?: { id: string; name: string; avatarUrl: string | null } | null;
   spaceId: string;
   workspaceId: string;
   isLocked: boolean;
@@ -84,6 +86,7 @@ export interface SidebarPagesParams {
 
 export interface IPageInput {
   pageId: string;
+  ownerId?: string | null;
   title: string;
   parentPageId: string;
   icon: string;

@@ -39,6 +39,10 @@ export interface IUserSettings {
     fullPageWidth: boolean;
     pageEditMode: string;
     editorToolbar: boolean;
+    // reading preferences
+    pageFont?: "default" | "serif" | "mono";
+    pageTextSize?: "small" | "normal" | "large";
+    highContrast?: boolean;
   };
   notifications?: {
     "page.updated"?: boolean;

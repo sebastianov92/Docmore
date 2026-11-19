@@ -26,6 +26,21 @@ export class UpdateUserDto extends PartialType(
   @IsBoolean()
   editorToolbar: boolean;
 
+  // Reading preferences: typeface and text size of pages, high contrast UI.
+  @IsOptional()
+  @IsString()
+  @IsIn(['default', 'serif', 'mono'])
+  pageFont: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['small', 'normal', 'large'])
+  pageTextSize: string;
+
+  @IsOptional()
+  @IsBoolean()
+  highContrast: boolean;
+
   @IsOptional()
   @IsString()
   locale: string;

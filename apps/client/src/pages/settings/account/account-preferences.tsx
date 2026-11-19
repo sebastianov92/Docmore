@@ -8,6 +8,7 @@ import NotificationPref from "@/features/user/components/notification-pref";
 import { Divider } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import { DocumentTitle } from "@/components/ui/document-title.tsx";
+import { HighContrastPref, PageFontPref } from "@/features/user/components/reading-prefs";
 
 export default function AccountPreferences() {
   const { t } = useTranslation();
@@ -21,12 +22,20 @@ export default function AccountPreferences() {
 
       <Divider my={"md"} />
 
+      <HighContrastPref />
+
+      <Divider my={"md"} />
+
       <AccountLanguage />
 
       <Divider my={"md"} />
 
       <PageWidthPref />
-      
+
+      <Divider my={"md"} />
+
+      <PageFontPref />
+
       <Divider my={"md"} />
 
       <PageEditPref />

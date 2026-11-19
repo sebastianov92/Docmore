@@ -349,6 +349,7 @@ export interface Pages {
   isBase: Generated<boolean>;
   baseSchemaVersion: Generated<number>;
   baseLocked: Generated<boolean>;
+  ownerId: string | null;
   isLocked: Generated<boolean>;
   lastUpdatedById: string | null;
   parentPageId: string | null;

@@ -38,6 +38,7 @@ export class PageRepo {
     'position',
     'parentPageId',
     'creatorId',
+    'ownerId',
     'lastUpdatedById',
     'spaceId',
     'workspaceId',
@@ -57,6 +58,7 @@ export class PageRepo {
       includeYdoc?: boolean;
       includeSpace?: boolean;
       includeCreator?: boolean;
+      includeOwner?: boolean;
       includeLastUpdatedBy?: boolean;
       includeContributors?: boolean;
       includeDeletedBy?: boolean;
@@ -83,6 +85,10 @@ export class PageRepo {
 
     if (opts?.includeLastUpdatedBy) {
       query = query.select((eb) => this.withLastUpdatedBy(eb));
+    }
+
+    if (opts?.includeOwner) {
+      query = query.select((eb) => this.withOwner(eb));
     }
 
     if (opts?.includeContributors) {
@@ -492,6 +498,15 @@ export class PageRepo {
         .select(['users.id', 'users.name', 'users.avatarUrl'])
         .whereRef('users.id', '=', 'pages.creatorId'),
     ).as('creator');
+  }
+
+  withOwner(eb: ExpressionBuilder<DB, 'pages'>) {
+    return jsonObjectFrom(
+      eb
+        .selectFrom('users')
+        .select(['users.id', 'users.name', 'users.avatarUrl'])
+        .whereRef('users.id', '=', 'pages.ownerId'),
+    ).as('owner');
   }
 
   withLastUpdatedBy(eb: ExpressionBuilder<DB, 'pages'>) {

@@ -1,4 +1,12 @@
-import { ActionIcon, Group, Menu, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Group,
+  Menu,
+  Text,
+  ThemeIcon,
+  Tooltip,
+  Select,
+} from "@mantine/core";
 import {
   IconArrowRight,
   IconArrowsHorizontal,
@@ -18,6 +26,8 @@ import {
   IconStarFilled,
   IconTrash,
   IconWifiOff,
+  IconTypography,
+  IconTextSize,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import type { Content } from "@tiptap/react";
@@ -66,6 +76,10 @@ import {
 } from "@/features/page/queries/watcher-query";
 import { useExportDisabled } from "@/features/security/hooks/use-export-disabled.ts";
 import { usePrintBlockReason } from "@/features/security/hooks/use-disable-print.ts";
+import { PageFontControl, PageTextSizeControl } from "@/features/user/components/reading-prefs";
+import { useWorkspaceMembersQuery } from "@/features/workspace/queries/workspace-query";
+import { useUpdatePageMutation } from "@/features/page/queries/page-query";
+import { IPage } from "@/features/page/types/page.types";
 
 interface PageHeaderMenuProps {
   readOnly?: boolean;
@@ -328,11 +342,33 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
           {!page?.isBase && <Menu.Divider />}
 
           {!page?.isBase && (
+            <>
+            <Menu.Item
+              leftSection={<IconTypography size={16} />}
+              closeMenuOnClick={false}
+              component="div"
+            >
+              <Group wrap="nowrap" justify="space-between" gap="xs">
+                <Text size="sm">{t("Font")}</Text>
+                <PageFontControl />
+              </Group>
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconTextSize size={16} />}
+              closeMenuOnClick={false}
+              component="div"
+            >
+              <Group wrap="nowrap" justify="space-between" gap="xs">
+                <Text size="sm">{t("Text size")}</Text>
+                <PageTextSizeControl />
+              </Group>
+            </Menu.Item>
             <Menu.Item leftSection={<IconArrowsHorizontal size={16} />}>
               <Group wrap="nowrap">
                 <PageWidthToggle label={t("Full width")} />
               </Group>
             </Menu.Item>
+            </>
           )}
 
           {!page?.isBase && (
@@ -450,6 +486,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
                       components={{ b: <Text span fw={500} /> }}
                     />
                   </Text>
+                  <PageOwnerRow page={page} readOnly={readOnly} />
                   <Text size="xs" c="dimmed" truncate="end">
                     {t("Created at: {{time}}", {
                       time: formattedDate(page.createdAt),
@@ -552,5 +589,65 @@ function ConnectionWarning() {
         <IconWifiOff size={20} stroke={2} />
       </ThemeIcon>
     </Tooltip>
+  );
+}
+
+// Owner of the page: shown to everyone, editable by anyone who can edit
+// the page. Null means no owner.
+function PageOwnerRow({ page, readOnly }: { page: IPage; readOnly?: boolean }) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [search, setSearch] = useState("");
+  const { data: members } = useWorkspaceMembersQuery({ limit: 50, query: search } as any);
+  const updatePageMutation = useUpdatePageMutation();
+  const data = (members?.items ?? []).map((u) => ({ value: u.id, label: u.name || u.email }));
+  if (page.owner && !data.some((d) => d.value === page.owner!.id)) {
+    data.unshift({ value: page.owner.id, label: page.owner.name });
+  }
+  const save = (ownerId: string | null) => {
+    updatePageMutation.mutate({ pageId: page.id, ownerId } as any);
+    setEditing(false);
+  };
+  if (editing) {
+    return (
+      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <Select
+          size="xs"
+          mt={4}
+          data={data}
+          value={page.ownerId ?? null}
+          searchable
+          clearable
+          searchValue={search}
+          onSearchChange={setSearch}
+          placeholder={t("Pick an owner")}
+          onChange={(v) => save(v)}
+          onBlur={() => setEditing(false)}
+          nothingFoundMessage={t("No members found")}
+          comboboxProps={{ withinPortal: true }}
+          autoFocus
+          aria-label={t("Owner")}
+        />
+      </div>
+    );
+  }
+  return (
+    <Text
+      size="xs"
+      c="dimmed"
+      lineClamp={1}
+      onClick={(e) => {
+        if (readOnly) return;
+        e.stopPropagation();
+        setEditing(true);
+      }}
+      style={{ cursor: readOnly ? "default" : "pointer" }}
+      data-testid="page-owner"
+    >
+      {t("Owner")}: {" "}
+      <Text span fw={500}>
+        {page.owner?.name ?? t("None")}
+      </Text>
+    </Text>
   );
 }

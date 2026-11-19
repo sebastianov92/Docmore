@@ -77,6 +77,7 @@ export class PageController {
       includeSpace: true,
       includeContent: true,
       includeCreator: true,
+      includeOwner: true,
       includeLastUpdatedBy: true,
       includeContributors: true,
       includeDeletedBy: true,
