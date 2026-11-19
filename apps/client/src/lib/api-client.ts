@@ -1,10 +1,24 @@
 import axios, { AxiosInstance } from "axios";
 import APP_ROUTE from "@/lib/app-route.ts";
 import { isCloud } from "@/lib/config.ts";
+import { currentShareId, getShareAccessToken } from "@/features/share/share-access";
 
 const api: AxiosInstance = axios.create({
   baseURL: "/api",
   withCredentials: true,
+});
+
+// Pages opened through a password-protected share link send the token the
+// unlock step stored, so the page, its tree and embedded bases all load.
+api.interceptors.request.use((config) => {
+  const shareId = currentShareId();
+  if (shareId) {
+    const token = getShareAccessToken(shareId);
+    if (token) {
+      config.headers.set("x-share-token", token);
+    }
+  }
+  return config;
 });
 
 api.interceptors.response.use(
@@ -16,6 +30,7 @@ api.interceptors.response.use(
       "/api/docx-export",
       "/api/pdf-export/download",
       "/api/bases/export-csv",
+      "/api/audit/export",
     ];
     if (response.request.responseURL) {
       const path = new URL(response.request.responseURL)?.pathname;
@@ -41,7 +56,8 @@ api.interceptors.response.use(
         case 401: {
           const url = new URL(error.request.responseURL)?.pathname;
           if (url === "/api/auth/collab-token") return;
-          if (window.location.pathname.startsWith("/share/")) return;
+          // shared pages read the reason (a password prompt) off the rejection
+          if (window.location.pathname.startsWith("/share/")) break;
           // public docs probe authed endpoints; reject without the login redirect
           if (
             window.location.pathname === "/docs" ||

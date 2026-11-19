@@ -13,6 +13,8 @@ export interface IShare {
   updatedAt: string;
   deletedAt: string | null;
   sharedPage?: ISharePage;
+  hasPassword?: boolean;
+  expiresAt?: string | null;
 }
 
 export interface ISharedItem extends IShare {
@@ -60,6 +62,9 @@ export interface ICreateShare {
   pageId?: string;
   includeSubPages?: boolean;
   searchIndexing?: boolean;
+  // null clears; absent keeps
+  password?: string | null;
+  expiresAt?: string | null;
 }
 
 export type IUpdateShare = ICreateShare & { shareId: string; pageId?: string };

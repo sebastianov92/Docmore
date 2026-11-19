@@ -10,6 +10,10 @@ import { Workspace } from '@docmost/db/types/entity.types';
 import { htmlEscape } from '../../common/helpers/html-escaper';
 import { getWorkspaceDefaultLocale } from '../workspace/workspace.util';
 import { DEFAULT_LOCALE } from '../workspace/workspace.constants';
+import { InjectKysely } from 'nestjs-kysely';
+import { KyselyDB } from '@docmost/db/types/kysely.types';
+import { pageExcerpt, seoMetaTags } from '../public-space/seo.util';
+import { pageSlug as pageSlugOf } from '../public-space/sitemap.controller';
 
 @Controller('share')
 export class ShareSeoController {
@@ -17,6 +21,7 @@ export class ShareSeoController {
     private readonly shareService: ShareService,
     private workspaceRepo: WorkspaceRepo,
     private environmentService: EnvironmentService,
+    @InjectKysely() private readonly db: KyselyDB,
   ) {}
 
   /*
@@ -64,11 +69,13 @@ export class ShareSeoController {
 
       let title: string;
       let searchIndexing = false;
+      let description = '';
+      let canonical = '';
       try {
         const shared = await this.shareService.getSharedPage(
           { pageId },
           workspace.id,
-          { includeContent: false },
+          { includeContent: false, skipAccessCheck: true },
         );
         const sharingAllowed = await this.shareService.isSharingAllowed(
           workspace.id,
@@ -78,7 +85,12 @@ export class ShareSeoController {
           return this.sendIndex(indexFilePath, res);
         }
         title = shared.page.title;
-        searchIndexing = shared.share.searchIndexing;
+        // password-protected links never index
+        searchIndexing = shared.share.searchIndexing && !shared.share.passwordHash;
+        description = shared.share.passwordHash
+          ? ''
+          : await pageExcerpt(this.db, shared.page.id);
+        canonical = `${this.environmentService.getAppUrl().replace(/\/$/, '')}/share/${shared.share.key}/p/${pageSlugOf(shared.page.title, shared.page.slugId)}`;
       } catch (err) {
         return this.sendIndex(indexFilePath, res);
       }
@@ -89,13 +101,12 @@ export class ShareSeoController {
 
       const metaTagVar = '<!--meta-tags-->';
 
-      const metaTags = [
-        `<meta property="og:title" content="${metaTitle}" />`,
-        `<meta property="twitter:title" content="${metaTitle}" />`,
-        !searchIndexing ? `<meta name="robots" content="noindex" />` : '',
-      ]
-        .filter(Boolean)
-        .join('\n    ');
+      const metaTags = seoMetaTags({
+        title: metaTitle,
+        description: htmlEscape(description),
+        canonical: htmlEscape(canonical),
+        searchIndexing,
+      });
 
       const lang = getWorkspaceDefaultLocale(workspace) ?? DEFAULT_LOCALE;
 

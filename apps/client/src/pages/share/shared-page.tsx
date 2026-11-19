@@ -15,6 +15,7 @@ import DocsPageNav from "@/features/public-space/components/docs/docs-page-nav.t
 import DocsFooterBranding from "@/features/public-space/components/docs/docs-footer-branding.tsx";
 import { PublicPageCover } from "@/features/page-cover/components/public-page-cover.tsx";
 import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
+import SharePasswordGate from "@/features/share/components/share-password-gate.tsx";
 
 export default function SharedPage() {
   const { t } = useTranslation();
@@ -63,6 +64,14 @@ export default function SharedPage() {
   }
 
   if (isError || !data) {
+    const reason = error?.["response"]?.data?.reason;
+    if (reason === "password_required") {
+      return (
+        <SharePasswordGate
+          shareId={shareId || error?.["response"]?.data?.shareId}
+        />
+      );
+    }
     if ([401, 403, 404].includes(error?.["status"])) {
       return <Error404 />;
     }

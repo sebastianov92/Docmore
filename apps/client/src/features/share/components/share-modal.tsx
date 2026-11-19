@@ -5,11 +5,13 @@ import {
   Group,
   Indicator,
   Popover,
+  Stack,
   Switch,
   Text,
   TextInput,
 } from "@mantine/core";
 import { IconExternalLink, IconWorld, IconLock } from "@tabler/icons-react";
+import { ShareProtectionControls } from "@/features/share/components/share-protection-controls";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   useCreateShareMutation,
@@ -277,6 +279,9 @@ export default function ShareModal({ readOnly }: ShareModalProps) {
                     disabled={readOnly}
                   />
                 </Group>
+                <Stack gap="sm" mt="sm">
+                  <ShareProtectionControls share={share} readOnly={readOnly} />
+                </Stack>
               </>
             )}
           </>

@@ -34,6 +34,8 @@ export class ShareRepo {
     'createdAt',
     'updatedAt',
     'deletedAt',
+    'passwordHash',
+    'expiresAt',
   ];
 
   async findById(

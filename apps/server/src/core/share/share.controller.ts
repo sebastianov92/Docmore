@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Headers,
   HttpCode,
   HttpStatus,
   Inject,
@@ -36,6 +37,7 @@ import {
   IAuditService,
 } from '../../integrations/audit/audit.service';
 import { ApiKeyScope } from '../../common/decorators/api-key-scope.decorator';
+import { UnlockShareDto } from './dto/unlock-share.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('shares')
@@ -57,7 +59,9 @@ export class ShareController {
     @AuthUser() user: User,
     @Body() pagination: PaginationOptions,
   ) {
-    return this.shareService.getShares(user.id, pagination);
+    const result = await this.shareService.getShares(user.id, pagination);
+    result.items = result.items.map(publicShare);
+    return result;
   }
 
   @Public()
@@ -66,12 +70,15 @@ export class ShareController {
   async getSharedPageInfo(
     @Body() dto: ShareInfoDto,
     @AuthWorkspace() workspace: Workspace,
+    @Headers('x-share-token') shareToken?: string,
   ) {
     if (!dto.pageId && !dto.shareId) {
       throw new BadRequestException();
     }
 
-    const shareData = await this.shareService.getSharedPage(dto, workspace.id);
+    const shareData = await this.shareService.getSharedPage(dto, workspace.id, {
+      shareToken,
+    });
 
     const sharingAllowed = await this.shareService.isSharingAllowed(
       workspace.id,
@@ -83,6 +90,7 @@ export class ShareController {
 
     return {
       ...shareData,
+      share: publicShare(shareData.share),
       features: this.licenseCheckService.resolveFeatures(
         workspace.licenseKey,
         workspace.plan,
@@ -93,7 +101,10 @@ export class ShareController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('/info')
-  async getShare(@Body() dto: ShareIdDto) {
+  async getShare(
+    @Body() dto: ShareIdDto,
+    @Headers('x-share-token') shareToken?: string,
+  ) {
     const share = await this.shareRepo.findById(dto.shareId, {
       includeSharedPage: true,
     });
@@ -110,7 +121,23 @@ export class ShareController {
       throw new NotFoundException('Share not found');
     }
 
-    return share;
+    await this.shareService.assertShareAccess(share, shareToken);
+    return publicShare(share);
+  }
+
+  // Trades the share password for the token the share's pages send back.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('/unlock')
+  async unlock(
+    @Body() dto: UnlockShareDto,
+    @AuthWorkspace() workspace: Workspace,
+  ) {
+    return this.shareService.unlockShare(
+      dto.shareId,
+      dto.password,
+      workspace.id,
+    );
   }
 
   @Public()
@@ -119,11 +146,13 @@ export class ShareController {
   async transclusionLookup(
     @Body() dto: ShareTransclusionLookupDto,
     @AuthWorkspace() workspace: Workspace,
+    @Headers('x-share-token') shareToken?: string,
   ) {
     return this.shareService.lookupTransclusionForShare(
       dto.shareId,
       dto.references,
       workspace.id,
+      shareToken,
     );
   }
 
@@ -142,7 +171,9 @@ export class ShareController {
 
     await this.pageAccessService.validateCanView(page, user);
 
-    return this.shareService.getShareForPage(page.id, workspace.id);
+    return publicShare(
+      await this.shareService.getShareForPage(page.id, workspace.id),
+    );
   }
 
   @HttpCode(HttpStatus.OK)
@@ -197,7 +228,7 @@ export class ShareController {
       },
     });
 
-    return share;
+    return publicShare(share);
   }
 
   @HttpCode(HttpStatus.OK)
@@ -217,7 +248,9 @@ export class ShareController {
     // User must be able to edit the page to update its share
     await this.pageAccessService.validateCanEdit(page, user);
 
-    return this.shareService.updateShare(share.id, updateShareDto);
+    return publicShare(
+      await this.shareService.updateShare(share.id, updateShareDto),
+    );
   }
 
   @HttpCode(HttpStatus.OK)
@@ -259,10 +292,12 @@ export class ShareController {
   async getSharePageTree(
     @Body() dto: ShareIdDto,
     @AuthWorkspace() workspace: Workspace,
+    @Headers('x-share-token') shareToken?: string,
   ) {
     const treeData = await this.shareService.getShareTree(
       dto.shareId,
       workspace.id,
+      shareToken,
     );
 
     const sharingAllowed = await this.shareService.isSharingAllowed(
@@ -275,10 +310,19 @@ export class ShareController {
 
     return {
       ...treeData,
+      share: publicShare(treeData.share),
       features: this.licenseCheckService.resolveFeatures(
         workspace.licenseKey,
         workspace.plan,
       ),
     };
   }
+}
+
+// What leaves the server: the hash stays, readers learn only that a
+// password exists.
+function publicShare<T extends object | null | undefined>(share: T) {
+  if (!share) return share;
+  const { passwordHash, ...rest } = share as any;
+  return { ...rest, hasPassword: Boolean(passwordHash) };
 }

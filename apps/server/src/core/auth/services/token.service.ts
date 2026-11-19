@@ -141,6 +141,14 @@ export class TokenService {
   }
 
   // Verifies a token that may be one of several kinds (bearer on /mcp).
+  // Proves the browser typed a share's password; sent back as x-share-token.
+  async generateShareAccessToken(shareId: string, workspaceId: string): Promise<string> {
+    return this.jwtService.sign(
+      { sub: shareId, workspaceId, type: JwtType.SHARE_ACCESS },
+      { expiresIn: '7d' },
+    );
+  }
+
   async verifyJwtOfTypes(token: string, types: string[]) {
     const payload = await this.jwtService.verifyAsync(token, {
       secret: this.environmentService.getAppSecret(),

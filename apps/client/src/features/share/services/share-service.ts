@@ -49,6 +49,14 @@ export async function getSharePageInfo(
   return req.data;
 }
 
+export async function unlockShare(
+  shareId: string,
+  password: string,
+): Promise<{ token: string | null }> {
+  const req = await api.post<{ token: string | null }>("/shares/unlock", { shareId, password });
+  return req.data;
+}
+
 export async function deleteShare(shareId: string): Promise<void> {
   await api.post("/shares/delete", { shareId });
 }

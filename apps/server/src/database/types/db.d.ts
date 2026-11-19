@@ -173,9 +173,11 @@ export interface BaseRows {
   creatorId: string | null;
   deletedAt: Timestamp | null;
   id: Generated<string>;
+  isTemplate: Generated<boolean>;
   lastUpdatedById: string | null;
   pageId: string;
   position: string;
+  rowNo: number | null;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
 }
@@ -346,6 +348,7 @@ export interface Pages {
   id: Generated<string>;
   isBase: Generated<boolean>;
   baseSchemaVersion: Generated<number>;
+  baseLocked: Generated<boolean>;
   isLocked: Generated<boolean>;
   lastUpdatedById: string | null;
   parentPageId: string | null;
@@ -384,6 +387,8 @@ export interface Shares {
   spaceId: string;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
+  passwordHash: string | null;
+  expiresAt: Timestamp | null;
 }
 
 export interface SpaceMembers {

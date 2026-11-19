@@ -9,6 +9,7 @@ export enum JwtType {
   PDF_EXPORT_DOWNLOAD = 'pdf_export_download',
   OAUTH_ACCESS = 'oauth_access',
   SSO_STATE = 'sso_state',
+  SHARE_ACCESS = 'share_access',
 }
 export type JwtPayload = {
   sub: string;

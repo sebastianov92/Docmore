@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
@@ -28,6 +30,8 @@ import { sql } from 'kysely';
 import { TransclusionService } from '../page/transclusion/transclusion.service';
 import { TransclusionLookup } from '../page/transclusion/transclusion.types';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
+import { comparePasswordHash, hashPassword } from '../../common/helpers/utils';
+import { JwtType } from '../auth/dto/jwt-payload';
 
 @Injectable()
 export class ShareService {
@@ -41,6 +45,67 @@ export class ShareService {
     private readonly tokenService: TokenService,
     private readonly transclusionService: TransclusionService,
   ) {}
+
+  // An expired link is gone; a password-protected one needs the token the
+  // unlock endpoint hands out after the right password.
+  async assertShareAccess(
+    share: {
+      id: string;
+      key: string;
+      expiresAt?: Date | string | null;
+      passwordHash?: string | null;
+    },
+    shareToken?: string,
+  ): Promise<void> {
+    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) {
+      throw new NotFoundException('Share not found');
+    }
+    if (!share.passwordHash) return;
+    if (shareToken) {
+      try {
+        const payload = await this.tokenService.verifyJwtOfTypes(shareToken, [
+          JwtType.SHARE_ACCESS,
+        ]);
+        if (payload?.sub === share.id) return;
+      } catch {
+        // fall through to the prompt
+      }
+    }
+    throw new HttpException(
+      {
+        reason: 'password_required',
+        shareId: share.key,
+        message: 'This link asks for a password',
+      },
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+
+  async unlockShare(shareId: string, password: string, workspaceId: string) {
+    const share = await this.shareRepo.findById(shareId);
+    if (!share || share.workspaceId !== workspaceId) {
+      throw new NotFoundException('Share not found');
+    }
+    if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) {
+      throw new NotFoundException('Share not found');
+    }
+    if (!share.passwordHash) {
+      return { token: null };
+    }
+    const ok = await comparePasswordHash(password, share.passwordHash);
+    if (!ok) {
+      throw new HttpException(
+        { reason: 'wrong_password', message: 'Wrong password' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    return {
+      token: await this.tokenService.generateShareAccessToken(
+        share.id,
+        workspaceId,
+      ),
+    };
+  }
 
   async getShares(userId: string, pagination: PaginationOptions) {
     const result = await this.shareRepo.getShares(userId, pagination);
@@ -56,11 +121,16 @@ export class ShareService {
     return result;
   }
 
-  async getShareTree(shareId: string, workspaceId: string) {
+  async getShareTree(
+    shareId: string,
+    workspaceId: string,
+    shareToken?: string,
+  ) {
     const share = await this.shareRepo.findById(shareId);
     if (!share || share.workspaceId !== workspaceId) {
       throw new NotFoundException('Share not found');
     }
+    await this.assertShareAccess(share, shareToken);
 
     const isRestricted = await this.pagePermissionRepo.hasRestrictedAncestor(
       share.pageId,
@@ -101,6 +171,12 @@ export class ShareService {
         pageId: page.id,
         includeSubPages: createShareDto.includeSubPages ?? false,
         searchIndexing: createShareDto.searchIndexing ?? false,
+        passwordHash: createShareDto.password
+          ? await hashPassword(createShareDto.password)
+          : null,
+        expiresAt: createShareDto.expiresAt
+          ? new Date(createShareDto.expiresAt)
+          : null,
         creatorId: authUserId,
         spaceId: page.spaceId,
         workspaceId,
@@ -113,13 +189,21 @@ export class ShareService {
 
   async updateShare(shareId: string, updateShareDto: UpdateShareDto) {
     try {
-      return this.shareRepo.updateShare(
-        {
-          includeSubPages: updateShareDto.includeSubPages,
-          searchIndexing: updateShareDto.searchIndexing,
-        },
-        shareId,
-      );
+      const patch: Record<string, unknown> = {
+        includeSubPages: updateShareDto.includeSubPages,
+        searchIndexing: updateShareDto.searchIndexing,
+      };
+      if (updateShareDto.password !== undefined) {
+        patch.passwordHash = updateShareDto.password
+          ? await hashPassword(updateShareDto.password)
+          : null;
+      }
+      if (updateShareDto.expiresAt !== undefined) {
+        patch.expiresAt = updateShareDto.expiresAt
+          ? new Date(updateShareDto.expiresAt)
+          : null;
+      }
+      return this.shareRepo.updateShare(patch as any, shareId);
     } catch (err) {
       this.logger.error(err);
       throw new BadRequestException('Failed to update share');
@@ -129,7 +213,12 @@ export class ShareService {
   async getSharedPage(
     dto: ShareInfoDto,
     workspaceId: string,
-    opts?: { includeContent?: boolean },
+    opts?: {
+      includeContent?: boolean;
+      shareToken?: string;
+      // SEO shell only: title and indexing flag, no content.
+      skipAccessCheck?: boolean;
+    },
   ) {
     //TODO: we should resolve the page from the share id
     if (!dto.pageId) throw new NotFoundException('Shared page not found');
@@ -138,6 +227,9 @@ export class ShareService {
 
     if (!share) {
       throw new NotFoundException('Shared page not found');
+    }
+    if (!opts?.skipAccessCheck) {
+      await this.assertShareAccess(share, opts?.shareToken);
     }
 
     const includeContent = opts?.includeContent !== false;
@@ -191,6 +283,8 @@ export class ShareService {
             'shares.spaceId',
             'shares.workspaceId',
             'shares.createdAt',
+            'shares.passwordHash',
+            'shares.expiresAt',
           ])
           .where(isValidUUID(pageId) ? 'pages.id' : 'pages.slugId', '=', pageId)
           .where('pages.deletedAt', 'is', null)
@@ -216,6 +310,8 @@ export class ShareService {
                   's.spaceId',
                   's.workspaceId',
                   's.createdAt',
+                  's.passwordHash',
+                  's.expiresAt',
                 ])
                 .where('p.deletedAt', 'is', null)
                 .whereRef('p.spaceId', '=', 'ph.pageSpaceId')
@@ -247,6 +343,8 @@ export class ShareService {
       spaceId: share.spaceId,
       workspaceId: share.workspaceId,
       createdAt: share.createdAt,
+      passwordHash: share.passwordHash,
+      expiresAt: share.expiresAt,
       level: share.level,
       sharedPage: {
         id: share.id,
@@ -332,11 +430,13 @@ export class ShareService {
     shareId: string,
     references: Array<{ sourcePageId: string; transclusionId: string }>,
     workspaceId: string,
+    shareToken?: string,
   ): Promise<{ items: TransclusionLookup[] }> {
     const share = await this.shareRepo.findById(shareId);
     if (!share || share.workspaceId !== workspaceId) {
       throw new NotFoundException('Share not found');
     }
+    await this.assertShareAccess(share, shareToken);
     const sharingAllowed = await this.isSharingAllowed(
       workspaceId,
       share.spaceId,

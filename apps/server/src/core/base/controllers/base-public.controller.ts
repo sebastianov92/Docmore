@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Headers,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -35,8 +36,12 @@ export class BasePublicController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('info')
-  async info(@Body() dto: PublicBaseInfoDto, @AuthWorkspace() workspace: Workspace) {
-    await this.assertPublic(dto.pageId, dto.shareId, workspace);
+  async info(
+    @Body() dto: PublicBaseInfoDto,
+    @AuthWorkspace() workspace: Workspace,
+    @Headers('x-share-token') shareToken?: string,
+  ) {
+    await this.assertPublic(dto.pageId, dto.shareId, workspace, shareToken);
     const info = await this.baseService.getBaseInfo(dto.pageId);
     return { ...info, permissions: { canEdit: false, hasRestriction: false } };
   }
@@ -48,13 +53,19 @@ export class BasePublicController {
     @Body() dto: PublicBaseRowsDto,
     @Body() pagination: PaginationOptions,
     @AuthWorkspace() workspace: Workspace,
+    @Headers('x-share-token') shareToken?: string,
   ) {
-    await this.assertPublic(dto.pageId, dto.shareId, workspace);
+    await this.assertPublic(dto.pageId, dto.shareId, workspace, shareToken);
     const { shareId: _shareId, ...listDto } = dto;
     return this.baseRowService.list(listDto, pagination, workspace.id);
   }
 
-  private async assertPublic(pageId: string, shareId: string | undefined, workspace: Workspace) {
+  private async assertPublic(
+    pageId: string,
+    shareId: string | undefined,
+    workspace: Workspace,
+    shareToken?: string,
+  ) {
     const base = await this.baseRepo.findById(pageId);
     if (!base || base.workspaceId !== workspace.id || base.deletedAt) {
       throw new NotFoundException('Base not found');
@@ -63,7 +74,7 @@ export class BasePublicController {
       const shared = await this.shareService.getSharedPage(
         { pageId, shareId } as any,
         workspace.id,
-        { includeContent: false },
+        { includeContent: false, shareToken },
       );
       const allowed = await this.shareService.isSharingAllowed(workspace.id, shared.share.spaceId);
       if (!allowed) throw new NotFoundException('Base not found');

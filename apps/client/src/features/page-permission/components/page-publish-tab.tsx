@@ -13,6 +13,7 @@ import {
   useShareForPageQuery,
   useUpdateShareMutation,
 } from "@/features/share/queries/share-query";
+import { ShareProtectionControls } from "@/features/share/components/share-protection-controls";
 
 interface PagePublishTabProps {
   pageId: string;
@@ -170,6 +171,7 @@ export function PagePublishTab({ pageId, readOnly, isRestricted, sharingDisabled
               aria-label={t("Toggle search engine indexing")}
             />
           </Group>
+          <ShareProtectionControls share={share} readOnly={readOnly} />
         </>
       )}
     </Stack>
