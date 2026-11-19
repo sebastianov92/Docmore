@@ -1,0 +1,109 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.root[data-standalone="true"] {
+  flex: 1;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.scroller {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.canvas {
+  position: relative;
+  min-width: max-content;
+}
+
+.axis {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--mantine-color-body);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.axisCell {
+  flex: 0 0 auto;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  padding: 4px 0 4px 4px;
+  border-right: 1px solid var(--mantine-color-default-border);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.axisCellToday {
+  color: var(--mantine-color-blue-7);
+  font-weight: 600;
+}
+
+.row {
+  position: relative;
+  height: 34px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.bar {
+  position: absolute;
+  top: 5px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--mantine-color-blue-1);
+  border: 1px solid var(--mantine-color-blue-4);
+  color: var(--mantine-color-blue-9);
+  font-size: var(--mantine-font-size-xs);
+  line-height: 22px;
+  padding: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bar:hover {
+  background: var(--mantine-color-blue-2);
+}
+
+.barBlocked {
+  border-style: dashed;
+  border-color: var(--mantine-color-orange-6);
+}
+
+.barUndated {
+  background: var(--mantine-color-default-hover);
+  border-color: var(--mantine-color-default-border);
+  color: var(--mantine-color-dimmed);
+}
+
+.todayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--mantine-color-blue-6);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.empty {
+  padding: 24px 12px;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}

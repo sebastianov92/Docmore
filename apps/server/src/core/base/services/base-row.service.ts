@@ -123,6 +123,8 @@ export class BaseRowService {
     });
     const finalCells = { ...validatedCells, ...formulaPatch };
 
+    const hierarchy = await this.checkHierarchy(dto.pageId, workspaceId, null, dto.parentRowId, dto.blockedBy);
+
     const created = await this.baseRowRepo.insertRow({
       pageId: dto.pageId,
       cells: finalCells as any,
@@ -130,6 +132,8 @@ export class BaseRowService {
       creatorId: userId,
       workspaceId,
       isTemplate: dto.isTemplate === true,
+      parentRowId: hierarchy.parentRowId ?? null,
+      blockedBy: (hierarchy.blockedBy ?? []) as any,
     });
 
     const event: BaseRowCreatedEvent = {
@@ -157,8 +161,15 @@ export class BaseRowService {
 
   async update(dto: UpdateRowDto, workspaceId: string, userId?: string) {
     const properties = await this.basePropertyRepo.findByPageId(dto.pageId);
-    const validatedCells = this.validateCells(dto.cells, properties);
+    const validatedCells = this.validateCells(dto.cells ?? {}, properties);
     await this.relationService.assertTargets(validatedCells, properties, workspaceId);
+    const hierarchy = await this.checkHierarchy(
+      dto.pageId,
+      workspaceId,
+      dto.rowId,
+      dto.parentRowId,
+      dto.blockedBy,
+    );
 
     // Smoke-check the position (same guard as `reorder`).
     if (dto.position !== undefined) {
@@ -189,6 +200,8 @@ export class BaseRowService {
         workspaceId,
         actorId: userId,
         position: dto.position,
+        parentRowId: hierarchy.parentRowId,
+        blockedBy: hierarchy.blockedBy,
       },
     );
 
@@ -298,6 +311,43 @@ export class BaseRowService {
       workspaceId,
     );
     return { ...result, references: { ...references, rows: related.refs } };
+  }
+
+  // Parent and dependencies must be live rows of the same base; a row can't
+  // be its own ancestor.
+  private async checkHierarchy(
+    pageId: string,
+    workspaceId: string,
+    rowId: string | null,
+    parentRowId: string | null | undefined,
+    blockedBy: string[] | null | undefined,
+  ): Promise<{ parentRowId?: string | null; blockedBy?: string[] | null }> {
+    const out: { parentRowId?: string | null; blockedBy?: string[] | null } = {};
+    if (parentRowId !== undefined) {
+      if (parentRowId === null) out.parentRowId = null;
+      else {
+        if (parentRowId === rowId) throw new BadRequestException('A row cannot be its own parent');
+        let cursor: string | null = parentRowId;
+        for (let depth = 0; cursor && depth < 50; depth++) {
+          const parent = await this.baseRowRepo.findById(cursor, { workspaceId });
+          if (!parent || parent.pageId !== pageId) throw new BadRequestException('Parent row not found in this base');
+          if (parent.id === rowId) throw new BadRequestException('That would make a loop of sub-items');
+          cursor = parent.parentRowId ?? null;
+        }
+        out.parentRowId = parentRowId;
+      }
+    }
+    if (blockedBy !== undefined) {
+      if (blockedBy === null || blockedBy.length === 0) out.blockedBy = [];
+      else {
+        const ids = [...new Set(blockedBy)].filter((id) => id !== rowId);
+        const found = await this.baseRowRepo.findByIds(ids, { workspaceId });
+        const ok = new Set(found.filter((r) => r.pageId === pageId).map((r) => r.id));
+        if (ids.some((id) => !ok.has(id))) throw new BadRequestException('Dependency rows not found in this base');
+        out.blockedBy = ids;
+      }
+    }
+    return out;
   }
 
   // Names behind the ids in a page of rows, so readers (public ones have

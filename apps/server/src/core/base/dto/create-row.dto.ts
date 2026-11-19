@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsObject,
   IsOptional,
@@ -26,6 +27,17 @@ export class CreateRowDto {
   @IsOptional()
   @IsUUID()
   fromTemplateId?: string;
+
+  // Sub-item of another row of this base.
+  @IsOptional()
+  @IsUUID()
+  parentRowId?: string;
+
+  // Rows of this base that must finish first.
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  blockedBy?: string[];
 
   // Echoed back in the socket event so the originating client can skip
   // replaying its own write.

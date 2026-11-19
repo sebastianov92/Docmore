@@ -9,6 +9,7 @@ import { BaseKanban } from "@/features/base/components/views/kanban/base-kanban"
 import { BaseCalendar } from "@/features/base/components/views/calendar/base-calendar";
 import { BaseList } from "@/features/base/components/views/list/base-list";
 import { BaseGallery } from "@/features/base/components/views/gallery/base-gallery";
+import { BaseTimeline } from "@/features/base/components/views/timeline/base-timeline";
 
 type ViewRendererProps = {
   base: IBase;
@@ -46,6 +47,18 @@ export function ViewRenderer(props: ViewRendererProps) {
       <BaseCalendar
         base={props.base}
         effectiveView={props.effectiveView}
+        editable={Boolean(props.editable)}
+        onCardClick={props.onCardClick}
+      />
+    );
+  }
+
+  if (viewType === "timeline") {
+    return (
+      <BaseTimeline
+        base={props.base}
+        effectiveView={props.effectiveView}
+        embedded={props.embedded}
         editable={Boolean(props.editable)}
         onCardClick={props.onCardClick}
       />

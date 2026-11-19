@@ -93,7 +93,6 @@ export class BaseRelationService {
     const relations = properties.filter((p) => p.type === BasePropertyType.RELATION);
     const byId = new Map<string, BaseRow>();
     const refs: Record<string, RelatedRowRef> = {};
-    if (relations.length === 0) return { byId, refs };
     const ids = new Set<string>();
     for (const row of rows) {
       const cells = (row.cells ?? {}) as Record<string, unknown>;
@@ -101,6 +100,10 @@ export class BaseRelationService {
         const value = cells[p.id];
         if (Array.isArray(value)) for (const id of value) if (typeof id === 'string') ids.add(id);
       }
+      // parents and dependencies get a title too
+      if (row.parentRowId) ids.add(row.parentRowId);
+      const blocked = (row as any).blockedBy;
+      if (Array.isArray(blocked)) for (const id of blocked) if (typeof id === 'string') ids.add(id);
     }
     if (ids.size === 0) return { byId, refs };
     const found = await this.baseRowRepo.findByIds([...ids], { workspaceId });

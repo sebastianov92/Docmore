@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { ActionIcon, Tooltip, Badge } from "@mantine/core";
+import {
+  ActionIcon,
+  Tooltip,
+  Badge,
+  Switch,
+} from "@mantine/core";
 import { Table } from "@tanstack/react-table";
 import {
   IconSortAscending,
@@ -166,6 +171,8 @@ export function BaseToolbar({
   const isCalendar = activeView?.type === "calendar";
   const isList = activeView?.type === "list";
   const isGallery = activeView?.type === "gallery";
+  const isTimeline = activeView?.type === "timeline";
+  const isTable = activeView?.type === "table";
 
   const handleGroupByChange = useCallback(
     (propertyId: string) => {
@@ -213,6 +220,18 @@ export function BaseToolbar({
         viewId: activeView.id,
         pageId: base.id,
         config: { ...activeView.config, cardSize },
+      });
+    },
+    [activeView, base.id, updateViewMutation],
+  );
+
+  const setViewConfig = useCallback(
+    (patch: Record<string, unknown>) => {
+      if (!activeView) return;
+      updateViewMutation.mutate({
+        viewId: activeView.id,
+        pageId: base.id,
+        config: { ...activeView.config, ...patch } as any,
       });
     },
     [activeView, base.id, updateViewMutation],
@@ -286,6 +305,33 @@ export function BaseToolbar({
           onClear={handleGroupByClear}
           size="xs"
         />
+      )}
+      {isTimeline && canEdit && (
+        <>
+          <CalendarDatePicker
+            properties={base.properties.filter((p) => p.type === "date")}
+            value={activeView?.config?.timelineStartPropertyId ?? null}
+            onChange={(propertyId) => setViewConfig({ timelineStartPropertyId: propertyId })}
+            size="xs"
+          />
+          <CalendarDatePicker
+            properties={base.properties.filter((p) => p.type === "date")}
+            value={activeView?.config?.timelineEndPropertyId ?? null}
+            onChange={(propertyId) => setViewConfig({ timelineEndPropertyId: propertyId })}
+            size="xs"
+          />
+        </>
+      )}
+      {(isTable || isList) && canEdit && (
+        <Tooltip label={t("Nest sub-items under their parent")}>
+          <Switch
+            size="xs"
+            label={t("Sub-items")}
+            checked={activeView?.config?.subItems !== false}
+            onChange={(e) => setViewConfig({ subItems: e.currentTarget.checked })}
+            aria-label={t("Sub-items")}
+          />
+        </Tooltip>
       )}
       {isGallery && canEdit && (
         <GalleryControls

@@ -16,6 +16,7 @@ import { CreatePropertyPopover } from "@/features/base/components/property/creat
 import { RowDetailTitle } from "./row-detail-title";
 import { PropertyRow } from "./property-row";
 import classes from "./row-detail-modal.module.css";
+import { RowHierarchy } from "@/features/base/components/row-detail-modal/row-hierarchy";
 
 type RowDetailModalProps = {
   base: IBase;
@@ -27,6 +28,8 @@ type RowDetailModalProps = {
   templates?: IBaseRow[];
   // false while the base is locked: no new properties from here.
   canEditStructure?: boolean;
+  // opens another row (parent, sub-item, dependency)
+  onOpenRow?: (rowId: string) => void;
 };
 
 export function RowDetailModal({
@@ -37,6 +40,7 @@ export function RowDetailModal({
   onClose,
   templates,
   canEditStructure,
+  onOpenRow,
 }: RowDetailModalProps) {
   const { t } = useTranslation();
   const updateRowMutation = useUpdateRowMutation();
@@ -172,6 +176,9 @@ export function RowDetailModal({
                   />
                 ))}
             </div>
+            {!row.isTemplate && (
+              <RowHierarchy base={base} row={row} rows={rows} canEdit={canEdit} onOpenRow={onOpenRow ?? (() => {})} />
+            )}
             {canEdit && canEditStructure !== false && (
               <div className={classes.addPropertyWrap}>
                 <CreatePropertyPopover

@@ -137,6 +137,11 @@ export type IBaseRow = {
   // Per-base number behind the ID property; null on template rows.
   rowNo?: number | null;
   isTemplate?: boolean;
+  // Sub-item of another row of this base; rows that must finish first.
+  parentRowId?: string | null;
+  blockedBy?: string[];
+  // client-side: nesting depth under its parent (sub-items on)
+  depth?: number;
 };
 
 export type ViewSortConfig = {
@@ -202,9 +207,15 @@ export type ViewConfig = {
   // Gallery
   cardSize?: 'small' | 'medium' | 'large';
   coverPropertyId?: string;
+  // Timeline
+  timelineStartPropertyId?: string;
+  timelineEndPropertyId?: string;
+  timelineZoom?: 'day' | 'week' | 'month';
+  // Table/list: nest sub-items under their parent
+  subItems?: boolean;
 };
 
-export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery';
+export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery' | 'timeline';
 
 export type ReferenceUser = { id: string; name: string | null; avatarUrl: string | null };
 export type ReferencePage = {
@@ -334,6 +345,8 @@ export type CreateRowInput = {
   // Template rows live apart from the data and seed new rows.
   isTemplate?: boolean;
   fromTemplateId?: string;
+  parentRowId?: string;
+  blockedBy?: string[];
 };
 
 export type UpdateRowInput = {
@@ -342,6 +355,8 @@ export type UpdateRowInput = {
   cells: Record<string, unknown>;
   position?: string;
   requestId?: string;
+  parentRowId?: string | null;
+  blockedBy?: string[] | null;
 };
 
 export type DeleteRowInput = {

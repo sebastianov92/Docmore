@@ -482,6 +482,12 @@ export const viewConfigSchema = z
     // Gallery-only: card size and the file property shown as cover.
     cardSize: z.enum(['small', 'medium', 'large']).optional(),
     coverPropertyId: basePropertyIdSchema.optional(),
+    // Timeline: start and (optional) end date properties, zoom level.
+    timelineStartPropertyId: basePropertyIdSchema.optional(),
+    timelineEndPropertyId: basePropertyIdSchema.optional(),
+    timelineZoom: z.enum(['day', 'week', 'month']).optional(),
+    // Table/list: show sub-items nested under their parent.
+    subItems: z.boolean().optional(),
   })
   .passthrough();
 

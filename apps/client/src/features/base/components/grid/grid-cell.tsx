@@ -31,6 +31,7 @@ export const GridCell = memo(function GridCell({
   pageId,
 }: GridCellProps) {
   const property = cell.column.columnDef.meta?.property;
+  const depth = property?.isPrimary ? ((cell.row.original as IBaseRow).depth ?? 0) : 0;
   const isRowNumber = cell.column.id === "__row_number";
   const isPinned = cell.column.getIsPinned();
   const pinOffset = isPinned ? cell.column.getStart("left") : undefined;
@@ -93,10 +94,13 @@ export const GridCell = memo(function GridCell({
     <div
       className={`${classes.cell} ${isPinned ? classes.cellPinned : ""} ${isEditing ? classes.cellEditing : ""} ${property.isPrimary ? classes.primaryCell : ""}`}
       style={
-        isPinned
-          ? ({ "--pin-offset": `${pinOffset}px` } as React.CSSProperties)
-          : undefined
+        {
+          ...(isPinned ? { "--pin-offset": `${pinOffset}px` } : {}),
+          // sub-items step in under their parent
+          ...(depth > 0 ? { paddingLeft: 8 + depth * 18 } : {}),
+        } as React.CSSProperties
       }
+      data-depth={depth > 0 ? depth : undefined}
       onDoubleClick={handleDoubleClick}
     >
       <CellComponent

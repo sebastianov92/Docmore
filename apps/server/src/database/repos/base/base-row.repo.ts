@@ -43,6 +43,8 @@ const BASE_ROW_COLUMNS = [
   'deletedAt',
   'isTemplate',
   'rowNo',
+  'parentRowId',
+  'blockedBy',
 ] as const;
 
 @Injectable()
@@ -301,6 +303,9 @@ export class BaseRowRepo {
       workspaceId: string;
       actorId?: string;
       position?: string;
+      // Hierarchy and dependencies; undefined leaves them alone.
+      parentRowId?: string | null;
+      blockedBy?: string[] | null;
       trx?: KyselyTransaction;
     },
   ): Promise<BaseRow | undefined> {
@@ -314,6 +319,8 @@ export class BaseRowRepo {
       .set({
         cells: sql`jsonb_set_many(cells, ${patchJson}::text::jsonb)`,
         ...(opts.position !== undefined && { position: opts.position }),
+        ...(opts.parentRowId !== undefined && { parentRowId: opts.parentRowId }),
+        ...(opts.blockedBy !== undefined && { blockedBy: (opts.blockedBy ?? []) as any }),
         updatedAt: new Date(),
         lastUpdatedById: opts.actorId ?? null,
       })

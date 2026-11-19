@@ -15,6 +15,7 @@ import {
   FilterGroup,
   ViewSortConfig,
   BaseViewType,
+  IBaseRow,
 } from "@/features/base/types/base.types";
 import {
   useBaseRowsQuery,
@@ -198,13 +199,16 @@ export function BaseView({
     // sort when no view sort is active (where it keeps
     // optimistically-created and ws-pushed rows in place without a
     // refetch).
-    if (activeSorts && activeSorts.length > 0) {
-      return flat;
-    }
-    return flat.sort((a, b) =>
-      a.position < b.position ? -1 : a.position > b.position ? 1 : 0,
-    );
-  }, [rowsData, activeSorts]);
+    const ordered =
+      activeSorts && activeSorts.length > 0
+        ? flat
+        : flat.sort((a, b) =>
+            a.position < b.position ? -1 : a.position > b.position ? 1 : 0,
+          );
+    // Sub-items: children follow their parent, indented by depth.
+    if (effectiveView?.config?.subItems === false) return ordered;
+    return nestSubItems(ordered);
+  }, [rowsData, activeSorts, effectiveView?.config?.subItems]);
 
   const { table, persistViewConfig } = useBaseTable(base, rows, effectiveView, {
     baselineConfig: activeView?.config,
@@ -216,7 +220,8 @@ export function BaseView({
     isKanban ||
     isCalendar ||
     effectiveView?.type === "list" ||
-    effectiveView?.type === "gallery";
+    effectiveView?.type === "gallery" ||
+    effectiveView?.type === "timeline";
 
   const handleCellUpdate = useCallback(
     (rowId: string, propertyId: string, value: unknown) => {
@@ -252,8 +257,15 @@ export function BaseView({
         calendar: t("Calendar"),
         list: t("List"),
         gallery: t("Gallery"),
+        timeline: t("Timeline"),
       };
       const config: Record<string, unknown> = {};
+      if (type === "timeline") {
+        const dates = base?.properties.filter((p) => p.type === "date") ?? [];
+        if (dates[0]) config.timelineStartPropertyId = dates[0].id;
+        if (dates[1]) config.timelineEndPropertyId = dates[1].id;
+        config.timelineZoom = "week";
+      }
       if (type === "gallery") {
         const file = base?.properties.find((p) => p.type === "file");
         if (file) config.coverPropertyId = file.id;
@@ -450,6 +462,7 @@ export function BaseView({
           canEdit={canSave}
           canEditStructure={structureEditable}
           templates={templates}
+          onOpenRow={handleCardClick}
           onClose={closeRow}
         />
       </>
@@ -532,8 +545,39 @@ export function BaseView({
         canEdit={canSave}
         canEditStructure={structureEditable}
         templates={templates}
+        onOpenRow={handleCardClick}
         onClose={closeRow}
       />
     </>
   );
+}
+
+// Orders rows so each loaded child sits right after its parent, with a
+// depth for the primary cell indentation. Children whose parent is not
+// loaded stay in place at depth 0.
+function nestSubItems(rows: IBaseRow[]): IBaseRow[] {
+  const byParent = new Map<string, IBaseRow[]>();
+  const ids = new Set(rows.map((r) => r.id));
+  for (const row of rows) {
+    if (row.parentRowId && ids.has(row.parentRowId)) {
+      const list = byParent.get(row.parentRowId) ?? [];
+      list.push(row);
+      byParent.set(row.parentRowId, list);
+    }
+  }
+  if (byParent.size === 0) return rows.map((r) => (r.depth ? { ...r, depth: 0 } : r));
+  const out: IBaseRow[] = [];
+  const seen = new Set<string>();
+  const visit = (row: IBaseRow, depth: number) => {
+    if (seen.has(row.id)) return;
+    seen.add(row.id);
+    out.push({ ...row, depth });
+    for (const child of byParent.get(row.id) ?? []) visit(child, Math.min(depth + 1, 6));
+  };
+  for (const row of rows) {
+    if (row.parentRowId && ids.has(row.parentRowId)) continue;
+    visit(row, 0);
+  }
+  for (const row of rows) if (!seen.has(row.id)) visit(row, 0);
+  return out;
 }

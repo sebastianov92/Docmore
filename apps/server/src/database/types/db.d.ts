@@ -176,6 +176,8 @@ export interface BaseRows {
   isTemplate: Generated<boolean>;
   lastUpdatedById: string | null;
   pageId: string;
+  parentRowId: string | null;
+  blockedBy: Generated<Json>;
   position: string;
   rowNo: number | null;
   updatedAt: Generated<Timestamp>;

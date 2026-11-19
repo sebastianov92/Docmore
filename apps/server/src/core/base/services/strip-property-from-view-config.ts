@@ -56,6 +56,9 @@ export function stripPropertyFromViewConfig(
   if ((config as any).coverPropertyId === propertyId) {
     delete next.coverPropertyId;
   }
+  for (const key of ['timelineStartPropertyId', 'timelineEndPropertyId']) {
+    if ((config as any)[key] === propertyId) delete next[key];
+  }
 
   if (config.visiblePropertyIds) {
     const kept = config.visiblePropertyIds.filter((id) => id !== propertyId);

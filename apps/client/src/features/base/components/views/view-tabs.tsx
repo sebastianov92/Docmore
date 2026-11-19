@@ -20,6 +20,7 @@ import {
   IconCalendar,
   IconLayoutList,
   IconLayoutGrid,
+  IconTimeline,
 } from "@tabler/icons-react";
 import { BaseViewType } from "@/features/base/types/base.types";
 
@@ -29,6 +30,7 @@ export const VIEW_ICONS: Record<BaseViewType, typeof IconTable> = {
   calendar: IconCalendar,
   list: IconLayoutList,
   gallery: IconLayoutGrid,
+  timeline: IconTimeline,
 };
 import { IBaseView } from "@/features/base/types/base.types";
 import {
@@ -150,6 +152,9 @@ export function ViewTabs({
             </Menu.Item>
             <Menu.Item leftSection={<IconLayoutGrid size={14} />} onClick={() => onAddView("gallery")}>
               {t("Gallery")}
+            </Menu.Item>
+            <Menu.Item leftSection={<IconTimeline size={14} />} onClick={() => onAddView("timeline")}>
+              {t("Timeline")}
             </Menu.Item>
           </Menu.Dropdown>
         </Menu>

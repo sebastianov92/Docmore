@@ -16,7 +16,7 @@ export class CreateViewDto {
   name: string;
 
   @IsOptional()
-  @IsIn(['table', 'kanban', 'calendar', 'list', 'gallery'])
+  @IsIn(['table', 'kanban', 'calendar', 'list', 'gallery', 'timeline'])
   type?: string;
 
   @IsOptional()

@@ -1,4 +1,7 @@
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsNotEmpty,
@@ -6,11 +9,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  IsArray,
-  ArrayMinSize,
-  ArrayMaxSize,
-  ValidateNested,
   Matches,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { BASE_PROPERTY_ID_RE } from '../base-ids';
 import { Type } from 'class-transformer';
@@ -31,6 +32,18 @@ export class UpdateRowDto {
   @IsString()
   @IsNotEmpty()
   position?: string;
+
+  // null clears the parent / the dependencies
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUUID()
+  parentRowId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsArray()
+  @IsUUID('all', { each: true })
+  blockedBy?: string[] | null;
 
   @IsOptional()
   @IsString()
