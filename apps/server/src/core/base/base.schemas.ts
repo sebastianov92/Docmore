@@ -16,6 +16,7 @@ export const BasePropertyType = {
   URL: 'url',
   EMAIL: 'email',
   PHONE: 'phone',
+  LOCATION: 'location',
   ID: 'id',
   RELATION: 'relation',
   ROLLUP: 'rollup',
@@ -211,6 +212,7 @@ const typeOptionsSchemaMap: Record<BasePropertyTypeValue, z.ZodType> = {
   [BasePropertyType.URL]: urlTypeOptionsSchema,
   [BasePropertyType.EMAIL]: emailTypeOptionsSchema,
   [BasePropertyType.PHONE]: textTypeOptionsSchema,
+  [BasePropertyType.LOCATION]: emptyTypeOptionsSchema,
   [BasePropertyType.ID]: idTypeOptionsSchema,
   [BasePropertyType.RELATION]: relationTypeOptionsSchema,
   [BasePropertyType.ROLLUP]: rollupTypeOptionsSchema,
@@ -270,7 +272,64 @@ const cellValueSchemaMap: Partial<Record<BasePropertyTypeValue, z.ZodType>> = {
     .trim()
     .regex(/^\+?[\d(][\d\s().-]{3,30}$/, 'Invalid phone number')
     .refine((v) => v.replace(/\D/g, '').length >= 4, 'Invalid phone number'),
+  // A place: a name, an optional address and optional coordinates.
+  [BasePropertyType.LOCATION]: z
+    .object({
+      name: z.string().trim().max(300),
+      address: z.string().trim().max(500).nullable().optional(),
+      lat: z.number().min(-90).max(90).nullable().optional(),
+      lng: z.number().min(-180).max(180).nullable().optional(),
+    })
+    .refine((v) => v.name.length > 0 || (typeof v.lat === 'number' && typeof v.lng === 'number'), 'A place needs a name or coordinates'),
 };
+
+export interface LocationValue {
+  name: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+// "Quito", "Quito @ -0.18, -78.47", "-0.18, -78.47" or "Name | address".
+export function parseLocationText(text: string): LocationValue | null {
+  const raw = String(text ?? '').trim();
+  if (!raw) return null;
+  const coords = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+  let name = raw;
+  let address: string | null = null;
+  let lat: number | null = null;
+  let lng: number | null = null;
+  const at = raw.split('@');
+  if (at.length === 2 && coords.test(at[1])) {
+    name = at[0].trim();
+    const m = coords.exec(at[1])!;
+    lat = Number(m[1]);
+    lng = Number(m[2]);
+  } else if (coords.test(raw)) {
+    const m = coords.exec(raw)!;
+    lat = Number(m[1]);
+    lng = Number(m[2]);
+    name = '';
+  }
+  const bar = name.split('|');
+  if (bar.length === 2) {
+    name = bar[0].trim();
+    address = bar[1].trim() || null;
+  }
+  if (lat !== null && (lat < -90 || lat > 90 || lng === null || lng < -180 || lng > 180)) return null;
+  const value: LocationValue = { name: name.slice(0, 300), address, lat, lng };
+  return value.name || (lat !== null && lng !== null) ? value : null;
+}
+
+export function locationToText(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const v = value as LocationValue;
+  const name = String(v.name ?? '').trim();
+  const coords = typeof v.lat === 'number' && typeof v.lng === 'number' ? `${v.lat}, ${v.lng}` : '';
+  const address = v.address ? ` | ${v.address}` : '';
+  if (name && coords) return `${name}${address} @ ${coords}`;
+  return name ? `${name}${address}` : coords;
+}
 
 export function getCellValueSchema(
   type: BasePropertyTypeValue,
@@ -369,6 +428,15 @@ export function attemptCellConversion(
       const title = ctx.pageTitles?.get(value);
       return { converted: true, value: title ?? '' };
     }
+  }
+
+  // Places become their text, and text becomes a place when it reads as one.
+  if ((toType === BasePropertyType.TEXT || toType === BasePropertyType.LONG_TEXT) && fromType === BasePropertyType.LOCATION) {
+    return { converted: true, value: locationToText(value) };
+  }
+  if (toType === BasePropertyType.LOCATION && fromType !== BasePropertyType.LOCATION) {
+    const parsed = typeof value === 'string' ? parseLocationText(value) : null;
+    return { converted: true, value: parsed };
   }
 
   // Page cells only accept a page UUID. Free text / other IDs can't be

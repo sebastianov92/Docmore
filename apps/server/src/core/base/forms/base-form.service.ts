@@ -6,12 +6,12 @@ import { BasePropertyRepo } from '@docmost/db/repos/base/base-property.repo';
 import { BaseRepo } from '@docmost/db/repos/base/base.repo';
 import { BaseProperty } from '@docmost/db/types/entity.types';
 import { BaseRowService } from '../services/base-row.service';
-import { validateCellValue, BasePropertyTypeValue } from '../base.schemas';
+import { validateCellValue, BasePropertyTypeValue, parseLocationText } from '../base.schemas';
 import { basePropertyIdSchema } from '../base-ids';
 import { CreateFormDto, UpdateFormDto } from '../dto/form.dto';
 
 // Property types a stranger can fill in.
-const FORM_FIELD_TYPES = new Set(['text', 'longText', 'number', 'select', 'status', 'multiSelect', 'date', 'checkbox', 'url', 'email', 'phone']);
+const FORM_FIELD_TYPES = new Set(['text', 'longText', 'number', 'select', 'status', 'multiSelect', 'date', 'checkbox', 'url', 'email', 'phone', 'location']);
 
 const fieldSchema = z.object({
   propertyId: basePropertyIdSchema,
@@ -133,6 +133,7 @@ export class BaseFormService {
       }
       if (p.type === 'number' && typeof value === 'string') value = Number(value);
       if (p.type === 'multiSelect' && typeof value === 'string') value = [value];
+      if (p.type === 'location' && typeof value === 'string') value = parseLocationText(value);
       const result = validateCellValue(p.type as BasePropertyTypeValue, value);
       if (!result.success) throw new BadRequestException(`${field.label || p.name}: invalid value`);
       out[p.id] = result.data;

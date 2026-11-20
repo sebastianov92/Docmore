@@ -2316,5 +2316,11 @@
   "New post": "Nueva publicación",
   "Nothing posted yet.": "Aún no hay publicaciones.",
   "No body": "Sin cuerpo",
-  "Post body": "Cuerpo de la publicación"
+  "Post body": "Cuerpo de la publicación",
+  "Location": "Lugar",
+  "Place": "Lugar",
+  "Name, or lat, lng": "Nombre, o lat, lng",
+  "Address": "Dirección",
+  "Latitude": "Latitud",
+  "Longitude": "Longitud"
 }

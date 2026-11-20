@@ -11,7 +11,7 @@ import { useClipboard } from "@/hooks/use-clipboard";
 import { getAppUrl } from "@/lib/config.ts";
 
 // Types a stranger can fill in (mirrors the server's list).
-const FORM_FIELD_TYPES = new Set(["text", "longText", "number", "select", "status", "multiSelect", "date", "checkbox", "url", "email", "phone"]);
+const FORM_FIELD_TYPES = new Set(["text", "longText", "number", "select", "status", "multiSelect", "date", "checkbox", "url", "email", "phone", "location"]);
 
 type Draft = { name: string; description: string; fields: FormField[]; submitLabel: string; thanksText: string; enabled: boolean };
 

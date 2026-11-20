@@ -48,6 +48,7 @@ function getOperatorsForType(type: string): FilterOperator[] {
     case "email":
     case "url":
     case "phone":
+    case "location":
       return ["eq", "neq", "contains", "ncontains", "isEmpty", "isNotEmpty"];
     case "number":
     case "id":

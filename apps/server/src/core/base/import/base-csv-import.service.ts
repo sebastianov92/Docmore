@@ -1,3 +1,4 @@
+import { parseLocationText } from '../base.schemas';
 import {
   BadRequestException,
   Inject,
@@ -490,6 +491,10 @@ export class BaseCsvImportService {
       const date = new Date(String(raw));
       if (Number.isNaN(date.getTime())) return { value: null, skipped: true };
       value = date.toISOString();
+    } else if (type === BasePropertyType.LOCATION) {
+      const parsed = parseLocationText(String(raw));
+      if (!parsed) return { value: null, skipped: true };
+      value = parsed;
     } else {
       value = String(raw);
       if (type === BasePropertyType.TEXT) value = (value as string).slice(0, 1000);

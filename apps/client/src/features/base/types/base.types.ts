@@ -13,6 +13,7 @@ export type BasePropertyType =
   | 'url'
   | 'email'
   | 'phone'
+  | 'location'
   | 'id'
   | 'relation'
   | 'rollup'
@@ -550,3 +551,6 @@ export type IPublicForm = {
   baseTitle: string;
   fields: IPublicFormField[];
 };
+
+// A place: name, optional address and coordinates.
+export type ILocationValue = { name: string; address?: string | null; lat?: number | null; lng?: number | null };

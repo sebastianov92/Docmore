@@ -1,4 +1,5 @@
 import { BasePropertyType, BasePropertyTypeValue } from '../base.schemas';
+import { locationToText } from '../base.schemas';
 
 export type CellCsvContext = {
   userNames?: Map<string, string>;
@@ -39,6 +40,9 @@ export function serializeCellForCsv(
     case BasePropertyType.EMAIL:
     case BasePropertyType.PHONE:
       return String(value);
+
+    case BasePropertyType.LOCATION:
+      return locationToText(value);
 
     case BasePropertyType.ID: {
       const prefix = (property.typeOptions as any)?.prefix ?? '';

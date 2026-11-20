@@ -2418,5 +2418,11 @@
   "New post": "New post",
   "Nothing posted yet.": "Nothing posted yet.",
   "No body": "No body",
-  "Post body": "Post body"
+  "Post body": "Post body",
+  "Location": "Location",
+  "Place": "Place",
+  "Name, or lat, lng": "Name, or lat, lng",
+  "Address": "Address",
+  "Latitude": "Latitude",
+  "Longitude": "Longitude"
 }

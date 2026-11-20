@@ -17,6 +17,7 @@ import {
   IconUserEdit,
   IconMathFunction,
   IconPhone,
+  IconMapPin,
   IconId,
   IconArrowsRightLeft,
   IconSum,
@@ -220,6 +221,16 @@ export const PROPERTY_TYPE_REGISTRY: Record<
     isSystem: false,
     hasOptions: false,
   },
+  location: {
+    type: "location",
+    cellComponent: CellText,
+    icon: IconMapPin,
+    labelKey: "Location",
+    filterOperators: ["eq", "neq", "contains", "ncontains", "isEmpty", "isNotEmpty"],
+    filterInput: "text",
+    isSystem: false,
+    hasOptions: false,
+  },
   id: {
     type: "id",
     cellComponent: CellText,
@@ -302,7 +313,7 @@ export const DEFAULT_FILTER_OPERATORS = ["eq", "neq", "isEmpty", "isNotEmpty"];
 
 export const PROPERTY_PICKER_ORDER: BasePropertyType[] = [
   "text", "longText", "number", "select", "status", "multiSelect", "date",
-  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "id", "relation", "rollup", "button",
+  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "location", "id", "relation", "rollup", "button",
   "createdAt", "lastEditedAt", "lastEditedBy",
 ];
 

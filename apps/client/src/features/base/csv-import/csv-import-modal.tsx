@@ -42,6 +42,7 @@ type Props = {
 };
 
 const TYPE_LABELS: Record<ImportableType, string> = {
+  location: "Location",
   text: "Text",
   longText: "Long text",
   number: "Number",

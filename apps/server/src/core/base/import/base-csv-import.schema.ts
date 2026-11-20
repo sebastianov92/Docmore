@@ -16,6 +16,7 @@ export const IMPORTABLE_TYPES = [
   'url',
   'email',
   'phone',
+  'location',
 ] as const;
 
 export const CSV_IMPORT_LIMITS = {

@@ -129,6 +129,15 @@ function FieldInput({ field, value, error, onChange }: { field: IPublicFormField
       return <TextInput {...common} type="email" value={(value as string) ?? ""} onChange={(e) => onChange(e.currentTarget.value)} />;
     case "url":
       return <TextInput {...common} type="url" placeholder="https://" value={(value as string) ?? ""} onChange={(e) => onChange(e.currentTarget.value)} />;
+    case "location":
+      return (
+        <TextInput
+          {...common}
+          placeholder="Place | address @ lat, lng"
+          value={typeof value === "string" ? value : value && typeof value === "object" ? String((value as { name?: string }).name ?? "") : ""}
+          onChange={(e) => onChange(e.currentTarget.value || null)}
+        />
+      );
     default:
       return <TextInput {...common} value={(value as string) ?? ""} onChange={(e) => onChange(e.currentTarget.value)} />;
   }

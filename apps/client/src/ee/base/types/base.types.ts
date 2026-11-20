@@ -20,6 +20,7 @@ export type BasePropertyType =
   | 'url'
   | 'email'
   | 'phone'
+  | 'location'
   | 'id'
   | 'relation'
   | 'rollup'

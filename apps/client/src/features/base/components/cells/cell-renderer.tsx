@@ -16,6 +16,7 @@ import { CellLastEditedAt } from "./cell-last-edited-at";
 import { CellLastEditedBy } from "./cell-last-edited-by";
 import { CellFormula } from "./cell-formula";
 import { CellPhone } from "./cell-phone";
+import { CellLocation } from "./cell-location";
 import { CellId } from "./cell-id";
 import { CellRelation } from "./cell-relation";
 import { CellRollup } from "./cell-rollup";
@@ -45,6 +46,7 @@ export const cellComponents: Record<
   url: CellUrl,
   email: CellEmail,
   phone: CellPhone,
+  location: CellLocation,
   id: CellId,
   relation: CellRelation,
   rollup: CellRollup,
