@@ -98,22 +98,6 @@ async function bootstrap() {
       done(null, payload);
     });
 
-  // SAML identity providers post the assertion as a form.
-  app
-    .getHttpAdapter()
-    .getInstance()
-    .addContentTypeParser(
-      'application/x-www-form-urlencoded',
-      { parseAs: 'string' },
-      (_, body, done) => {
-        try {
-          done(null, Object.fromEntries(new URLSearchParams(body.toString())));
-        } catch (err: any) {
-          done(err);
-        }
-      },
-    );
-
   app
     .getHttpAdapter()
     .getInstance()
