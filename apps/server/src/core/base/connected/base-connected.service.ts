@@ -55,7 +55,8 @@ export class BaseConnectedService {
 
   async schedule(job: IBaseConnectedFetchJob) {
     await this.queue.add(QueueJob.BASE_CONNECTED_FETCH, job, {
-      jobId: `connected:${job.rowId}:${job.propertyId}:${Date.now()}`,
+      // BullMQ custom ids cannot contain ':'
+      jobId: `connected-${job.rowId}-${job.propertyId}-${Date.now()}`,
       removeOnComplete: true,
       removeOnFail: true,
       attempts: 2,
