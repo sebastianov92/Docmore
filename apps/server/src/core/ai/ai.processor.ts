@@ -4,6 +4,8 @@ import { Job } from 'bullmq';
 import { QueueJob, QueueName } from '../../integrations/queue/constants';
 import { AiEmbeddingService } from './embeddings/ai-embedding.service';
 import { AiBaseFillService } from './base-fill/ai-base-fill.service';
+import { AiResearchService } from './research/ai-research.service';
+import { AiMeetingService } from './meetings/ai-meeting.service';
 
 // Drains the AI queue that pages, spaces and workspaces already feed: keeps
 // page embeddings current, drops them with their pages, and runs the
@@ -15,6 +17,8 @@ export class AiProcessor extends WorkerHost {
   constructor(
     private readonly embeddings: AiEmbeddingService,
     private readonly baseFill: AiBaseFillService,
+    private readonly research: AiResearchService,
+    private readonly meetings: AiMeetingService,
   ) {
     super();
   }
@@ -50,6 +54,10 @@ export class AiProcessor extends WorkerHost {
         return this.embeddings.backfill(workspaceId, { reset: true });
       case QueueJob.BASE_AI_FILL:
         return this.baseFill.process(job.data);
+      case QueueJob.AI_RESEARCH:
+        return this.research.process(job.data);
+      case QueueJob.AI_MEETING_NOTES:
+        return this.meetings.process(job.data);
       default:
         return;
     }

@@ -47,6 +47,7 @@ export interface AiSettingsView {
   generation: ModelChoice | null;
   embedding: ModelChoice | null;
   limits: AiLimits;
+  transcription: ModelChoice | null;
   envFallback: { provider: string; model: string | null } | null;
 }
 
@@ -62,6 +63,7 @@ export interface UpdateAiSettings {
   generation?: ModelChoice | null;
   embedding?: ModelChoice | null;
   limits?: Partial<AiLimits>;
+  transcription?: ModelChoice | null;
 }
 
 export interface AiConfig {

@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
 import { Typography } from "@mantine/core";
-import { IconFile, IconLoader2, IconPhoto } from "@tabler/icons-react";
+import { IconFile, IconLoader2, IconPhoto, IconSparkles, IconTelescope } from "@tabler/icons-react";
 import { markdownToHtml } from "@docmost/editor-ext";
 import CopyTextButton from "@/components/common/copy.tsx";
 import { AiChatMessage, AiChatToolCall, CHAT_IMAGE_EXTENSIONS, REFERENCED_PAGES_RE } from "../types";
-import { ChatToolSteps } from "./chat-tool-steps";
+import { ApprovalDecision, ChatToolSteps } from "./chat-tool-steps";
+import { ResearchProgress } from "./research-progress";
+import { ResearchSources } from "./research-sources";
 import classes from "./chat.module.css";
 
 const PAGE_PATH = /\/(?:s\/[^/?#\s]+\/)?p\/[^/?#\s]+/;
@@ -36,9 +38,14 @@ interface Props {
   isStreaming?: boolean;
   streamingContent?: string;
   streamingToolCalls?: AiChatToolCall[];
+  // the last message of the thread (a research question still running shows its progress)
+  isLast?: boolean;
+  decided?: Record<string, ApprovalDecision>;
+  onDecide?: (approvalId: string, decision: ApprovalDecision, tool: string, server: string) => void;
+  onResearchDone?: () => void;
 }
 
-export function ChatMessage({ message, isStreaming, streamingContent, streamingToolCalls }: Props) {
+export function ChatMessage({ message, isStreaming, streamingContent, streamingToolCalls, isLast, decided, onDecide, onResearchDone }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const content = isStreaming ? streamingContent ?? "" : message.content ?? "";
@@ -63,11 +70,41 @@ export function ChatMessage({ message, isStreaming, streamingContent, streamingT
 
   if (message.role === "tool") return null;
 
+  if (message.role === "user" && message.metadata?.kind === "tool_approval") {
+    const decision = message.metadata.decision as string;
+    return (
+      <div className={classes.systemNote} role="note">
+        {decision === "approved"
+          ? t("You allowed {{tool}} on {{server}}", { tool: message.metadata.tool, server: message.metadata.server })
+          : t("You declined {{tool}} on {{server}}", { tool: message.metadata.tool, server: message.metadata.server })}
+      </div>
+    );
+  }
+
   if (message.role === "user") {
     const attachments = (message.metadata?.attachments as { id: string; fileName: string; fileExt: string }[]) ?? [];
+    const skill = message.metadata?.skill as { id: string; name: string } | undefined;
+    const research = message.metadata?.research as { reportId: string } | undefined;
     return (
+      <>
       <div className={classes.userRow} role="article" aria-label={t("You said:")}>
         <div className={classes.userBubble}>
+          {(skill || research) && (
+            <div className={classes.userTags}>
+              {research && (
+                <span className={classes.userTag}>
+                  <IconTelescope size={12} />
+                  {t("Research")}
+                </span>
+              )}
+              {skill && (
+                <span className={classes.userTag}>
+                  <IconSparkles size={12} />
+                  {skill.name}
+                </span>
+              )}
+            </div>
+          )}
           {attachments.length > 0 && (
             <div className={classes.attachments}>
               {attachments.map((a) => (
@@ -81,20 +118,25 @@ export function ChatMessage({ message, isStreaming, streamingContent, streamingT
           {content.replace(REFERENCED_PAGES_RE, "")}
         </div>
       </div>
+      {research && isLast && onResearchDone && <ResearchProgress reportId={research.reportId} onDone={onResearchDone} />}
+      </>
     );
   }
+
+  const research = message.metadata?.research as { reportId: string; sources?: { n: number; pageId: string; title: string; url: string }[] } | undefined;
 
   const failed = typeof message.metadata?.error === "string" ? (message.metadata.error as string) : null;
 
   return (
     <div className={classes.assistantRow} role="article" aria-label={content ? t("Assistant said:") : undefined}>
       <div className={classes.assistantBody}>
-        {toolCalls.length > 0 && <ChatToolSteps toolCalls={toolCalls} isStreaming={isStreaming} />}
+        {toolCalls.length > 0 && <ChatToolSteps toolCalls={toolCalls} isStreaming={isStreaming} decided={decided} onDecide={onDecide} />}
         {html && (
           <Typography className={classes.markdown}>
             <div onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />
           </Typography>
         )}
+        {research?.sources && research.sources.length > 0 && <ResearchSources reportId={research.reportId} sources={research.sources} />}
         {failed && <div className={classes.failed}>{failed}</div>}
         {isStreaming && !content && (
           <span className={classes.thinking}>

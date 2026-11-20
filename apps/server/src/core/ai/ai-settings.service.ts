@@ -41,6 +41,9 @@ export interface AiSettings {
   generation: ModelChoice | null;
   embedding: ModelChoice | null;
   limits: AiLimits;
+  // speech to text: an OpenAI-compatible /audio/transcriptions model, or a
+  // Gemini model that hears the file itself
+  transcription: ModelChoice | null;
 }
 
 // What admins see: never the key itself.
@@ -61,6 +64,7 @@ export interface AiSettingsView {
   generation: ModelChoice | null;
   embedding: ModelChoice | null;
   limits: AiLimits;
+  transcription: ModelChoice | null;
   envFallback: { provider: string; model: string | null } | null;
 }
 
@@ -92,6 +96,7 @@ export class AiSettingsService {
       generation: (asObject(row?.generation) as ModelChoice | null) ?? null,
       embedding: (asObject(row?.embedding) as ModelChoice | null) ?? null,
       limits: { ...DEFAULT_AI_LIMITS, ...((asObject(row?.limits) as Partial<AiLimits>) ?? {}) },
+      transcription: (asObject((row as any)?.transcription) as ModelChoice | null) ?? null,
     };
   }
 
@@ -117,6 +122,7 @@ export class AiSettingsService {
       generation: settings.generation,
       embedding: settings.embedding,
       limits: settings.limits,
+      transcription: settings.transcription,
       envFallback: envDriver
         ? { provider: envDriver, model: this.environment.getAiCompletionModel?.() ?? null }
         : null,
@@ -139,7 +145,9 @@ export class AiSettingsService {
       dto.embedding === undefined ? current.embedding : this.readChoice(dto.embedding, providers, 'embedding');
 
     const limits = dto.limits === undefined ? current.limits : this.readLimits(dto.limits);
-    await this.save(workspaceId, { providers, generation, embedding, limits });
+    const transcription =
+      dto.transcription === undefined ? current.transcription : this.readTranscription(dto.transcription, providers);
+    await this.save(workspaceId, { providers, generation, embedding, limits, transcription });
 
     // Vectors from one model mean nothing to another: start the index over.
     if (dto.embedding !== undefined && !sameChoice(current.embedding, embedding)) {
@@ -253,12 +261,31 @@ export class AiSettingsService {
       generation: (settings.generation ?? null) as any,
       embedding: (settings.embedding ?? null) as any,
       limits: (settings.limits ?? DEFAULT_AI_LIMITS) as any,
+      transcription: (settings.transcription ?? null) as any,
     };
     await this.db
       .insertInto('aiSettings')
       .values({ workspaceId, ...values })
       .onConflict((oc) => oc.column('workspaceId').doUpdateSet({ ...values, updatedAt: new Date() }))
       .execute();
+  }
+
+  // Any model id goes: speech models are not in the chat model lists.
+  private readTranscription(
+    raw: { provider: string; model: string } | null,
+    providers: AiSettings['providers'],
+  ): ModelChoice | null {
+    if (raw === null) return null;
+    const provider = raw?.provider as AiProviderId;
+    const model = String(raw?.model ?? '').trim();
+    if (!AI_PROVIDERS.includes(provider) || !model) throw new BadRequestException('Pick a provider and a model');
+    if (provider === 'anthropic' || provider === 'ollama') {
+      throw new BadRequestException(`${PROVIDER_LABELS[provider]} cannot transcribe audio; use OpenAI, Gemini or a compatible server`);
+    }
+    if (!providers[provider] && provider !== 'openai' && provider !== 'gemini') {
+      throw new BadRequestException(`Set up ${PROVIDER_LABELS[provider]} first`);
+    }
+    return { provider, model };
   }
 
   private readLimits(raw: Partial<AiLimits>): AiLimits {

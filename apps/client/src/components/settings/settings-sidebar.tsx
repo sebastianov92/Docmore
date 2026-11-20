@@ -23,6 +23,7 @@ import {
   IconWebhook,
   IconServer,
   IconUsersPlus,
+  IconPlugConnected,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router-dom";
 import classes from "./settings.module.css";
@@ -113,6 +114,8 @@ const groupedData: DataGroup[] = [
         requiresInstalledIntegration: true,
       },
       { label: "Web clipper", icon: IconScissors, path: "/settings/account/clipper" },
+      { label: "My skills", icon: IconSparkles, path: "/settings/account/ai-skills" },
+      { label: "My MCP servers", icon: IconPlugConnected, path: "/settings/account/mcp-servers" },
     ],
   },
   {

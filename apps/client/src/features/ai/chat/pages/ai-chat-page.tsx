@@ -78,7 +78,13 @@ function Conversation({ chatId }: { chatId: string | undefined }) {
 
   const started = chat.messages.length > 0 || chat.isStreaming || Boolean(chatId);
   if (!started) {
-    return <ChatEmptyState isStreaming={chat.isStreaming} onSend={chat.send} onStop={chat.stop} />;
+    return (
+      <ChatEmptyState
+        isStreaming={chat.isStreaming}
+        onSend={(content, mentions, attachments, extras) => chat.send(content, mentions, attachments, undefined, extras)}
+        onStop={chat.stop}
+      />
+    );
   }
 
   return (
@@ -88,10 +94,17 @@ function Conversation({ chatId }: { chatId: string | undefined }) {
         isStreaming={chat.isStreaming}
         streamingContent={chat.streamingContent}
         streamingToolCalls={chat.streamingToolCalls}
+        onDecide={chat.decide}
+        onResearchDone={chat.refresh}
       />
       {chat.error && <div className={classes.error}>{chat.error}</div>}
       <div className={classes.inputArea}>
-        <ChatInput isStreaming={chat.isStreaming} onSend={chat.send} onStop={chat.stop} chatId={chatId} />
+        <ChatInput
+          isStreaming={chat.isStreaming}
+          onSend={(content, mentions, attachments, extras) => chat.send(content, mentions, attachments, undefined, extras)}
+          onStop={chat.stop}
+          chatId={chatId}
+        />
         <div className={classes.disclaimer}>{t("Answers come from the pages you can read; check anything that matters.")}</div>
       </div>
     </div>

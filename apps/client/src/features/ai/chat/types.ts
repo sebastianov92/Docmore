@@ -54,6 +54,32 @@ export interface SendChatParams {
   mentionedPageIds?: string[];
   contextPageId?: string;
   attachmentIds?: string[];
+  skillId?: string;
+}
+
+// What the input adds to a message besides text, pages and files.
+export interface SendExtras {
+  skillId?: string;
+  skillName?: string;
+  research?: boolean;
+}
+
+// An MCP tool call parked until the person answers.
+export interface PendingToolApproval {
+  approvalId: string;
+  server: string;
+  tool: string;
+}
+
+export function pendingApprovalOf(call: AiChatToolCall): PendingToolApproval | null {
+  const r = call.result as any;
+  return r && typeof r === "object" && r.pendingApproval?.approvalId ? (r.pendingApproval as PendingToolApproval) : null;
+}
+
+// "mcp__server__tool" -> { server, tool }
+export function splitMcpToolName(name: string): { server: string; tool: string } | null {
+  const m = /^mcp__([^_].*?)__(.+)$/.exec(name);
+  return m ? { server: m[1].replace(/_/g, " "), tool: m[2] } : null;
 }
 
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;

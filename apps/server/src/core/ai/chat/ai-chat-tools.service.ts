@@ -186,6 +186,15 @@ export class AiChatToolsService {
     return tools;
   }
 
+  // For other AI features (research) that look things up as the user.
+  async searchAs(ctx: ToolContext, query: string, spaceId?: string) {
+    return this.searchPages(ctx, query, spaceId);
+  }
+
+  async readAs(ctx: ToolContext, idOrSlug: string) {
+    return this.getPage(ctx, idOrSlug);
+  }
+
   private async listPages(ctx: ToolContext, spaceId: string, limit: number) {
     const member = await this.spaceMemberRepo.getUserSpaceIds(ctx.user.id);
     if (!member.includes(spaceId)) return { error: 'You do not have access to that space' };

@@ -21,13 +21,24 @@ import { AiUsageService } from './ai-usage.service';
 import { AiBaseFillService } from './base-fill/ai-base-fill.service';
 import { AiBaseFillListener } from './base-fill/ai-base-fill.listener';
 import { AiBaseFillController } from './base-fill/ai-base-fill.controller';
+import { AiMcpServerService } from './mcp-client/ai-mcp-server.service';
+import { AiMcpToolsService } from './mcp-client/ai-mcp-tools.service';
+import { AiMcpController } from './mcp-client/ai-mcp.controller';
+import { AiSkillService } from './skills/ai-skill.service';
+import { AiSkillController } from './skills/ai-skill.controller';
+import { AiResearchService } from './research/ai-research.service';
+import { AiResearchController } from './research/ai-research.controller';
+import { AiTranscriptionService } from './meetings/ai-transcription.service';
+import { AiMeetingService } from './meetings/ai-meeting.service';
+import { AiMeetingController } from './meetings/ai-meeting.controller';
+import { NotificationModule } from '../notification/notification.module';
 
 // Built-in AI: provider credentials, model discovery, Ask AI in the editor,
 // page embeddings with AI Answers in search, and the chat with tools over
 // the workspace's pages.
 @Module({
-  imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule],
-  controllers: [AiController, AiChatController, AiBaseFillController],
+  imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule, NotificationModule],
+  controllers: [AiController, AiChatController, AiBaseFillController, AiMcpController, AiSkillController, AiResearchController, AiMeetingController],
   providers: [
     AiBaseFillService,
     AiBaseFillListener,
@@ -42,7 +53,13 @@ import { AiBaseFillController } from './base-fill/ai-base-fill.controller';
     AiChatToolsService,
     AiBaseToolsService,
     AiChatService,
+    AiMcpServerService,
+    AiMcpToolsService,
+    AiSkillService,
+    AiResearchService,
+    AiTranscriptionService,
+    AiMeetingService,
   ],
-  exports: [AiSettingsService, AiProviderService, AiGenerateService, AiEmbeddingService, AiAnswersService, AiChatToolsService],
+  exports: [AiSettingsService, AiProviderService, AiGenerateService, AiEmbeddingService, AiAnswersService, AiChatToolsService, AiSkillService],
 })
 export class AiModule {}

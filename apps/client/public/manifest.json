@@ -26,5 +26,25 @@
       "type": "image/png",
       "sizes": "512x512"
     }
+  ],
+  "description": "Your team's wiki, pages, bases and AI chat",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "scope": "/",
+  "categories": [
+    "productivity",
+    "business"
+  ],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "url": "/home"
+    },
+    {
+      "name": "AI chat",
+      "url": "/ai"
+    }
   ]
 }

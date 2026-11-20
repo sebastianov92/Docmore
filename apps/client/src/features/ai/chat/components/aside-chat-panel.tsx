@@ -22,7 +22,7 @@ import { useChatInfoQuery, useChatsQuery, useSearchChatsQuery } from "../queries
 import { useChatStream } from "../hooks/use-chat-stream";
 import { ChatThread } from "./chat-thread";
 import ChatInput from "./chat-input";
-import { ChatAttachment, PageMention } from "../types";
+import { ChatAttachment, PageMention, SendExtras } from "../types";
 import classes from "./aside-chat.module.css";
 
 // The chat beside a page. The open page rides along as context for the
@@ -64,8 +64,8 @@ export default function AsideChatPanel() {
   }, [chatId, navigate, close]);
 
   const send = useCallback(
-    (content: string, mentions: PageMention[], attachments: ChatAttachment[]) =>
-      chat.send(content, mentions, attachments, contextPages[0]?.id),
+    (content: string, mentions: PageMention[], attachments: ChatAttachment[], extras?: SendExtras) =>
+      chat.send(content, mentions, attachments, contextPages[0]?.id, extras),
     [chat.send, contextPages],
   );
 
@@ -123,6 +123,8 @@ export default function AsideChatPanel() {
             isStreaming={chat.isStreaming}
             streamingContent={chat.streamingContent}
             streamingToolCalls={chat.streamingToolCalls}
+          onDecide={chat.decide}
+          onResearchDone={chat.refresh}
             compact
           />
         </div>

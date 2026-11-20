@@ -41,6 +41,9 @@ import ProviderCard from "@/features/ai/components/provider-card";
 import ModelChoiceSelect from "@/features/ai/components/model-choice";
 import { formatDateTime } from "@/features/audit/lib/audit-time";
 import { McpSettings } from "@/features/ai/components/mcp-settings";
+import { McpServersPanel } from "@/features/ai/components/mcp-servers-panel";
+import { SkillsPanel } from "@/features/ai/components/skills-panel";
+import { TranscriptionChoice } from "@/features/ai/components/transcription-choice";
 
 // Settings > AI: connect providers, pick models, switch the features on.
 export default function AiSettings() {
@@ -330,9 +333,30 @@ export default function AiSettings() {
       <Divider my="xl" />
 
       <Title order={4} mb="xs">
+        {t("Transcription")}
+      </Title>
+      {settings && <TranscriptionChoice settings={settings} onChange={(choice) => update.mutate({ transcription: choice })} saving={update.isPending} />}
+
+      <Divider my="xl" />
+
+      <Title order={4} mb="xs">
+        {t("Skills")}
+      </Title>
+      <SkillsPanel scope="workspace" />
+
+      <Divider my="xl" />
+
+      <Title order={4} mb="xs">
         {t("MCP")}
       </Title>
       <McpSettings />
+
+      <Divider my="xl" />
+
+      <Title order={4} mb="xs">
+        {t("MCP servers the chat can use")}
+      </Title>
+      <McpServersPanel scope="workspace" />
     </>
   );
 }

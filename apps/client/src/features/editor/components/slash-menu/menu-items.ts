@@ -35,6 +35,7 @@ import {
   IconChartBar,
   IconPlayerPlay,
   IconBookmark,
+  IconMicrophone,
 } from "@tabler/icons-react";
 import {
   CommandProps,
@@ -52,6 +53,8 @@ import IconDrawio from "@/components/icons/icon-drawio";
 import { IconColumns4 } from "@/components/icons/icon-columns-4";
 import { IconColumns5 } from "@/components/icons/icon-columns-5";
 import i18n from "@/i18n.ts";
+import { MEETING_ACCEPTED_FILES, transcribeMeeting } from "@/features/ai/meetings/services";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   AirtableIcon,
   FigmaIcon,
@@ -226,6 +229,41 @@ const CommandGroups: SlashMenuGroupedItemsType = {
           }
 
           input.remove();
+        };
+        input.click();
+      },
+    },
+    {
+      title: "Meeting notes",
+      description: "Transcribe a recording into summary, decisions and action items.",
+      searchTerms: ["meeting", "notes", "transcribe", "transcript", "recording", "audio", "ai"],
+      icon: IconMicrophone,
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        // @ts-ignore
+        const pageId = editor.storage?.pageId;
+        if (!pageId) return;
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = MEETING_ACCEPTED_FILES;
+        input.style.display = "none";
+        document.body.appendChild(input);
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          input.remove();
+          if (!file) return;
+          const id = notifications.show({ loading: true, autoClose: false, message: i18n.t("Uploading {{name}}…", { name: file.name }) });
+          try {
+            await transcribeMeeting(file, { pageId });
+            notifications.update({
+              id,
+              loading: false,
+              autoClose: 6000,
+              message: i18n.t("Transcribing. The notes will be added to this page when ready; you will be told."),
+            });
+          } catch (err) {
+            notifications.update({ id, loading: false, autoClose: 6000, color: "red", message: getApiErrorMessage(err, i18n.t("Could not start the transcription")) });
+          }
         };
         input.click();
       },

@@ -15,7 +15,10 @@ export type NotificationType =
   | "siem_destination.disabled"
   | "siem_destination.recovered"
   | "base.import_completed"
-  | "base.import_failed";
+  | "base.import_failed"
+  | "ai.research_completed"
+  | "ai.meeting_notes_ready"
+  | "ai.meeting_notes_failed";
 
 export type INotification = {
   id: string;

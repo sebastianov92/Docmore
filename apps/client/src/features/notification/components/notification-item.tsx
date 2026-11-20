@@ -80,6 +80,12 @@ export function NotificationItem({
         return "Imported {{count}} rows from <bold>{{fileName}}</bold>";
       case "base.import_failed":
         return "Couldn't import <bold>{{fileName}}</bold>";
+      case "ai.research_completed":
+        return "Your research report is ready";
+      case "ai.meeting_notes_ready":
+        return "Meeting notes from <bold>{{fileName}}</bold> are ready";
+      case "ai.meeting_notes_failed":
+        return "Couldn't transcribe <bold>{{fileName}}</bold>";
       default:
         return "";
     }
@@ -113,7 +119,9 @@ export function NotificationItem({
     typeof notification.data?.lastError === "string"
       ? notification.data.lastError
       : null;
-  const linkUrl = isSiemDestination ? "/settings/audit/siem" : pageUrl;
+  const researchChatId =
+    notification.type === "ai.research_completed" && typeof notification.data?.chatId === "string" ? notification.data.chatId : null;
+  const linkUrl = isSiemDestination ? "/settings/audit/siem" : researchChatId ? `/ai/chat/${researchChatId}` : pageUrl;
 
   const fileName =
     typeof notification.data?.fileName === "string"
@@ -126,6 +134,12 @@ export function NotificationItem({
       : undefined;
 
   const getImportDetail = (): string | null => {
+    if (notification.type === "ai.meeting_notes_failed") {
+      return typeof notification.data?.error === "string" ? notification.data.error : null;
+    }
+    if (notification.type === "ai.research_completed" && typeof notification.data?.question === "string") {
+      return notification.data.question;
+    }
     if (notification.type === "base.import_failed") {
       const error = notification.data?.error;
       return typeof error === "string" && error

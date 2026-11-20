@@ -67,6 +67,11 @@ export class UpdateAiSettingsDto {
   @IsOptional()
   @IsObject()
   limits?: Record<string, unknown>;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ModelChoiceDto)
+  transcription?: ModelChoiceDto | null;
 }
 
 export class ListModelsDto {

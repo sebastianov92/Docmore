@@ -4,6 +4,7 @@ import { IconArrowDown } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { AiChatMessage, AiChatToolCall } from "../types";
 import { ChatMessage } from "./chat-message";
+import { ApprovalDecision } from "./chat-tool-steps";
 import classes from "./chat.module.css";
 
 interface Props {
@@ -12,14 +13,23 @@ interface Props {
   streamingContent: string;
   streamingToolCalls: AiChatToolCall[];
   compact?: boolean;
+  onDecide?: (approvalId: string, decision: ApprovalDecision, tool: string, server: string) => void;
+  onResearchDone?: () => void;
 }
 
 const NEAR_BOTTOM_PX = 40;
 
 // The transcript. Follows the stream while the reader is at the bottom and
 // stays put, with a jump button, once they scroll up.
-export function ChatThread({ messages, isStreaming, streamingContent, streamingToolCalls, compact }: Props) {
+export function ChatThread({ messages, isStreaming, streamingContent, streamingToolCalls, compact, onDecide, onResearchDone }: Props) {
   const { t } = useTranslation();
+  // approvals already answered in this thread
+  const decided: Record<string, ApprovalDecision> = {};
+  for (const m of messages) {
+    if (m.role === "user" && m.metadata?.kind === "tool_approval" && typeof m.metadata.approvalId === "string") {
+      decided[m.metadata.approvalId] = m.metadata.decision as ApprovalDecision;
+    }
+  }
   const containerRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
@@ -72,8 +82,15 @@ export function ChatThread({ messages, isStreaming, streamingContent, streamingT
       </VisuallyHidden>
       <div ref={containerRef} className={classes.thread} data-compact={compact || undefined} aria-label={t("Chat transcript")}>
         <div className={classes.threadInner}>
-          {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
+          {messages.map((message, i) => (
+            <ChatMessage
+              key={message.id}
+              message={message}
+              isLast={i === messages.length - 1 && !isStreaming}
+              decided={decided}
+              onDecide={onDecide}
+              onResearchDone={onResearchDone}
+            />
           ))}
           {isStreaming && (
             <ChatMessage

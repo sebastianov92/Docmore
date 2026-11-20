@@ -17,6 +17,9 @@ export const NotificationType = {
   SIEM_DESTINATION_RECOVERED: 'siem_destination.recovered',
   BASE_IMPORT_COMPLETED: 'base.import_completed',
   BASE_IMPORT_FAILED: 'base.import_failed',
+  AI_RESEARCH_COMPLETED: 'ai.research_completed',
+  AI_MEETING_NOTES_READY: 'ai.meeting_notes_ready',
+  AI_MEETING_NOTES_FAILED: 'ai.meeting_notes_failed',
 } as const;
 
 export type NotificationType =
@@ -52,6 +55,9 @@ export const DIRECT_NOTIFICATION_TYPES: NotificationType[] = [
   NotificationType.SIEM_DESTINATION_RECOVERED,
   NotificationType.BASE_IMPORT_COMPLETED,
   NotificationType.BASE_IMPORT_FAILED,
+  NotificationType.AI_RESEARCH_COMPLETED,
+  NotificationType.AI_MEETING_NOTES_READY,
+  NotificationType.AI_MEETING_NOTES_FAILED,
 ];
 
 export const UPDATES_NOTIFICATION_TYPES: NotificationType[] = [

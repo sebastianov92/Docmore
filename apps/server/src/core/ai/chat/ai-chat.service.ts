@@ -28,6 +28,8 @@ import { AiProviderService } from '../ai-provider.service';
 import { AiGenerateService } from '../ai-generate.service';
 import { AiChatRepo } from './ai-chat.repo';
 import { AiChatToolsService, pageUrl } from './ai-chat-tools.service';
+import { AiMcpToolsService } from '../mcp-client/ai-mcp-tools.service';
+import { AiSkillService, SkillView } from '../skills/ai-skill.service';
 import {
   CHAT_FILE_EXTENSIONS,
   CHAT_IMAGE_EXTENSIONS,
@@ -56,6 +58,11 @@ export interface SendInput {
   mentionedPageIds?: string[];
   contextPageId?: string;
   attachmentIds?: string[];
+  // a skill (by id or slug) whose instructions steer this turn
+  skillId?: string;
+  // server-side only: the stored user message's extra metadata, for turns
+  // the UI started (an approved or denied tool call)
+  internalMetadata?: Record<string, unknown>;
 }
 
 export interface ChatAttachmentView {
@@ -89,6 +96,8 @@ export class AiChatService {
     @InjectKysely() private readonly db: KyselyDB,
     private readonly chats: AiChatRepo,
     private readonly tools: AiChatToolsService,
+    private readonly mcpTools: AiMcpToolsService,
+    private readonly skills: AiSkillService,
     private readonly providers: AiProviderService,
     private readonly generate: AiGenerateService,
     private readonly pageRepo: PageRepo,
@@ -266,7 +275,14 @@ export class AiChatService {
       ...(input.mentionedPageIds ?? []),
     ]);
     const storedContent = references.block ? `${content}\n\n${references.block}` : content;
-    const metadata: Record<string, unknown> = {};
+    const metadata: Record<string, unknown> = { ...(input.internalMetadata ?? {}) };
+    let skill: SkillView | null = null;
+    if (input.skillId) {
+      skill = await this.skills.usable(user, workspace, input.skillId);
+      if (!skill) throw new BadRequestException('That skill is not available');
+      metadata.skill = { id: skill.id, name: skill.name, slug: skill.slug };
+      await this.skills.markUsed(skill.id);
+    }
     if (input.mentionedPageIds?.length) metadata.mentionedPageIds = input.mentionedPageIds;
     if (input.contextPageId) metadata.contextPageId = input.contextPageId;
     if (attachments.length) {
@@ -291,7 +307,13 @@ export class AiChatService {
 
     const { streamText, stepCountIs } = await import('ai');
     const model = await this.providers.languageModel(workspace.id);
-    const tools = await this.tools.build({ user, workspace, readOnly: options.readOnly });
+    const tools = {
+      ...(await this.tools.build({ user, workspace, readOnly: options.readOnly })),
+      ...(await this.mcpTools.build(user, workspace, chat.id).catch((err) => {
+        this.logger.debug(`MCP tools unavailable: ${err?.message}`);
+        return {};
+      })),
+    };
 
     let text = '';
     const toolCalls: ToolCallRecord[] = [];
@@ -301,7 +323,7 @@ export class AiChatService {
     try {
       const result = streamText({
         model,
-        system: systemPrompt(workspace, user, options, Object.keys(tools).length === 0),
+        system: systemPrompt(workspace, user, options, Object.keys(tools).length === 0, skill),
         messages,
         tools,
         stopWhen: stepCountIs(MAX_TOOL_STEPS),
@@ -558,7 +580,7 @@ export class AiChatService {
   }
 }
 
-function systemPrompt(workspace: Workspace, user: User, options: ChatOptions, noTools: boolean): string {
+function systemPrompt(workspace: Workspace, user: User, options: ChatOptions, noTools: boolean, skill: SkillView | null = null): string {
   const lines = [
     `You are the assistant built into "${workspace.name}", a team wiki. You talk with ${user.name}.`,
     `Today is ${new Date().toISOString().slice(0, 10)}.`,
@@ -575,6 +597,10 @@ function systemPrompt(workspace: Workspace, user: User, options: ChatOptions, no
       ? 'Answer only from the workspace content you find or that is given to you. If it is not there, say that the workspace has nothing on it; do not use outside knowledge.'
       : 'Use the workspace content when it is relevant; otherwise answer from general knowledge and say so.',
     'Answer in the language the user writes in. Use Markdown. Be concise and concrete.',
+    noTools
+      ? ''
+      : 'Tools named mcp__… belong to outside services the user connected; use them when the request is about those services. A tool that answers with pendingApproval is waiting for the user: stop, say what it would do, and wait.',
+    skill ? `\n## Skill: ${skill.name}\nFollow these instructions for this conversation turn:\n${skill.instructions}` : '',
   ];
   return lines.filter(Boolean).join('\n');
 }

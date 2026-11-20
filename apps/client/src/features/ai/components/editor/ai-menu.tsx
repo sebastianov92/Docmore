@@ -11,7 +11,9 @@ import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { copyToClipboard, htmlToMarkdown, isEditorReady } from "@docmost/editor-ext";
 import { showAiMenuAtom } from "@/features/editor/atoms/editor-atoms.ts";
+import { IconSparkles } from "@tabler/icons-react";
 import { streamGeneration } from "@/features/ai/services";
+import { useUsableSkillsQuery } from "@/features/ai/skills/services";
 import { AiAction } from "@/features/ai/types";
 import { AI_COMMANDS, AiCommand, CommandSet } from "./ai-commands";
 import classes from "./ai-menu.module.css";
@@ -40,11 +42,20 @@ export function EditorAiMenu({ editor }: Props) {
   const [lastCommand, setLastCommand] = useState<AiCommand | null>(null);
   const [placement, setPlacement] = useState({ top: 0, left: 0, width: 0 });
 
+  const skills = useUsableSkillsQuery(open);
   const items = useMemo(() => {
-    const list = AI_COMMANDS[set];
+    const base = AI_COMMANDS[set];
+    // the person's skills ride along as custom instructions
+    const list =
+      set === "main"
+        ? [
+            ...base,
+            ...(skills.data?.items ?? []).map<AiCommand>((s) => ({ id: `skill-${s.id}`, name: s.name, icon: IconSparkles, action: "custom", prompt: s.instructions })),
+          ]
+        : base;
     if (set !== "main" || !prompt) return list;
     return list.filter((c) => c.name.toLowerCase().includes(prompt.toLowerCase()));
-  }, [set, prompt]);
+  }, [set, prompt, skills.data]);
 
   const place = useCallback(() => {
     if (!isEditorReady(editor) || !open) return;

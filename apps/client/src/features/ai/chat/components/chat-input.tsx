@@ -1,7 +1,9 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { ActionIcon, Menu, Tooltip } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowUp, IconAt, IconFile, IconPaperclip, IconPhoto, IconPlayerStopFilled, IconPlus, IconX, IconFileText } from "@tabler/icons-react";
+import { IconArrowUp, IconAt, IconCheck, IconFile, IconPaperclip, IconPhoto, IconPlayerStopFilled, IconPlus, IconSparkles, IconTelescope, IconX, IconFileText } from "@tabler/icons-react";
+import { TextInput } from "@mantine/core";
+import { ISkill, useUsableSkillsQuery } from "@/features/ai/skills/services";
 import { useTranslation } from "react-i18next";
 import { EditorContent, ReactNodeViewRenderer, useEditor } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
@@ -11,7 +13,8 @@ import mentionRenderItems from "@/features/editor/components/mention/mention-sug
 import MentionView from "@/features/editor/components/mention/mention-view";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { uploadChatFile } from "../services";
-import { CHAT_ACCEPTED_FILES, CHAT_IMAGE_EXTENSIONS, ChatAttachment, MAX_ATTACHMENTS_PER_MESSAGE, PageMention } from "../types";
+import { CHAT_ACCEPTED_FILES, CHAT_IMAGE_EXTENSIONS, ChatAttachment, MAX_ATTACHMENTS_PER_MESSAGE, PageMention, SendExtras } from "../types";
+import chatClasses from "./chat.module.css";
 import classes from "./chat-input.module.css";
 
 export interface ChatInputHandle {
@@ -21,7 +24,7 @@ export interface ChatInputHandle {
 
 interface Props {
   isStreaming: boolean;
-  onSend: (content: string, mentions: PageMention[], attachments: ChatAttachment[]) => void;
+  onSend: (content: string, mentions: PageMention[], attachments: ChatAttachment[], extras?: SendExtras) => void;
   onStop: () => void;
   placeholder?: string;
   autofocus?: boolean;
@@ -76,11 +79,17 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
   const { t } = useTranslation();
   const [empty, setEmpty] = useState(true);
   const [pending, setPending] = useState<Pending[]>([]);
+  // a skill steering this message, and research mode (a long report with sources)
+  const [skill, setSkill] = useState<ISkill | null>(null);
+  const [research, setResearch] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const skills = useUsableSkillsQuery();
+  const skillsRef = useRef<{ open: () => void }>({ open: () => setSkillsOpen(true) });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitRef = useRef<() => void>(() => {});
   const chatIdRef = useRef(chatId);
   chatIdRef.current = chatId;
-  const hint = placeholder || t("Ask anything. Type @ to mention a page.");
+  const hint = research ? t("Ask a question for a full report with sources.") : placeholder || t("Ask anything. Type @ to mention a page, / for a skill.");
 
   const editor = useEditor({
     extensions: [
@@ -110,6 +119,12 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
             submitRef.current();
+            return true;
+          }
+          // "/" in an empty box opens the skill picker
+          if (event.key === "/" && !_view.state.doc.textContent.trim()) {
+            event.preventDefault();
+            skillsRef.current.open();
             return true;
           }
           return false;
@@ -159,12 +174,14 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
     const { text, mentions } = readEditor(editor.getJSON());
     const ready = pending.filter((p) => !p.uploading);
     if (!text && ready.length === 0) return;
-    onSend(text, mentions, ready);
+    onSend(text, mentions, ready, { skillId: skill?.id, skillName: skill?.name, research: research || undefined });
     editor.commands.clearContent();
     editor.commands.focus();
     setPending([]);
     setEmpty(true);
-  }, [editor, isStreaming, onSend, pending]);
+    setSkill(null);
+    setResearch(false);
+  }, [editor, isStreaming, onSend, pending, skill, research]);
   submitRef.current = submit;
 
   useImperativeHandle(
@@ -185,8 +202,8 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
     if (autofocus && editor && !editor.isDestroyed) editor.commands.focus("end");
   }, [editor, autofocus]);
 
-  const canSend = !empty || pending.some((p) => !p.uploading);
-  const chips = (contextPages?.length ?? 0) + pending.length > 0;
+  const canSend = (!empty || pending.some((p) => !p.uploading)) && !(research && empty);
+  const chips = (contextPages?.length ?? 0) + pending.length > 0 || Boolean(skill) || research;
 
   return (
     <div className={variant === "flat" ? classes.flat : classes.card} data-chat-input>
@@ -200,8 +217,40 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
         style={{ display: "none" }}
         onChange={(e) => addFiles(e.target.files)}
       />
+      {skillsOpen && (
+        <SkillPicker
+          skills={skills.data?.items ?? []}
+          onPick={(s) => {
+            setSkill(s);
+            setSkillsOpen(false);
+            editor?.commands.focus("end");
+          }}
+          onClose={() => {
+            setSkillsOpen(false);
+            editor?.commands.focus("end");
+          }}
+        />
+      )}
       {chips && (
         <div className={classes.chips}>
+          {research && (
+            <span className={classes.chip} data-testid="research-chip">
+              <IconTelescope size={14} />
+              <span className={classes.chipName}>{t("Research")}</span>
+              <button type="button" className={classes.chipRemove} onClick={() => setResearch(false)} aria-label={t("Turn off research mode")}>
+                <IconX size={12} />
+              </button>
+            </span>
+          )}
+          {skill && (
+            <span className={classes.chip} data-testid="skill-chip">
+              <IconSparkles size={14} />
+              <span className={classes.chipName}>{skill.name}</span>
+              <button type="button" className={classes.chipRemove} onClick={() => setSkill(null)} aria-label={t("Remove {{name}}", { name: skill.name })}>
+                <IconX size={12} />
+              </button>
+            </span>
+          )}
           {contextPages?.map((page) => (
             <span key={page.id} className={classes.chip}>
               <IconFileText size={14} />
@@ -263,6 +312,17 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
             >
               {t("Mention a page")}
             </Menu.Item>
+            <Menu.Item leftSection={<IconSparkles size={16} />} onClick={() => setSkillsOpen(true)} data-testid="pick-skill">
+              {t("Use a skill")}
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconTelescope size={16} />}
+              rightSection={research ? <IconCheck size={14} /> : undefined}
+              onClick={() => setResearch((r) => !r)}
+              data-testid="toggle-research"
+            >
+              {t("Research mode")}
+            </Menu.Item>
           </Menu.Dropdown>
         </Menu>
         <div className={classes.spacer} />
@@ -281,5 +341,46 @@ const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
     </div>
   );
 });
+
+// The skills this person may run, searchable; whole rows are buttons.
+function SkillPicker({ skills, onPick, onClose }: { skills: ISkill[]; onPick: (skill: ISkill) => void; onClose: () => void }) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const shown = skills.filter((s) => !query || `${s.name} ${s.description ?? ""} ${s.slug}`.toLowerCase().includes(query.toLowerCase()));
+  return (
+    <div className={chatClasses.skillPanel} role="dialog" aria-label={t("Skills")} data-testid="skill-picker">
+      <TextInput
+        size="xs"
+        autoFocus
+        placeholder={t("Search skills")}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.currentTarget.value);
+          setActive(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          else if (e.key === "ArrowDown") setActive((a) => Math.min(a + 1, shown.length - 1));
+          else if (e.key === "ArrowUp") setActive((a) => Math.max(a - 1, 0));
+          else if (e.key === "Enter" && shown[active]) onPick(shown[active]);
+        }}
+      />
+      <div className={chatClasses.skillList} role="listbox">
+        {shown.length === 0 && (
+          <span className={chatClasses.skillRow} style={{ cursor: "default" }}>
+            <small>{skills.length ? t("No skill matches") : t("No skills yet. Add them under Settings.")}</small>
+          </span>
+        )}
+        {shown.map((s, i) => (
+          <button key={s.id} type="button" role="option" aria-selected={i === active} className={chatClasses.skillRow} data-active={i === active || undefined} onMouseEnter={() => setActive(i)} onClick={() => onPick(s)}>
+            <span>{s.name}</span>
+            {s.description && <small>{s.description}</small>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default ChatInput;

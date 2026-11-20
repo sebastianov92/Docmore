@@ -9,6 +9,7 @@ import { JwtType } from '../auth/dto/jwt-payload';
 import { ApiKeyService } from '../api-key/api-key.service';
 import { OAuthService } from '../oauth/oauth.service';
 import { AiChatToolsService, ToolDefinition } from '../ai/chat/ai-chat-tools.service';
+import { AiSkillService } from '../ai/skills/ai-skill.service';
 
 interface Principal {
   user: User;
@@ -29,6 +30,7 @@ export class McpController {
     private readonly tokens: TokenService,
     private readonly oauth: OAuthService,
     private readonly tools: AiChatToolsService,
+    private readonly skills: AiSkillService,
     private readonly workspaceRepo: WorkspaceRepo,
     private readonly moduleRef: ModuleRef,
   ) {}
@@ -69,6 +71,19 @@ export class McpController {
     });
     for (const def of definitions) {
       this.register(server, def);
+    }
+    // Skills travel as MCP prompts, so Claude Code or Cursor can run them too.
+    try {
+      const skills = await this.skills.list(principal.user, principal.workspace, { enabledOnly: true });
+      for (const skill of skills) {
+        server.registerPrompt(
+          skill.slug,
+          { title: skill.name, description: skill.description ?? undefined },
+          async () => ({ messages: [{ role: 'user', content: { type: 'text', text: skill.instructions } }] }),
+        );
+      }
+    } catch (err: any) {
+      this.logger.debug(`skills as prompts skipped: ${err?.message}`);
     }
 
     const transport = new WebStandardStreamableHTTPServerTransport({

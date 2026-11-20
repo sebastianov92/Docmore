@@ -50,10 +50,22 @@ export interface ChatStreamHandlers {
 // One message in, a stream of typed events out, over fetch so it can be
 // aborted. Returns the controller that stops it.
 export function sendChatMessage(params: SendChatParams, handlers: ChatStreamHandlers): AbortController {
+  return streamChatRequest("/api/ai/chats/send", params, handlers);
+}
+
+// The person's answer to a parked MCP tool call; the model continues.
+export function approveChatTool(approvalId: string, handlers: ChatStreamHandlers): AbortController {
+  return streamChatRequest("/api/ai/chats/tools/approve", { approvalId }, handlers);
+}
+export function denyChatTool(approvalId: string, handlers: ChatStreamHandlers): AbortController {
+  return streamChatRequest("/api/ai/chats/tools/deny", { approvalId }, handlers);
+}
+
+function streamChatRequest(path: string, params: unknown, handlers: ChatStreamHandlers): AbortController {
   const controller = new AbortController();
   void (async () => {
     try {
-      const response = await fetch("/api/ai/chats/send", {
+      const response = await fetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),

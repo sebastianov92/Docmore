@@ -313,3 +313,133 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* MCP tool approvals */
+.approval {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 6px 20px;
+  padding: 6px 10px;
+  border-radius: var(--mantine-radius-sm);
+  background: light-dark(var(--mantine-color-yellow-0), rgba(250, 176, 5, 0.12));
+  color: var(--mantine-color-text);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.approvalNote {
+  color: var(--mantine-color-dimmed);
+}
+
+/* A small centered line for turns the UI started (allowed / denied a tool) */
+.systemNote {
+  align-self: center;
+  margin: 2px 0 10px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.userTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.userTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: var(--mantine-font-size-xs);
+}
+
+/* Research progress and sources */
+.research {
+  margin: -4px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.researchSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}
+
+.researchStep[data-active] {
+  color: var(--mantine-color-text);
+  font-weight: 600;
+}
+
+.researchStep[data-done] {
+  color: var(--mantine-color-teal-6);
+}
+
+.sources {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  font-size: var(--mantine-font-size-xs);
+}
+
+.sources ol {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.sources li {
+  margin: 2px 0;
+}
+
+/* Skill picker inside the input */
+.skillPanel {
+  margin: 0 0 6px;
+  padding: 6px;
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+}
+
+.skillList {
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 4px;
+}
+
+.skillRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--mantine-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.skillRow:hover,
+.skillRow[data-active] {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5));
+}
+
+.skillRow small {
+  color: var(--mantine-color-dimmed);
+}

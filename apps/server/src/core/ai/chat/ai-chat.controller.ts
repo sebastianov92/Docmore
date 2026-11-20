@@ -19,8 +19,10 @@ import { User, Workspace } from '@docmost/db/types/entity.types';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { AiChatService } from './ai-chat.service';
 import { MAX_CHAT_FILE_BYTES } from './ai-chat.constants';
-import { ChatIdDto, ListChatsDto, SearchChatsDto, SendMessageDto, UpdateChatDto } from './dto/ai-chat.dto';
+import { ChatIdDto, ListChatsDto, SearchChatsDto, SendMessageDto, ToolApprovalDto, UpdateChatDto } from './dto/ai-chat.dto';
 import { AiUsageService } from '../ai-usage.service';
+import { AiMcpToolsService } from '../mcp-client/ai-mcp-tools.service';
+import { ChatStreamEvent } from './ai-chat.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ai/chats')
@@ -29,6 +31,7 @@ export class AiChatController {
     private readonly chats: AiChatService,
     private readonly workspaceRepo: WorkspaceRepo,
     private readonly usage: AiUsageService,
+    private readonly mcpTools: AiMcpToolsService,
   ) {}
 
   @HttpCode(HttpStatus.OK)
@@ -109,8 +112,79 @@ export class AiChatController {
     await this.assertChatOn(workspace);
     await this.usage.assertAllowed(workspace, user);
     await this.chats.validateSend(user, workspace, dto);
-    const raw = res.raw;
-    raw.writeHead(200, {
+    const controller = this.openStream(req, res);
+    await this.pipe(res, this.chats.send(user, workspace, dto, controller.signal));
+  }
+
+  // The person approved a parked MCP tool call: it runs now and the model
+  // continues the conversation with its result, streamed like any turn.
+  @Post('tools/approve')
+  async approveTool(
+    @Body() dto: ToolApprovalDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ) {
+    await this.assertChatOn(workspace);
+    await this.usage.assertAllowed(workspace, user);
+    let outcome: { chatId: string; server: string; tool: string; args: unknown; result: unknown };
+    try {
+      outcome = await this.mcpTools.approve(user, workspace, dto.approvalId);
+    } catch (err: any) {
+      throw new BadRequestException(err?.message ?? 'Could not run the tool');
+    }
+    const controller = this.openStream(req, res);
+    const resultText = JSON.stringify(outcome.result ?? null).slice(0, 20_000);
+    await this.pipe(
+      res,
+      this.chats.send(
+        user,
+        workspace,
+        {
+          chatId: outcome.chatId,
+          content: `I approved the "${outcome.tool}" call on ${outcome.server}. It ran; its result:\n\n${resultText}\n\nContinue from there.`,
+          internalMetadata: { kind: 'tool_approval', approvalId: dto.approvalId, tool: outcome.tool, server: outcome.server, decision: 'approved' },
+        },
+        controller.signal,
+      ),
+    );
+  }
+
+  @Post('tools/deny')
+  async denyTool(
+    @Body() dto: ToolApprovalDto,
+    @AuthUser() user: User,
+    @AuthWorkspace() workspace: Workspace,
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+  ) {
+    await this.assertChatOn(workspace);
+    await this.usage.assertAllowed(workspace, user);
+    let outcome: { chatId: string; server: string; tool: string };
+    try {
+      outcome = await this.mcpTools.deny(user, workspace, dto.approvalId);
+    } catch (err: any) {
+      throw new BadRequestException(err?.message ?? 'Could not record the answer');
+    }
+    const controller = this.openStream(req, res);
+    await this.pipe(
+      res,
+      this.chats.send(
+        user,
+        workspace,
+        {
+          chatId: outcome.chatId,
+          content: `I did not approve the "${outcome.tool}" call on ${outcome.server}. Do not run it; continue without it.`,
+          internalMetadata: { kind: 'tool_approval', approvalId: dto.approvalId, tool: outcome.tool, server: outcome.server, decision: 'denied' },
+        },
+        controller.signal,
+      ),
+    );
+  }
+
+  private openStream(req: FastifyRequest, res: FastifyReply): AbortController {
+    res.raw.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
@@ -118,11 +192,16 @@ export class AiChatController {
     });
     const controller = new AbortController();
     req.raw.on('close', () => controller.abort());
+    return controller;
+  }
+
+  private async pipe(res: FastifyReply, events: AsyncGenerator<ChatStreamEvent>) {
+    const raw = res.raw;
     const sendEvent = (payload: unknown) => {
       if (!raw.writableEnded) raw.write(`data: ${JSON.stringify(payload)}\n\n`);
     };
     try {
-      for await (const event of this.chats.send(user, workspace, dto, controller.signal)) {
+      for await (const event of events) {
         sendEvent(event);
       }
       if (!raw.writableEnded) raw.write('data: [DONE]\n\n');

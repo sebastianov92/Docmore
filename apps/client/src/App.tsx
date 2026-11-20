@@ -41,6 +41,8 @@ const InviteSignup = lazyWithPrefetch(() => import("@/pages/auth/invite-signup.t
 const DomainSignupPage = lazyWithPrefetch(() => import("@/pages/auth/domain-signup.tsx"));
 const PublicFormPage = lazyWithPrefetch(() => import("@/pages/form/public-form-page.tsx"));
 const ClipperSettings = lazyWithPrefetch(() => import("@/features/clipper/pages/clipper-settings.tsx"));
+const AccountAiSkills = lazyWithPrefetch(() => import("@/pages/settings/account/ai-skills.tsx"));
+const AccountMcpServers = lazyWithPrefetch(() => import("@/pages/settings/account/mcp-servers.tsx"));
 const ClipPage = lazyWithPrefetch(() => import("@/pages/clip/clip-page.tsx"));
 const NotificationsSettings = lazyWithPrefetch(() => import("@/pages/settings/workspace/notifications-settings.tsx"));
 const AnalyticsPage = lazyWithPrefetch(() => import("@/pages/settings/workspace/analytics-page.tsx"));
@@ -232,6 +234,8 @@ export default function App() {
             />
             <Route path={"account/api-keys"} element={<UserApiKeys />} />
             <Route path={"account/clipper"} element={<ClipperSettings />} />
+            <Route path={"account/ai-skills"} element={<AccountAiSkills />} />
+            <Route path={"account/mcp-servers"} element={<AccountMcpServers />} />
             <Route
               path={"account/api-keys/authorized-apps"}
               element={<UserApiKeys />}

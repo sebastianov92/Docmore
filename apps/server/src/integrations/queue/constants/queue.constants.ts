@@ -111,4 +111,6 @@ export enum QueueJob {
   BASE_CSV_IMPORT = 'base-csv-import',
   BASE_AI_FILL = 'base-ai-fill',
   WEBHOOK_DELIVER = 'webhook-deliver',
+  AI_RESEARCH = 'ai-research',
+  AI_MEETING_NOTES = 'ai-meeting-notes',
 }

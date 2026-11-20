@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next";
 import { IconEdit, IconFilePlus, IconFileText, IconSearch, IconSparkles } from "@tabler/icons-react";
 import { workspaceAtom } from "@/features/user/atoms/current-user-atom.ts";
 import ChatInput, { ChatInputHandle } from "./chat-input";
-import { ChatAttachment, PageMention } from "../types";
+import { ChatAttachment, PageMention, SendExtras } from "../types";
 import classes from "./chat.module.css";
 
 interface Props {
   isStreaming: boolean;
-  onSend: (content: string, mentions: PageMention[], attachments: ChatAttachment[]) => void;
+  onSend: (content: string, mentions: PageMention[], attachments: ChatAttachment[], extras?: SendExtras) => void;
   onStop: () => void;
 }
 

@@ -50,4 +50,14 @@ export class SendMessageDto {
   @IsArray()
   @IsUUID('all', { each: true })
   attachmentIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  skillId?: string;
+}
+
+export class ToolApprovalDto {
+  @IsUUID()
+  approvalId: string;
 }
