@@ -10,6 +10,7 @@ export interface IUser {
   settings: IUserSettings;
   invitedById: string;
   lastLoginAt: string;
+  passwordLoginLocked?: boolean;
   lastActiveAt: Date;
   locale: string;
   createdAt: Date;

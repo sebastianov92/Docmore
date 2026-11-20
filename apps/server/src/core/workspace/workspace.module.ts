@@ -1,3 +1,5 @@
+import { ManagedUserService } from './managed/managed-user.service';
+import { ManagedUserController } from './managed/managed-user.controller';
 import { Module } from '@nestjs/common';
 import { WorkspaceService } from './services/workspace.service';
 import { WorkspaceController } from './controllers/workspace.controller';
@@ -10,8 +12,9 @@ import { WorkspaceDomainService } from './services/workspace-domain.service';
 
 @Module({
   imports: [SpaceModule, TokenModule, IntegrationModule],
-  controllers: [WorkspaceController],
+  controllers: [WorkspaceController, ManagedUserController],
   providers: [
+    ManagedUserService,
     WorkspaceService,
     WorkspaceInvitationService,
     WorkspaceInviteRequestService,

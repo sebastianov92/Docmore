@@ -18,6 +18,9 @@ export const AuditEvent = {
   USER_UPDATED: 'user.updated',
   USER_DEACTIVATED: 'user.deactivated',
   USER_ACTIVATED: 'user.activated',
+  USER_SIGNED_OUT_BY_ADMIN: 'user.signed_out_by_admin',
+  USER_PASSWORD_LOGIN_LOCKED: 'user.password_login_locked',
+  USER_PASSWORD_LOGIN_UNLOCKED: 'user.password_login_unlocked',
 
   // API Keys
   API_KEY_CREATED: 'api_key.created',

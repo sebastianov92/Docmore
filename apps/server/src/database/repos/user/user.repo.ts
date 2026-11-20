@@ -38,6 +38,7 @@ export class UserRepo {
     'updatedAt',
     'deletedAt',
     'hasGeneratedPassword',
+    'passwordLoginLocked',
   ];
 
   async findById(

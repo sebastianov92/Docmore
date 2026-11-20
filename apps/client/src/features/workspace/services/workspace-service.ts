@@ -169,3 +169,20 @@ export async function setWorkspaceDomainAutoJoin(autoJoin: boolean): Promise<IWo
   const req = await api.post("/workspace/domains/auto-join", { autoJoin });
   return req.data;
 }
+
+// Managed users: what admins do to other accounts.
+export async function updateMemberProfile(data: { userId: string; name?: string; email?: string }): Promise<void> {
+  await api.post("/workspace/members/profile", data);
+}
+export async function signOutMember(data: { userId: string }): Promise<void> {
+  await api.post("/workspace/members/sign-out", data);
+}
+export async function resetMemberPassword(data: { userId: string }): Promise<{ sent: boolean; link: string | null }> {
+  return (await api.post("/workspace/members/reset-password", data)).data;
+}
+export async function setMemberPassword(data: { userId: string; password: string }): Promise<void> {
+  await api.post("/workspace/members/set-password", data);
+}
+export async function setMemberPasswordLogin(data: { userId: string; locked: boolean }): Promise<void> {
+  await api.post("/workspace/members/password-login", data);
+}

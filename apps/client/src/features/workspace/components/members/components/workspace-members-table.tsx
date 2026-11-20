@@ -79,6 +79,7 @@ export default function WorkspaceMembersTable() {
               <Table.Th>{t("User")}</Table.Th>
               <Table.Th>{t("Status")}</Table.Th>
               <Table.Th>{t("Role")}</Table.Th>
+              <Table.Th>{t("Last sign-in")}</Table.Th>
               <Table.Th aria-label={t("Action")} />
             </Table.Tr>
           </Table.Thead>
@@ -149,18 +150,27 @@ export default function WorkspaceMembersTable() {
                     )}
                   </Table.Td>
                   <Table.Td>
+                    <Text fz="xs" c="dimmed">
+                      {user.lastLoginAt ? formatLocalized(user.lastLoginAt, "MMM d, yyyy", "PP", locale) : "—"}
+                      {user.passwordLoginLocked ? ` · ${t("SSO only")}` : ""}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
                     {isAdmin && !user.deletedAt && (
                       <MemberActionMenu
                         userId={user.id}
                         name={user.name}
                         deactivatedAt={user.deactivatedAt}
+                        email={user.email}
+                        role={user.role}
+                        passwordLoginLocked={user.passwordLoginLocked}
                       />
                     )}
                   </Table.Td>
                 </Table.Tr>
               ))
             ) : (
-              <NoTableResults colSpan={3} />
+              <NoTableResults colSpan={5} />
             )}
           </Table.Tbody>
         </Table>

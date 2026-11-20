@@ -81,6 +81,9 @@ export class AuthService {
     if (!user || isUserDisabled(user)) {
       throw new UnauthorizedException(errorMessage);
     }
+    if ((user as any).passwordLoginLocked) {
+      throw new UnauthorizedException('Password sign-in is turned off for this account; use single sign-on');
+    }
 
     const isPasswordMatch = await comparePasswordHash(
       loginDto.password,
@@ -203,7 +206,7 @@ export class AuthService {
       workspace.id,
     );
 
-    if (!user || isUserDisabled(user)) {
+    if (!user || isUserDisabled(user) || (user as any).passwordLoginLocked) {
       return;
     }
 

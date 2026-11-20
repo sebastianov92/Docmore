@@ -1,3 +1,4 @@
+import { ManagedUserActions } from "@/features/workspace/components/members/components/managed-user-actions";
 import { Menu, ActionIcon, Text } from "@mantine/core";
 import React from "react";
 import { IconDots, IconTrash, IconUserOff, IconUserCheck } from "@tabler/icons-react";
@@ -14,11 +15,17 @@ interface Props {
   userId: string;
   name: string;
   deactivatedAt: Date | null;
+  email?: string;
+  role?: string;
+  passwordLoginLocked?: boolean;
 }
 export default function MemberActionMenu({
   userId,
   name,
   deactivatedAt,
+  email,
+  role,
+  passwordLoginLocked,
 }: Props) {
   const { t } = useTranslation();
   const deleteWorkspaceMemberMutation = useDeleteWorkspaceMemberMutation();
@@ -111,6 +118,10 @@ export default function MemberActionMenu({
           >
             {isDeactivated ? t("Activate member") : t("Deactivate member")}
           </Menu.Item>
+
+          {!isDeactivated && (
+            <ManagedUserActions userId={userId} name={name} email={email ?? ""} role={role ?? "member"} passwordLoginLocked={passwordLoginLocked} />
+          )}
 
           <Menu.Divider />
 

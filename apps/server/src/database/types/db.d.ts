@@ -466,6 +466,7 @@ export interface UserMfa {
 }
 
 export interface Users {
+  passwordLoginLocked: Generated<boolean>;
   avatarUrl: string | null;
   createdAt: Generated<Timestamp>;
   deactivatedAt: Timestamp | null;
