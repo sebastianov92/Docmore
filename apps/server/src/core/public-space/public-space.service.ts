@@ -52,6 +52,17 @@ export class PublicSpaceService {
     return (workspace.settings as any)?.publicSpaces?.directory === true;
   }
 
+  // The published space served at a custom hostname, if any.
+  async getPublicSpaceByHost(host: string, workspace: Workspace) {
+    if (!this.isPublicSpacesAllowed(workspace)) throw new NotFoundException('Space not found');
+    const hostname = host.toLowerCase().split(':')[0];
+    const space = await this.spaceRepo.findByPublicHostname(hostname, workspace.id);
+    if (!space || space.deletedAt) throw new NotFoundException('Space not found');
+    const publicSpace = await this.publicSpaceRepo.findBySpaceId(space.id);
+    if (!publicSpace?.enabled) throw new NotFoundException('Space not found');
+    return { spaceSlug: space.slug, spaceName: space.name };
+  }
+
   async getPublicSpace(spaceSlug: string, workspace: Workspace) {
     if (!this.isPublicSpacesAllowed(workspace)) {
       throw new NotFoundException('Space not found');

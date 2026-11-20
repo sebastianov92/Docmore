@@ -50,6 +50,8 @@ export interface IWorkspaceSettings {
   publicSpaces?: IWorkspacePublicSpacesSettings;
   defaultPageEditMode?: string;
   defaultLocale?: string;
+  analytics?: { enabled?: boolean; anonymous?: boolean };
+  notificationWebhooks?: unknown[];
 }
 
 export interface IWorkspaceApiSettings {

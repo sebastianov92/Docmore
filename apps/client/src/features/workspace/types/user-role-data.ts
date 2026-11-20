@@ -16,6 +16,22 @@ export const userRoleData: IRoleData[] = [
     value: UserRole.MEMBER,
     description: "Can become members of groups and spaces in workspace",
   },
+  {
+    label: "Guest",
+    value: UserRole.GUEST,
+    description: "Sees only the spaces and pages shared with them; no directory",
+  },
+];
+
+// What an admin may manage when the owner narrows it.
+export const adminScopeData: { value: string; label: string }[] = [
+  { value: "settings", label: "Workspace settings" },
+  { value: "members", label: "Members and groups" },
+  { value: "spaces", label: "Spaces" },
+  { value: "api", label: "API keys" },
+  { value: "audit", label: "Audit logs" },
+  { value: "ai", label: "AI settings" },
+  { value: "integrations", label: "Integrations" },
 ];
 
 export function getUserRoleLabel(value: string) {

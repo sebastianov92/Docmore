@@ -61,6 +61,7 @@ import {
 import { IntegrationConnectionRepo } from '../../integration/repos/integration-connection.repo';
 import { WsService } from '../../../ws/ws.service';
 import { CollabAccessService } from '../../../collaboration/services/collab-access.service';
+import { sql } from 'kysely';
 
 @Injectable()
 export class WorkspaceService {
@@ -628,6 +629,17 @@ export class WorkspaceService {
         if (!updateWorkspaceDto.allowPublicSpaces) {
           await this.publicSpaceRepo.disableByWorkspaceId(workspaceId, trx);
         }
+      }
+
+      if (
+        typeof updateWorkspaceDto.analyticsEnabled !== 'undefined' ||
+        typeof updateWorkspaceDto.analyticsAnonymous !== 'undefined'
+      ) {
+        const analytics = { ...((settingsBefore?.analytics as Record<string, unknown>) ?? {}) };
+        if (typeof updateWorkspaceDto.analyticsEnabled !== 'undefined') analytics.enabled = updateWorkspaceDto.analyticsEnabled;
+        if (typeof updateWorkspaceDto.analyticsAnonymous !== 'undefined') analytics.anonymous = updateWorkspaceDto.analyticsAnonymous;
+        after.analytics = analytics;
+        await sql`update workspaces set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{analytics}', ${JSON.stringify(analytics)}::jsonb) where id = ${workspaceId}`.execute(trx);
       }
 
       if (typeof updateWorkspaceDto.publicSpacesDirectory !== 'undefined') {

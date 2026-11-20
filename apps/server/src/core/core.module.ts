@@ -41,6 +41,7 @@ import { OAuthModule } from './oauth/oauth.module';
 import { McpModule } from './mcp/mcp.module';
 import { ClsMiddleware } from 'nestjs-cls';
 import { ClipperModule } from './clipper/clipper.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { ClipperModule } from './clipper/clipper.module';
     TemplateModule,
     BaseModule,
     ClipperModule,
+    AnalyticsModule,
     PagePermissionModule,
     SsoModule,
     PageVerificationModule,

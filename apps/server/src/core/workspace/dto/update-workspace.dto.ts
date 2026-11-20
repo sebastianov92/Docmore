@@ -99,4 +99,13 @@ export class UpdateWorkspaceDto extends PartialType(CreateWorkspaceDto) {
   @IsOptional()
   @IsBoolean()
   enforceMcpOauth: boolean;
+
+  // page view counting, and whether viewers are named
+  @IsOptional()
+  @IsBoolean()
+  analyticsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  analyticsAnonymous?: boolean;
 }

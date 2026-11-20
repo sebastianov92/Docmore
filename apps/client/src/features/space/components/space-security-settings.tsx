@@ -5,6 +5,7 @@ import { ISpace } from "@/features/space/types/space.types.ts";
 import SpacePublicSharingToggle from "@/features/space/components/security/space-public-sharing-toggle.tsx";
 import SpaceExportToggle from "@/features/space/components/security/space-export-toggle.tsx";
 import SpaceViewerCommentsToggle from "@/features/space/components/security/space-viewer-comments-toggle.tsx";
+import SpacePublicHostname from "@/features/space/components/security/space-public-hostname.tsx";
 
 type SpaceSecuritySettingsProps = {
   space: ISpace;
@@ -30,6 +31,8 @@ export default function SpaceSecuritySettings({
       <Divider my="lg" />
 
       <SpaceViewerCommentsToggle space={space} />
+      <Divider my="md" />
+      <SpacePublicHostname space={space} />
 
       <Divider my="lg" />
 

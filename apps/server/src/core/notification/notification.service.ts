@@ -10,6 +10,7 @@ import { MailService } from '../../integrations/mail/mail.service';
 import { NotificationTab, NotificationType, NotificationTypeToSettingKey } from './notification.constants';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import { EventName } from '../../common/events/event.contants';
+import { NotificationWebhookService } from './services/notification-webhook.service';
 
 @Injectable()
 export class NotificationService {
@@ -22,6 +23,7 @@ export class NotificationService {
     private readonly mailService: MailService,
     private readonly eventEmitter: EventEmitter2,
     @InjectKysely() private readonly db: KyselyDB,
+    private readonly webhooks?: NotificationWebhookService,
   ) {}
 
   async create(data: InsertableNotification) {
@@ -38,6 +40,8 @@ export class NotificationService {
     const notification = await this.notificationRepo.insert(data);
 
     this.eventEmitter.emit(EventName.NOTIFICATION_CREATED, notification);
+    // Slack / Teams mirrors, never blocking the caller.
+    void this.webhooks?.dispatch(notification as any);
 
     this.wsGateway.server
       .to(`user-${data.userId}`)

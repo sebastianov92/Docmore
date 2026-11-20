@@ -11,11 +11,13 @@ export enum UserRole {
   OWNER = "owner",
   ADMIN = "admin",
   MEMBER = "member",
+  GUEST = "guest",
 }
 
 export enum SpaceRole {
   ADMIN = "admin",
   WRITER = "writer",
+  COMMENTER = "commenter",
   READER = "reader",
 }
 

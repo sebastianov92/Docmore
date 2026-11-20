@@ -219,6 +219,15 @@ export class SpaceRepo {
       .executeTakeFirst();
   }
 
+  async findByPublicHostname(hostname: string, workspaceId: string): Promise<Space | undefined> {
+    return (await this.db
+      .selectFrom('spaces')
+      .selectAll()
+      .where('publicHostname', '=', hostname)
+      .where('workspaceId', '=', workspaceId)
+      .executeTakeFirst()) as Space | undefined;
+  }
+
   async getSpacesInWorkspace(
     workspaceId: string,
     pagination: PaginationOptions,

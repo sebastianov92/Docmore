@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page, User } from '@docmost/db/types/entity.types';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
 import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
@@ -22,17 +22,29 @@ export class PageAccessService {
    * If page has restrictions: page-level permission determines access.
    * If no restrictions: space-level permission determines access.
    */
+  // A space ability, or null for someone who is not in the space at all
+  // (guests and other members reach such pages only through page permissions).
+  private async abilityOrNull(user: User, spaceId: string, opts?: CacheOptions) {
+    try {
+      return await this.spaceAbility.createForUser(user, spaceId, opts);
+    } catch (err) {
+      if (err instanceof NotFoundException) return null;
+      throw err;
+    }
+  }
+
   async validateCanView(
     page: Page,
     user: User,
     opts?: CacheOptions,
   ): Promise<void> {
     // TODO: cache by pageId and userId.
-    const ability = await this.spaceAbility.createForUser(
-      user,
-      page.spaceId,
-      opts,
-    );
+    const ability = await this.abilityOrNull(user, page.spaceId, opts);
+    if (!ability) {
+      const { hasAnyRestriction, canAccess } = await this.pagePermissionRepo.canUserEditPage(user.id, page.id);
+      if (!hasAnyRestriction || !canAccess) throw new ForbiddenException();
+      return;
+    }
 
     // User must be at least a space member
     if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
@@ -57,7 +69,12 @@ export class PageAccessService {
     page: Page,
     user: User,
   ): Promise<{ canEdit: boolean; hasRestriction: boolean }> {
-    const ability = await this.spaceAbility.createForUser(user, page.spaceId);
+    const ability = await this.abilityOrNull(user, page.spaceId);
+    if (!ability) {
+      const shared = await this.pagePermissionRepo.canUserEditPage(user.id, page.id);
+      if (!shared.hasAnyRestriction || !shared.canAccess) throw new ForbiddenException();
+      return { canEdit: shared.canEdit, hasRestriction: true };
+    }
 
     if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
       throw new ForbiddenException();
@@ -87,7 +104,12 @@ export class PageAccessService {
     page: Page,
     user: User,
   ): Promise<{ hasRestriction: boolean }> {
-    const ability = await this.spaceAbility.createForUser(user, page.spaceId);
+    const ability = await this.abilityOrNull(user, page.spaceId);
+    if (!ability) {
+      const shared = await this.pagePermissionRepo.canUserEditPage(user.id, page.id);
+      if (!shared.hasAnyRestriction || !shared.canEdit) throw new ForbiddenException();
+      return { hasRestriction: true };
+    }
 
     // User must be at least a space member
     if (ability.cannot(SpaceCaslAction.Read, SpaceCaslSubject.Page)) {
@@ -136,6 +158,10 @@ export class PageAccessService {
     }
 
     await this.validateCanView(page, user);
+
+    // Commenters (and anyone the space lets comment) need no setting.
+    const ability = await this.abilityOrNull(user, page.spaceId);
+    if (ability?.can(SpaceCaslAction.Create, SpaceCaslSubject.Comment)) return;
 
     const space = await this.spaceRepo.findById(page.spaceId, workspaceId);
     const settings = space?.settings as Record<string, any> | null;

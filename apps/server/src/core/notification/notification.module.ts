@@ -7,11 +7,14 @@ import { PageNotificationService } from './services/page.notification';
 import { VerificationNotificationService } from './services/verification.notification';
 import { PageUpdateEmailRateLimiter } from './services/page-update-email-rate-limiter';
 import { CollaborationModule } from '../../collaboration/collaboration.module';
+import { NotificationWebhookService } from './services/notification-webhook.service';
+import { NotificationWebhookController } from './notification-webhook.controller';
 
 @Module({
   imports: [CollaborationModule],
-  controllers: [NotificationController],
+  controllers: [NotificationController, NotificationWebhookController],
   providers: [
+    NotificationWebhookService,
     NotificationService,
     NotificationProcessor,
     CommentNotificationService,

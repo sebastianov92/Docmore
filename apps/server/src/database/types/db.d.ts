@@ -445,6 +445,7 @@ export interface Spaces {
   isPersonal: Generated<boolean>;
   logo: string | null;
   name: string | null;
+  publicHostname: string | null;
   settings: Json | null;
   slug: string;
   updatedAt: Generated<Timestamp>;
@@ -480,6 +481,7 @@ export interface Users {
   name: string | null;
   password: string | null;
   role: string | null;
+  adminScopes: Json | null;
   scimExternalId: string | null;
   settings: Json | null;
   timezone: string | null;

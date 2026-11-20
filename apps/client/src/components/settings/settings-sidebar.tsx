@@ -18,6 +18,8 @@ import {
   IconShieldCheck,
   IconSpeakerphone,
   IconScissors,
+  IconBellRinging,
+  IconChartBar,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router-dom";
 import classes from "./settings.module.css";
@@ -47,6 +49,8 @@ import { mobileSidebarAtom } from "@/components/layouts/global/hooks/atoms/sideb
 import { useToggleSidebar } from "@/components/layouts/global/hooks/hooks/use-toggle-sidebar.ts";
 import { useSettingsNavigation } from "@/hooks/use-settings-navigation";
 import { useInstalledIntegrations } from "@/features/integration/queries/integration-query";
+import { currentUserAtom } from "@/features/user/atoms/current-user-atom.ts";
+import { UserRole } from "@/lib/types.ts";
 
 type DataItem = {
   label: string;
@@ -61,6 +65,23 @@ type DataItem = {
 type DataGroup = {
   heading: string;
   items: DataItem[];
+};
+
+// Settings pages an admin reaches only with the matching scope.
+const SCOPE_BY_PATH: Record<string, string> = {
+  "/settings/workspace": "settings",
+  "/settings/security": "settings",
+  "/settings/sharing": "settings",
+  "/settings/announcements": "settings",
+  "/settings/notifications": "settings",
+  "/settings/analytics": "settings",
+  "/settings/members": "members",
+  "/settings/groups": "members",
+  "/settings/spaces": "spaces",
+  "/settings/api-keys": "api",
+  "/settings/audit": "audit",
+  "/settings/ai": "ai",
+  "/settings/integrations": "integrations",
 };
 
 const groupedData: DataGroup[] = [
@@ -116,6 +137,16 @@ const groupedData: DataGroup[] = [
       },
       { label: "Public sharing", icon: IconWorld, path: "/settings/sharing" },
       // No feature gate: without a license the page lists read-only, with archive and delete
+      {
+        label: "Notifications",
+        icon: IconBellRinging,
+        path: "/settings/notifications",
+      },
+      {
+        label: "Analytics",
+        icon: IconChartBar,
+        path: "/settings/analytics",
+      },
       {
         label: "Announcements",
         icon: IconSpeakerphone,
@@ -174,6 +205,7 @@ export default function SettingsSidebar() {
   const [active, setActive] = useState(location.pathname);
   const { goBack } = useSettingsNavigation();
   const { isAdmin, isOwner } = useUserRole();
+  const [currentUser] = useAtom(currentUserAtom);
   const [entitlements] = useAtom(entitlementAtom);
   const [workspace] = useAtom(workspaceAtom);
   const upgradeLabel = useUpgradeLabel();
@@ -191,6 +223,12 @@ export default function SettingsSidebar() {
 
   const canShowItem = (item: DataItem) => {
     if (item.env === "cloud" && !isCloud()) return false;
+    // an admin narrowed to some areas sees only those
+    const scopes = currentUser?.user?.adminScopes;
+    if (currentUser?.user?.role === UserRole.ADMIN && Array.isArray(scopes)) {
+      const scope = SCOPE_BY_PATH[item.path];
+      if (scope && !scopes.includes(scope)) return false;
+    }
     if (item.env === "selfhosted" && isCloud()) return false;
     if (item.role === "admin" && !isAdmin) return false;
     if (item.role === "owner" && !isOwner) return false;

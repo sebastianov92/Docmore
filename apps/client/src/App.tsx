@@ -11,6 +11,7 @@ import { useRedirectToCloudSelect } from "@/ee/hooks/use-redirect-to-cloud-selec
 import { useTrackOrigin } from "@/hooks/use-track-origin";
 import AnnouncementBanners from "@/features/announcements/components/announcement-banners";
 import { UserPreferenceEffects } from "@/components/user-preference-effects";
+import { CustomHostRedirect } from "@/features/public-space/components/custom-host-redirect";
 
 
 const SetupWorkspace = lazyWithPrefetch(() => import("@/pages/auth/setup-workspace.tsx"));
@@ -41,6 +42,8 @@ const DomainSignupPage = lazyWithPrefetch(() => import("@/pages/auth/domain-sign
 const PublicFormPage = lazyWithPrefetch(() => import("@/pages/form/public-form-page.tsx"));
 const ClipperSettings = lazyWithPrefetch(() => import("@/features/clipper/pages/clipper-settings.tsx"));
 const ClipPage = lazyWithPrefetch(() => import("@/pages/clip/clip-page.tsx"));
+const NotificationsSettings = lazyWithPrefetch(() => import("@/pages/settings/workspace/notifications-settings.tsx"));
+const AnalyticsPage = lazyWithPrefetch(() => import("@/pages/settings/workspace/analytics-page.tsx"));
 const ForgotPassword = lazyWithPrefetch(() => import("@/pages/auth/forgot-password.tsx"));
 const PasswordReset = lazyWithPrefetch(() => import("./pages/auth/password-reset"));
 const Billing = lazyWithPrefetch(() => import("@/ee/billing/pages/billing.tsx"));
@@ -124,6 +127,7 @@ export default function App() {
   return (
     <Suspense fallback={null}>
       <UserPreferenceEffects />
+      <CustomHostRedirect />
       <Routes>
         <Route index element={<Navigate to="/home" />} />
 
@@ -252,6 +256,8 @@ export default function App() {
             <Route path={"verifications"} element={<VerifiedPages />} />
             <Route path={"integrations"} element={<Integrations />} />
             <Route path={"announcements"} element={<Announcements />} />
+            <Route path={"notifications"} element={<NotificationsSettings />} />
+            <Route path={"analytics"} element={<AnalyticsPage />} />
             {!isCloud() && <Route path={"license"} element={<License />} />}
             {isCloud() && <Route path={"billing"} element={<Billing />} />}
           </Route>

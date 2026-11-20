@@ -21,6 +21,7 @@ import {
   PublicSpaceSlugDto,
   PublicSpaceTransclusionLookupDto,
   PublishSpaceDto,
+  PublicSpaceHostDto,
 } from './dto/public-space.dto';
 import { PublicSpaceRepo } from '@docmost/db/repos/public-space/public-space.repo';
 import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
@@ -77,6 +78,14 @@ export class PublicSpaceController {
       workspace.id,
       pagination,
     );
+  }
+
+  // Which published space a custom hostname shows.
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('/by-host')
+  async byHost(@Body() dto: PublicSpaceHostDto, @AuthWorkspace() workspace: Workspace) {
+    return this.publicSpaceService.getPublicSpaceByHost(dto.host, workspace);
   }
 
   @Public()

@@ -66,6 +66,7 @@ export async function updateWorkspace(data: Partial<IWorkspace>) {
 export async function changeMemberRole(data: {
   userId: string;
   role: string;
+  adminScopes?: string[] | null;
 }): Promise<void> {
   await api.post("/workspace/members/change-role", data);
 }

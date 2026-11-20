@@ -21,6 +21,7 @@ import MemberActionMenu from "@/features/workspace/components/members/components
 import MemberStatusFilter from "@/features/workspace/components/members/components/member-status-filter.tsx";
 import { MemberListStatus } from "@/features/workspace/types/workspace.types.ts";
 import { formatLocalized, useDateFnsLocale } from "@/lib/date-locale.ts";
+import { AdminScopesMenu } from "./admin-scopes-menu";
 
 export default function WorkspaceMembersTable() {
   const { t } = useTranslation();
@@ -126,13 +127,23 @@ export default function WorkspaceMembersTable() {
                   </Table.Td>
                   <Table.Td>
                     {isAdmin && !user.deletedAt ? (
-                      <RoleSelectMenu
-                        roles={assignableUserRoles}
-                        roleName={getUserRoleLabel(user.role)}
-                        onChange={(newRole) =>
-                          handleRoleChange(user.id, user.role, newRole)
-                        }
-                      />
+                      <>
+                        <RoleSelectMenu
+                          roles={assignableUserRoles}
+                          roleName={getUserRoleLabel(user.role)}
+                          onChange={(newRole) =>
+                            handleRoleChange(user.id, user.role, newRole)
+                          }
+                        />
+                        {isOwner && user.role === UserRole.ADMIN && (
+                          <AdminScopesMenu
+                            scopes={user.adminScopes}
+                            onChange={(adminScopes) =>
+                              changeMemberRoleMutation.mutateAsync({ userId: user.id, role: user.role, adminScopes })
+                            }
+                          />
+                        )}
+                      </>
                     ) : (
                       <Text fz="sm">{t(getUserRoleLabel(user.role))}</Text>
                     )}

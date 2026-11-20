@@ -6,6 +6,7 @@ import {
   IsUUID,
   Matches,
   ValidateNested,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { LookupDto } from '../../page/transclusion/dto/lookup.dto';
@@ -76,4 +77,11 @@ export class PublishSpaceDto {
 export class PublicSpaceForSpaceDto {
   @IsUUID()
   spaceId: string;
+}
+
+export class PublicSpaceHostDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(253)
+  host: string;
 }

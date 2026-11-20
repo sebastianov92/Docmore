@@ -77,6 +77,8 @@ export interface ISpace {
   membership?: IMembership;
   settings?: ISpaceSettings;
   homePageId?: string | null;
+  // hostname serving this space's public site
+  publicHostname?: string | null;
   homePage?: ISpaceHomePage | null;
   // for updates
   disablePublicSharing?: boolean;

@@ -44,11 +44,14 @@ import { WorkspaceInviteRequestService } from '../services/workspace-invite-requ
 import { CreateInviteRequestDto, InviteRequestIdDto } from '../dto/invite-request.dto';
 import { WorkspaceDomainService } from '../services/workspace-domain.service';
 import { DomainAutoJoinDto, DomainDto } from '../dto/domain.dto';
+import { UserRepo } from '@docmost/db/repos/user/user.repo';
+import { UserRole } from '../../../common/helpers/types/permission';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workspace')
 export class WorkspaceController {
   constructor(
+    private readonly userRepo: UserRepo,
     private readonly workspaceService: WorkspaceService,
     private readonly workspaceInvitationService: WorkspaceInvitationService,
     private readonly workspaceAbility: WorkspaceAbilityFactory,
@@ -207,11 +210,21 @@ export class WorkspaceController {
       throw new ForbiddenException();
     }
 
-    return this.workspaceService.updateWorkspaceUserRole(
+    const result = await this.workspaceService.updateWorkspaceUserRole(
       user,
       workspaceUserRoleDto,
       workspace.id,
     );
+    // Only the owner narrows what an admin manages.
+    if (workspaceUserRoleDto.adminScopes !== undefined) {
+      if (user.role !== UserRole.OWNER) throw new ForbiddenException('Only the owner sets admin scopes');
+      await this.userRepo.updateUser(
+        { adminScopes: (workspaceUserRoleDto.role === UserRole.ADMIN ? workspaceUserRoleDto.adminScopes : null) as any } as any,
+        workspaceUserRoleDto.userId,
+        workspace.id,
+      );
+    }
+    return result;
   }
 
   @ApiKeyScope('read')

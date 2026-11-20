@@ -26,6 +26,7 @@ import { useExportDisabled } from "@/features/security/hooks/use-export-disabled
 import { useDisablePrint } from "@/features/security/hooks/use-disable-print.ts";
 import { PageCover } from "@/features/page-cover/components/page-cover.tsx";
 import { resolveCover } from "@/features/page-cover/page-cover.utils.ts";
+import { useTrackPageView } from "@/features/analytics/hooks/use-track-page-view";
 const MemoizedFullEditor = React.memo(FullEditor);
 const MemoizedTitleEditor = React.memo(TitleEditor);
 const MemoizedPageHeader = React.memo(PageHeader);
@@ -64,6 +65,7 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
     isError,
     error,
   } = usePageQuery({ pageId: extractPageSlugId(pageSlug) });
+  useTrackPageView(page?.id);
   const { data: space } = useGetSpaceBySlugQuery(page?.space?.slug);
   const { exportDisabledLabel } = useExportDisabled(page?.space?.slug);
   useDisablePrint(exportDisabledLabel);

@@ -280,7 +280,10 @@ export class SpaceService {
           slug: updateSpaceDto.slug,
           visibility: updateSpaceDto.visibility,
           homePageId,
-        },
+          ...(updateSpaceDto.publicHostname !== undefined && {
+            publicHostname: updateSpaceDto.publicHostname ? updateSpaceDto.publicHostname.toLowerCase() : null,
+          }),
+        } as any,
         updateSpaceDto.spaceId,
         workspaceId,
         trx,

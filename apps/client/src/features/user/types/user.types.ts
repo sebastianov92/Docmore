@@ -15,6 +15,8 @@ export interface IUser {
   createdAt: Date;
   updatedAt: Date;
   role: string;
+  // admins only: what they manage, null for everything
+  adminScopes?: string[] | null;
   workspaceId: string;
   deactivatedAt: Date;
   deletedAt: Date;

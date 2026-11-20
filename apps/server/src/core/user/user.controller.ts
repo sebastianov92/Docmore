@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Body,
   Controller,
   HttpCode,
@@ -17,6 +18,7 @@ import { User, Workspace } from '@docmost/db/types/entity.types';
 import { WorkspaceRepo } from '@docmost/db/repos/workspace/workspace.repo';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
 import { UserIdDto } from './dto/user-id.dto';
+import { UserRole } from '../../common/helpers/types/permission';
 
 @UseGuards(JwtAuthGuard)
 @Controller('users')
@@ -54,8 +56,10 @@ export class UserController {
   @OAuthScope('read')
   async getMemberInfo(
     @Body() dto: UserIdDto,
+    @AuthUser() authUser: User,
     @AuthWorkspace() workspace: Workspace,
   ) {
+    if (authUser.role === UserRole.GUEST) throw new ForbiddenException();
     const member = await this.userRepo.findById(dto.userId, workspace.id);
     if (!member || member.deletedAt) {
       throw new NotFoundException('User not found');

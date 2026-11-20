@@ -28,6 +28,7 @@ import {
   IconWifiOff,
   IconTypography,
   IconTextSize,
+  IconChartBar,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import type { Content } from "@tiptap/react";
@@ -80,6 +81,7 @@ import { PageFontControl, PageTextSizeControl } from "@/features/user/components
 import { useWorkspaceMembersQuery } from "@/features/workspace/queries/workspace-query";
 import { useUpdatePageMutation } from "@/features/page/queries/page-query";
 import { IPage } from "@/features/page/types/page.types";
+import { PageAnalyticsModal } from "@/features/analytics/components/page-analytics-modal";
 
 interface PageHeaderMenuProps {
   readOnly?: boolean;
@@ -183,6 +185,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
   const printBlockReason = usePrintBlockReason();
   const { openDeleteModal } = useDeletePageModal();
   const { handleDelete } = useTreeMutation(page?.spaceId ?? "");
+  const [analyticsOpened, { open: openAnalytics, close: closeAnalytics }] = useDisclosure(false);
   const [exportOpened, { open: openExportModal, close: closeExportModal }] =
     useDisclosure(false);
   const [
@@ -427,6 +430,9 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
               {t("Export")}
             </Menu.Item>
           </Tooltip>
+          <Menu.Item leftSection={<IconChartBar size={16} />} onClick={openAnalytics} data-testid="page-analytics-item">
+            {t("Analytics")}
+          </Menu.Item>
 
           <Tooltip
             label={printBlockReason}
@@ -494,6 +500,8 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
           </>
         </Menu.Dropdown>
       </Menu>
+
+      <PageAnalyticsModal pageId={page.id} opened={analyticsOpened} onClose={closeAnalytics} />
 
       <ExportModal
         type="page"
