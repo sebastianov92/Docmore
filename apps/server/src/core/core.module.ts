@@ -42,6 +42,11 @@ import { McpModule } from './mcp/mcp.module';
 import { ClsMiddleware } from 'nestjs-cls';
 import { ClipperModule } from './clipper/clipper.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { WebhookModule } from './webhook/webhook.module';
+import { SiemModule } from './siem/siem.module';
+import { ScimModule } from './scim/scim.module';
+import { JiraModule } from './integration/providers/jira/jira.module';
+import { GoogleDriveModule } from './integration/providers/google-drive/google-drive.module';
 
 @Module({
   imports: [
@@ -73,6 +78,11 @@ import { AnalyticsModule } from './analytics/analytics.module';
     BaseModule,
     ClipperModule,
     AnalyticsModule,
+    WebhookModule,
+    SiemModule,
+    ScimModule,
+    JiraModule,
+    GoogleDriveModule,
     PagePermissionModule,
     SsoModule,
     PageVerificationModule,

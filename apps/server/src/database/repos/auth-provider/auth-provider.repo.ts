@@ -29,6 +29,8 @@ export class AuthProviderRepo {
     'type',
     'oidcIssuer',
     'oidcClientId',
+    'samlUrl',
+    'samlCertificate',
     'allowSignup',
     'isEnabled',
     'groupSync',

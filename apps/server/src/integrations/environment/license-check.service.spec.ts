@@ -38,7 +38,9 @@ describe('LicenseCheckService without the EE module', () => {
     expect(service.hasFeature(null, 'ai')).toBe(true);
     // MCP ships built in since the MCP + OAuth batch.
     expect(service.hasFeature(null, 'mcp')).toBe(true);
-    expect(service.hasFeature(null, 'scim')).toBe(false);
+    // SCIM ships built in since the webhooks + SIEM + SAML + SCIM batch.
+    expect(service.hasFeature(null, 'scim')).toBe(true);
+    expect(service.hasFeature(null, 'not-a-feature')).toBe(false);
     expect(service.isValidEELicense(null)).toBe(false);
   });
 

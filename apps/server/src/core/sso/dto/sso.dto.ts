@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { Transform, TransformFnParams } from 'class-transformer';
 
-export const SSO_PROVIDER_TYPES = ['oidc'] as const;
+export const SSO_PROVIDER_TYPES = ['oidc', 'saml'] as const;
 export type SsoProviderType = (typeof SSO_PROVIDER_TYPES)[number];
 
 const trim = ({ value }: TransformFnParams) =>
@@ -24,7 +24,7 @@ export class ProviderIdDto {
 
 export class CreateSsoProviderDto {
   @IsIn(SSO_PROVIDER_TYPES, {
-    message: 'Only OpenID Connect (oidc) providers are supported',
+    message: 'Only OpenID Connect (oidc) and SAML (saml) providers are supported',
   })
   type: SsoProviderType;
 
@@ -72,6 +72,17 @@ export class UpdateSsoProviderDto {
   @IsNotEmpty()
   @MaxLength(2000)
   oidcClientSecret?: string;
+
+  // SAML: the IdP's single sign-on URL and its signing certificate (PEM or bare base64)
+  @IsOptional()
+  @IsString()
+  @IsUrl({ require_protocol: true, require_tld: false, protocols: ['https', 'http'] })
+  samlUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  samlCertificate?: string;
 
   @IsOptional()
   @IsBoolean()

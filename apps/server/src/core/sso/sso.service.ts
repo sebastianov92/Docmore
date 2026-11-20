@@ -98,6 +98,8 @@ export class SsoService {
         EncryptionPurpose.SSO_SECRETS,
       );
     }
+    if (dto.samlUrl !== undefined) changes.samlUrl = dto.samlUrl;
+    if (dto.samlCertificate !== undefined) changes.samlCertificate = dto.samlCertificate.trim();
     if (dto.allowSignup !== undefined) changes.allowSignup = dto.allowSignup;
     if (dto.groupSync !== undefined) changes.groupSync = dto.groupSync;
     if (dto.isEnabled !== undefined) changes.isEnabled = dto.isEnabled;
@@ -105,11 +107,15 @@ export class SsoService {
     const next = { ...current, ...changes };
 
     if (next.isEnabled) {
-      const missing = [
-        !next.oidcIssuer && 'issuer URL',
-        !next.oidcClientId && 'client ID',
-        !next.oidcClientSecret && 'client secret',
-      ].filter(Boolean);
+      const missing = (
+        next.type === 'saml'
+          ? [!next.samlUrl && 'sign-in URL', !next.samlCertificate && 'certificate']
+          : [
+              !next.oidcIssuer && 'issuer URL',
+              !next.oidcClientId && 'client ID',
+              !next.oidcClientSecret && 'client secret',
+            ]
+      ).filter(Boolean);
       if (missing.length > 0) {
         throw new BadRequestException(
           `Fill in the ${missing.join(', ')} before enabling this provider`,
@@ -135,6 +141,7 @@ export class SsoService {
       'name',
       'oidcIssuer',
       'oidcClientId',
+      'samlUrl',
       'allowSignup',
       'isEnabled',
       'groupSync',

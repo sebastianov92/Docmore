@@ -249,7 +249,7 @@ export class OidcService {
     }
   }
 
-  private async resolveUser(
+  async resolveUser(
     provider: AuthProvider,
     workspace: Workspace,
     identity: SsoIdentity,
@@ -410,7 +410,7 @@ export class OidcService {
 
   // Add-only: the user joins every group named by the provider (created on
   // demand). Memberships granted inside Docmore are never removed here.
-  private async syncGroups(user: User, workspace: Workspace, names: string[]) {
+  async syncGroups(user: User, workspace: Workspace, names: string[]) {
     for (const name of names) {
       try {
         let group = await this.groupRepo.findByName(name, workspace.id);

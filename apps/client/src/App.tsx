@@ -44,6 +44,9 @@ const ClipperSettings = lazyWithPrefetch(() => import("@/features/clipper/pages/
 const ClipPage = lazyWithPrefetch(() => import("@/pages/clip/clip-page.tsx"));
 const NotificationsSettings = lazyWithPrefetch(() => import("@/pages/settings/workspace/notifications-settings.tsx"));
 const AnalyticsPage = lazyWithPrefetch(() => import("@/pages/settings/workspace/analytics-page.tsx"));
+const WebhooksSettings = lazyWithPrefetch(() => import("@/pages/settings/workspace/webhooks-settings.tsx"));
+const SiemSettings = lazyWithPrefetch(() => import("@/pages/settings/workspace/siem-settings.tsx"));
+const ScimSettings = lazyWithPrefetch(() => import("@/pages/settings/workspace/scim-settings.tsx"));
 const ForgotPassword = lazyWithPrefetch(() => import("@/pages/auth/forgot-password.tsx"));
 const PasswordReset = lazyWithPrefetch(() => import("./pages/auth/password-reset"));
 const Billing = lazyWithPrefetch(() => import("@/ee/billing/pages/billing.tsx"));
@@ -249,10 +252,9 @@ export default function App() {
               path={"audit/siem"}
               element={<Navigate to="/settings/audit" replace />}
             />
-            <Route
-              path={"siem"}
-              element={<Navigate to="/settings/audit" replace />}
-            />
+            <Route path={"siem"} element={<SiemSettings />} />
+            <Route path={"webhooks"} element={<WebhooksSettings />} />
+            <Route path={"scim"} element={<ScimSettings />} />
             <Route path={"verifications"} element={<VerifiedPages />} />
             <Route path={"integrations"} element={<Integrations />} />
             <Route path={"announcements"} element={<Announcements />} />

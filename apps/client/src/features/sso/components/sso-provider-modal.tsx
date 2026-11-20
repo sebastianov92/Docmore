@@ -11,6 +11,7 @@ import {
   Switch,
   Text,
   TextInput,
+  Textarea,
 } from "@mantine/core";
 import { useTranslation } from "react-i18next";
 import CopyTextButton from "@/components/common/copy.tsx";
@@ -18,7 +19,11 @@ import {
   ISsoProvider,
   IUpdateSsoProvider,
 } from "@/features/sso/types/sso.types.ts";
-import { buildOidcCallbackUrl } from "@/features/sso/sso.utils.ts";
+import {
+  buildOidcCallbackUrl,
+  buildSamlCallbackUrl,
+  buildSamlMetadataUrl,
+} from "@/features/sso/sso.utils.ts";
 import { useUpdateSsoProviderMutation } from "@/features/sso/queries/sso-query.ts";
 import classes from "./sso.module.css";
 
@@ -33,12 +38,31 @@ type FormValues = {
   oidcIssuer: string;
   oidcClientId: string;
   oidcClientSecret: string;
+  samlUrl: string;
+  samlCertificate: string;
   groupSync: boolean;
   allowSignup: boolean;
   isEnabled: boolean;
 };
 
-function buildSchema(hasStoredSecret: boolean, t: (key: string) => string) {
+function buildSchema(hasStoredSecret: boolean, isSaml: boolean, t: (key: string) => string) {
+  if (isSaml) {
+    return z.object({
+      name: z.string().trim().min(1, t("Display name is required")),
+      oidcIssuer: z.string(),
+      oidcClientId: z.string(),
+      oidcClientSecret: z.string(),
+      samlUrl: z
+        .string()
+        .trim()
+        .url(t("Enter a valid URL"))
+        .refine((value) => /^https?:\/\//i.test(value), t("Enter a valid URL")),
+      samlCertificate: z.string().trim().min(1, t("The identity provider's certificate is required")),
+      groupSync: z.boolean(),
+      allowSignup: z.boolean(),
+      isEnabled: z.boolean(),
+    });
+  }
   return z
     .object({
       name: z.string().trim().min(1, t("Display name is required")),
@@ -49,6 +73,8 @@ function buildSchema(hasStoredSecret: boolean, t: (key: string) => string) {
         .refine((value) => /^https?:\/\//i.test(value), t("Enter a valid URL")),
       oidcClientId: z.string().trim().min(1, t("Client ID is required")),
       oidcClientSecret: z.string(),
+      samlUrl: z.string(),
+      samlCertificate: z.string(),
       groupSync: z.boolean(),
       allowSignup: z.boolean(),
       isEnabled: z.boolean(),
@@ -65,6 +91,8 @@ function initialValues(provider: ISsoProvider | null): FormValues {
     oidcIssuer: provider?.oidcIssuer ?? "",
     oidcClientId: provider?.oidcClientId ?? "",
     oidcClientSecret: "",
+    samlUrl: provider?.samlUrl ?? "",
+    samlCertificate: provider?.samlCertificate ?? "",
     groupSync: provider?.groupSync ?? false,
     allowSignup: provider?.allowSignup ?? false,
     isEnabled: provider?.isEnabled ?? false,
@@ -81,10 +109,11 @@ export default function SsoProviderModal({
   const { t } = useTranslation();
   const updateMutation = useUpdateSsoProviderMutation();
   const hasStoredSecret = provider?.hasOidcClientSecret ?? false;
+  const isSaml = provider?.type === "saml";
 
   const form = useForm<FormValues>({
     initialValues: initialValues(provider),
-    validate: zod4Resolver(buildSchema(hasStoredSecret, t)),
+    validate: zod4Resolver(buildSchema(hasStoredSecret, isSaml, t)),
   });
 
   useEffect(() => {
@@ -99,7 +128,8 @@ export default function SsoProviderModal({
     return null;
   }
 
-  const callbackUrl = buildOidcCallbackUrl(provider.id);
+  const callbackUrl = isSaml ? buildSamlCallbackUrl(provider.id) : buildOidcCallbackUrl(provider.id);
+  const entityId = buildSamlMetadataUrl(provider.id);
 
   const handleSubmit = async (values: FormValues) => {
     const payload: IUpdateSsoProvider = { providerId: provider.id };
@@ -109,6 +139,8 @@ export default function SsoProviderModal({
     if (values.oidcClientSecret.trim()) {
       payload.oidcClientSecret = values.oidcClientSecret.trim();
     }
+    if (form.isDirty("samlUrl")) payload.samlUrl = values.samlUrl.trim();
+    if (form.isDirty("samlCertificate")) payload.samlCertificate = values.samlCertificate.trim();
     if (form.isDirty("groupSync")) payload.groupSync = values.groupSync;
     if (form.isDirty("allowSignup")) payload.allowSignup = values.allowSignup;
     if (form.isDirty("isEnabled")) payload.isEnabled = values.isEnabled;
@@ -125,7 +157,7 @@ export default function SsoProviderModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={t("OpenID Connect provider")}
+      title={isSaml ? t("SAML provider") : t("OpenID Connect provider")}
       size="lg"
       closeButtonProps={{ "aria-label": t("Close") }}
     >
@@ -140,14 +172,44 @@ export default function SsoProviderModal({
           />
 
           <TextInput
-            label={t("Callback URL")}
-            description={t("Register this redirect URI with your identity provider")}
+            label={isSaml ? t("ACS URL (reply URL)") : t("Callback URL")}
+            description={isSaml ? t("Where the identity provider posts the SAML response") : t("Register this redirect URI with your identity provider")}
             variant="filled"
             value={callbackUrl}
             readOnly
             rightSection={<CopyTextButton text={callbackUrl} />}
           />
 
+          {isSaml && (
+            <>
+              <TextInput
+                label={t("Entity ID / metadata URL")}
+                description={t("Give this to the identity provider; it also serves our SP metadata")}
+                variant="filled"
+                value={entityId}
+                readOnly
+                rightSection={<CopyTextButton text={entityId} />}
+              />
+              <TextInput
+                label={t("Identity provider sign-in URL")}
+                description={t("The SAML 2.0 SSO (HTTP-Redirect) endpoint of the IdP")}
+                placeholder="https://idp.example.com/sso/saml"
+                {...form.getInputProps("samlUrl")}
+              />
+              <Textarea
+                label={t("Identity provider certificate")}
+                description={t("The X.509 signing certificate, PEM or bare base64")}
+                autosize
+                minRows={4}
+                maxRows={10}
+                styles={{ input: { fontFamily: "monospace", fontSize: 12 } }}
+                {...form.getInputProps("samlCertificate")}
+              />
+            </>
+          )}
+
+          {!isSaml && (
+            <>
           <TextInput
             label={t("Issuer URL")}
             description={t("The base URL that serves /.well-known/openid-configuration")}
@@ -172,6 +234,8 @@ export default function SsoProviderModal({
             autoComplete="new-password"
             {...form.getInputProps("oidcClientSecret")}
           />
+            </>
+          )}
 
           <div className={classes.switchRow}>
             <div>

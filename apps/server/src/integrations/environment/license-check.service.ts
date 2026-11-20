@@ -20,6 +20,7 @@ export const DOCMORE_FEATURES: readonly string[] = [
   Feature.MCP,
   Feature.PAGE_PERMISSIONS,
   Feature.SSO_CUSTOM,
+  Feature.SCIM,
   Feature.SECURITY_SETTINGS,
   Feature.SHARING_CONTROLS,
   Feature.EXPORT_CONTROLS,

@@ -1,6 +1,6 @@
 // Docmore ships OpenID Connect only. The type stays a union so the login
 // button list can grow without touching callers.
-export type SsoProviderType = "oidc";
+export type SsoProviderType = "oidc" | "saml";
 
 // What the login page gets from /workspace/public: enough to draw a button.
 export interface IPublicAuthProvider {
@@ -15,6 +15,9 @@ export interface ISsoProvider {
   type: SsoProviderType;
   oidcIssuer: string | null;
   oidcClientId: string | null;
+  // SAML
+  samlUrl?: string | null;
+  samlCertificate?: string | null;
   // The secret itself never reaches the browser.
   hasOidcClientSecret: boolean;
   allowSignup: boolean;
@@ -37,6 +40,8 @@ export interface IUpdateSsoProvider {
   oidcIssuer?: string;
   oidcClientId?: string;
   oidcClientSecret?: string;
+  samlUrl?: string;
+  samlCertificate?: string;
   allowSignup?: boolean;
   isEnabled?: boolean;
   groupSync?: boolean;

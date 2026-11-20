@@ -20,6 +20,9 @@ import {
   IconScissors,
   IconBellRinging,
   IconChartBar,
+  IconWebhook,
+  IconServer,
+  IconUsersPlus,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router-dom";
 import classes from "./settings.module.css";
@@ -75,6 +78,9 @@ const SCOPE_BY_PATH: Record<string, string> = {
   "/settings/announcements": "settings",
   "/settings/notifications": "settings",
   "/settings/analytics": "settings",
+  "/settings/webhooks": "integrations",
+  "/settings/siem": "audit",
+  "/settings/scim": "members",
   "/settings/members": "members",
   "/settings/groups": "members",
   "/settings/spaces": "spaces",
@@ -146,6 +152,24 @@ const groupedData: DataGroup[] = [
         label: "Analytics",
         icon: IconChartBar,
         path: "/settings/analytics",
+      },
+      {
+        label: "Webhooks",
+        icon: IconWebhook,
+        path: "/settings/webhooks",
+        role: "admin",
+      },
+      {
+        label: "SIEM export",
+        icon: IconServer,
+        path: "/settings/siem",
+        role: "admin",
+      },
+      {
+        label: "SCIM provisioning",
+        icon: IconUsersPlus,
+        path: "/settings/scim",
+        role: "admin",
       },
       {
         label: "Announcements",

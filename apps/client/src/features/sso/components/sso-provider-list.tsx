@@ -92,7 +92,7 @@ export default function SsoProviderList({
                 <NoTableResults colSpan={5} text={t("No SSO providers found.")} />
               ) : (
                 sorted.map((provider) => {
-                  const host = issuerHost(provider.oidcIssuer);
+                  const host = issuerHost(provider.type === "saml" ? provider.samlUrl ?? null : provider.oidcIssuer);
                   return (
                     <Table.Tr
                       key={provider.id}
@@ -114,7 +114,7 @@ export default function SsoProviderList({
                       </Table.Td>
                       <Table.Td>
                         <Badge color="gray" variant="light">
-                          OIDC
+                          {provider.type === "saml" ? "SAML" : "OIDC"}
                         </Badge>
                       </Table.Td>
                       <Table.Td>

@@ -20,6 +20,7 @@ const integrationIconMap: Record<string, (size: number) => ReactNode> = {
   jira: (size) => <JiraIcon size={size} />,
   figma: (size) => <FigmaIcon size={size} />,
   google_docs: (size) => <GoogleDocsIcon size={size} />,
+  google_drive: (size) => <GoogleDocsIcon size={size} />,
   azure_devops: (size) => <AzureDevOpsIcon size={size} />,
   microsoft_365: (size) => <Microsoft365Icon size={size} />,
 };

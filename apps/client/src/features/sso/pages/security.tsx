@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Button, Divider, Group, Text, Title } from "@mantine/core";
+import {
+  Button,
+  Divider,
+  Group,
+  Text,
+  Title,
+  Menu,
+} from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import SettingsTitle from "@/components/settings/settings-title.tsx";
@@ -38,11 +45,11 @@ export default function Security() {
     ? providers.find((p) => p.id === editing.id) ?? editing
     : null;
 
-  const handleAdd = async () => {
+  const handleAdd = async (type: "oidc" | "saml" = "oidc") => {
     try {
       const created = await createMutation.mutateAsync({
-        type: "oidc",
-        name: t("OpenID Connect"),
+        type,
+        name: type === "saml" ? t("SAML") : t("OpenID Connect"),
       });
       setEditing(created);
     } catch {
@@ -88,14 +95,17 @@ export default function Security() {
             {t("Any OpenID Connect provider works: Authelia, Authentik, Keycloak, Pocket ID, Google, Microsoft Entra.")}
           </Text>
         </div>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={handleAdd}
-          loading={createMutation.isPending}
-          style={{ flexShrink: 0 }}
-        >
-          {t("Add provider")}
-        </Button>
+        <Menu position="bottom-end" withinPortal>
+          <Menu.Target>
+            <Button leftSection={<IconPlus size={16} />} loading={createMutation.isPending} style={{ flexShrink: 0 }} data-testid="sso-add-provider">
+              {t("Add provider")}
+            </Button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item onClick={() => handleAdd("oidc")}>{t("OpenID Connect")}</Menu.Item>
+            <Menu.Item onClick={() => handleAdd("saml")}>{t("SAML 2.0")}</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       </Group>
 
       {!isLoading && (

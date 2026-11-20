@@ -22,6 +22,7 @@ export enum EncryptionPurpose {
   MFA_SECRETS = 'mfa-secrets',
   SSO_SECRETS = 'sso-secrets',
   AI_SECRETS = 'ai-secrets',
+  WEBHOOK_SECRETS = 'webhook-secrets',
 }
 
 const KEY_ID = 'app-secret';

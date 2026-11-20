@@ -18,6 +18,7 @@ export enum QueueName {
   BASE_QUEUE = '{base-queue}',
   BASE_IMPORT_QUEUE = '{base-import-queue}',
   SIEM_QUEUE = '{siem-queue}',
+  WEBHOOK_QUEUE = '{webhook-queue}',
 }
 
 export enum QueueJob {
@@ -109,4 +110,5 @@ export enum QueueJob {
   BASE_FORMULA_RECOMPUTE = 'base-formula-recompute',
   BASE_CSV_IMPORT = 'base-csv-import',
   BASE_AI_FILL = 'base-ai-fill',
+  WEBHOOK_DELIVER = 'webhook-deliver',
 }

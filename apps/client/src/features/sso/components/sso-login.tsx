@@ -9,7 +9,7 @@ import { getRedirectParam } from "@/lib/app-route.ts";
 import { OpenIdIcon } from "@/components/icons/openid-icon.tsx";
 import { IPublicAuthProvider } from "@/features/sso/types/sso.types.ts";
 import {
-  buildOidcLoginUrl,
+  buildSsoLoginUrl,
   readSsoError,
   SSO_ERROR_PARAM,
 } from "@/features/sso/sso.utils.ts";
@@ -50,7 +50,8 @@ export default function SsoLogin() {
   const ssoError = readSsoError(location.search);
 
   const goToProvider = (provider: IPublicAuthProvider) => {
-    window.location.href = buildOidcLoginUrl({
+    window.location.href = buildSsoLoginUrl({
+      type: provider.type,
       providerId: provider.id,
       redirect: getRedirectParam(),
     });

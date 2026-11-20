@@ -124,6 +124,22 @@ export const integrationLinkPatterns: IntegrationLinkPattern[] = [
     regex:
       /^https:\/\/([a-z0-9-]+)\.sharepoint\.com\/(?:sites|teams)\/([^\/?#]+)\/?(?:\?[^#]*)?$/,
   },
+  // Google Drive files, Docs / Sheets / Slides / Forms, and folders
+  {
+    provider: "google_drive",
+    type: "google-drive-file",
+    regex: /^https?:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]{10,})/,
+  },
+  {
+    provider: "google_drive",
+    type: "google-drive-doc",
+    regex: /^https?:\/\/docs\.google\.com\/(document|spreadsheets|presentation|forms)\/d\/([A-Za-z0-9_-]{10,})/,
+  },
+  {
+    provider: "google_drive",
+    type: "google-drive-folder",
+    regex: /^https?:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([A-Za-z0-9_-]{10,})/,
+  },
   // Jira issue (cloud + self-hosted): /browse/KEY-123 (must precede the GitHub repo pattern)
   {
     provider: "jira",
@@ -436,6 +452,15 @@ export function describeIntegrationLink(
   const repo = () => `${match[1]}/${match[2]}`;
 
   switch (type) {
+    case "google-drive-file":
+      return describe("Drive file", "Google Drive");
+    case "google-drive-doc":
+      return describe(
+        match[1] === "spreadsheets" ? "Google Sheet" : match[1] === "presentation" ? "Google Slides" : match[1] === "forms" ? "Google Form" : "Google Doc",
+        "Google Drive",
+      );
+    case "google-drive-folder":
+      return describe("Folder", "Google Drive");
     case "jira-issue":
       return describe(match[1], hostOf(url));
 

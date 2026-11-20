@@ -8,6 +8,7 @@ import {
 import { BaseRowVersions } from '@docmost/db/types/base-history.types';
 import { BaseAutomationRuns, BaseAutomations, BaseForms } from '@docmost/db/types/automation.types';
 import { PageViews } from '@docmost/db/types/analytics.types';
+import { WebhookDeliveries, Webhooks } from '@docmost/db/types/webhook.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -20,4 +21,6 @@ export interface DbInterface extends DB {
   baseAutomationRuns: BaseAutomationRuns;
   baseForms: BaseForms;
   pageViews: PageViews;
+  webhooks: Webhooks;
+  webhookDeliveries: WebhookDeliveries;
 }
