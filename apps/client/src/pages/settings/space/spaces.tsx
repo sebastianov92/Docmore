@@ -8,6 +8,7 @@ import { Navigate } from "react-router-dom";
 import APP_ROUTE from "@/lib/app-route.ts";
 import useCurrentUser from "@/features/user/hooks/use-current-user.ts";
 import { UserRole } from "@/lib/types.ts";
+import { WorkspacePdfExportButton } from "@/features/pdf-export/workspace-pdf-export-button";
 
 export default function Spaces() {
   const { t } = useTranslation();
@@ -25,6 +26,7 @@ export default function Spaces() {
       <SettingsTitle title={t("Spaces")} />
 
       <Group my="md" justify="flex-end">
+        <WorkspacePdfExportButton />
         <CreateSpaceModal />
       </Group>
 

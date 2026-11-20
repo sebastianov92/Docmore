@@ -39,6 +39,8 @@ const PageRedirect = lazyWithPrefetch(() => import("@/pages/page/page-redirect.t
 const InviteSignup = lazyWithPrefetch(() => import("@/pages/auth/invite-signup.tsx"));
 const DomainSignupPage = lazyWithPrefetch(() => import("@/pages/auth/domain-signup.tsx"));
 const PublicFormPage = lazyWithPrefetch(() => import("@/pages/form/public-form-page.tsx"));
+const ClipperSettings = lazyWithPrefetch(() => import("@/features/clipper/pages/clipper-settings.tsx"));
+const ClipPage = lazyWithPrefetch(() => import("@/pages/clip/clip-page.tsx"));
 const ForgotPassword = lazyWithPrefetch(() => import("@/pages/auth/forgot-password.tsx"));
 const PasswordReset = lazyWithPrefetch(() => import("./pages/auth/password-reset"));
 const Billing = lazyWithPrefetch(() => import("@/ee/billing/pages/billing.tsx"));
@@ -193,6 +195,7 @@ export default function App() {
 
         <Route element={<Layout />}>
           <Route path={"/home"} element={<Home />} />
+          <Route path={"/clip"} element={<ClipPage />} />
           <Route path={"/ai"} element={<AiChat />} />
           <Route path={"/ai/chat/:chatId"} element={<AiChat />} />
           <Route path={"/spaces"} element={<SpacesPage />} />
@@ -221,6 +224,7 @@ export default function App() {
               element={<AccountPreferences />}
             />
             <Route path={"account/api-keys"} element={<UserApiKeys />} />
+            <Route path={"account/clipper"} element={<ClipperSettings />} />
             <Route
               path={"account/api-keys/authorized-apps"}
               element={<UserApiKeys />}

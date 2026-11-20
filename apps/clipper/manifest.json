@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Docmore Web Clipper",
+  "version": "1.0.0",
+  "description": "Save the current page or your selection as a page in your Docmore wiki.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Clip to Docmore"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "icons": {
+    "48": "icon.svg",
+    "128": "icon.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "clipper@docmore.local"
+    }
+  }
+}

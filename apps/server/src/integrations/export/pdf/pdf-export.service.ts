@@ -18,6 +18,7 @@ import { JwtType } from '../../../core/auth/dto/jwt-payload';
 import { QueueJob, QueueName } from '../../queue/constants';
 import { sanitizeFileName } from '../../../common/helpers';
 import { FileTaskStatus, FileTaskType, getFileTaskFolderPath } from '../../import/utils/file.utils';
+import * as JSZip from 'jszip';
 
 export const PDF_EXPORT_SOURCE = 'pdf';
 // Finished PDFs are kept this long for download, then removed.
@@ -99,6 +100,44 @@ export class PdfExportService implements OnApplicationBootstrap {
     return { fileTaskId: task.id };
   }
 
+  // One zip with a PDF per page of the space (or of every space).
+  async startSpace(spaceId: string | null, user: User, workspaceId: string): Promise<{ fileTaskId: string }> {
+    if (!this.isConfigured()) {
+      throw new BadRequestException('PDF export is not set up on this server: set GOTENBERG_URL');
+    }
+    let name = 'workspace';
+    if (spaceId) {
+      const space = await this.db.selectFrom('spaces').select(['id', 'name']).where('id', '=', spaceId).where('workspaceId', '=', workspaceId).executeTakeFirst();
+      if (!space) throw new NotFoundException('Space not found');
+      name = space.name?.trim() || 'space';
+    }
+    const task = await this.db
+      .insertInto('fileTasks')
+      .values({
+        type: FileTaskType.Export,
+        source: PDF_EXPORT_SOURCE,
+        status: FileTaskStatus.Processing,
+        fileName: `${sanitizeFileName(name, { preserveSpaces: true })}-pdf.zip`,
+        filePath: '',
+        fileExt: 'zip',
+        pageId: null,
+        spaceId,
+        workspaceId,
+        creatorId: user.id,
+        metadata: { format: 'pdf', scope: spaceId ? 'space' : 'workspace', title: name } as any,
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow();
+    const filePath = `${getFileTaskFolderPath(FileTaskType.Export, workspaceId)}/${task.id}.zip`;
+    await this.db.updateTable('fileTasks').set({ filePath }).where('id', '=', task.id).execute();
+    await this.fileTaskQueue.add(
+      QueueJob.PDF_EXPORT_TASK,
+      { fileTaskId: task.id },
+      { attempts: 1, removeOnComplete: true, removeOnFail: true },
+    );
+    return { fileTaskId: task.id };
+  }
+
   // What the render page needs; the token stands in for a session.
   async renderData(pageId: string, token: string) {
     const payload = await this.verifyRenderToken(token);
@@ -143,16 +182,70 @@ export class PdfExportService implements OnApplicationBootstrap {
       .selectAll()
       .where('id', '=', fileTaskId)
       .executeTakeFirst();
-    if (!task || task.source !== PDF_EXPORT_SOURCE || !task.pageId) {
+    if (!task || task.source !== PDF_EXPORT_SOURCE) {
       this.logger.warn(`PDF export task ${fileTaskId} not found`);
       return;
     }
+    if (!task.pageId) {
+      await this.generateZip(task as any);
+      return;
+    }
+    const pdf = await this.renderPagePdf(task.pageId, task.workspaceId);
+
+    await this.storage.upload(task.filePath, pdf);
+    await this.db
+      .updateTable('fileTasks')
+      .set({ status: FileTaskStatus.Success, fileSize: pdf.length, errorMessage: null, updatedAt: new Date() })
+      .where('id', '=', task.id)
+      .execute();
+    this.logger.log(`PDF export ${task.id} ready (${pdf.length} bytes)`);
+  }
+
+  // Every page of the task's space (or of all spaces) as PDFs inside a zip.
+  private async generateZip(task: { id: string; spaceId: string | null; workspaceId: string; filePath: string }): Promise<void> {
+    let q = this.db
+      .selectFrom('pages')
+      .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+      .select(['pages.id', 'pages.title', 'pages.spaceId', 'spaces.name as spaceName'])
+      .where('pages.workspaceId', '=', task.workspaceId)
+      .where('pages.deletedAt', 'is', null)
+      .where('spaces.deletedAt', 'is', null)
+      .orderBy('spaces.name', 'asc')
+      .orderBy('pages.position', 'asc');
+    if (task.spaceId) q = q.where('pages.spaceId', '=', task.spaceId);
+    const pages = await q.execute();
+    if (pages.length === 0) throw new Error('No pages to export');
+    const zip = new JSZip();
+    const used = new Set<string>();
+    let done = 0;
+    for (const page of pages) {
+      const pdf = await this.renderPagePdf(page.id, task.workspaceId);
+      const folder = task.spaceId ? '' : `${sanitizeFileName(page.spaceName || 'space', { preserveSpaces: true })}/`;
+      let name = `${folder}${sanitizeFileName(page.title?.trim() || 'untitled', { preserveSpaces: true })}`;
+      if (used.has(name)) name = `${name}-${page.id.slice(0, 6)}`;
+      used.add(name);
+      zip.file(`${name}.pdf`, pdf);
+      done++;
+      this.logger.debug(`PDF zip ${task.id}: ${done}/${pages.length}`);
+    }
+    const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    await this.storage.upload(task.filePath, buffer);
+    await this.db
+      .updateTable('fileTasks')
+      .set({ status: FileTaskStatus.Success, fileSize: buffer.length, errorMessage: null, updatedAt: new Date() })
+      .where('id', '=', task.id)
+      .execute();
+    this.logger.log(`PDF zip export ${task.id} ready (${pages.length} pages, ${buffer.length} bytes)`);
+  }
+
+  // Asks Gotenberg to print one page's render view.
+  private async renderPagePdf(pageId: string, workspaceId: string): Promise<Buffer> {
     const gotenberg = this.environment.getGotenbergUrl()?.replace(/\/+$/, '');
     if (!gotenberg) throw new Error('GOTENBERG_URL is not set');
 
-    const token = await this.tokens.generatePdfRenderToken(task.pageId, task.workspaceId);
+    const token = await this.tokens.generatePdfRenderToken(pageId, workspaceId);
     const base = this.environment.getPdfRenderBaseUrl().replace(/\/+$/, '');
-    const url = `${base}/pdf-render/${task.pageId}?token=${encodeURIComponent(token)}`;
+    const url = `${base}/pdf-render/${pageId}?token=${encodeURIComponent(token)}`;
 
     const form = new FormData();
     form.append('url', url);
@@ -191,14 +284,7 @@ export class PdfExportService implements OnApplicationBootstrap {
     } finally {
       clearTimeout(timer);
     }
-
-    await this.storage.upload(task.filePath, pdf);
-    await this.db
-      .updateTable('fileTasks')
-      .set({ status: FileTaskStatus.Success, fileSize: pdf.length, errorMessage: null, updatedAt: new Date() })
-      .where('id', '=', task.id)
-      .execute();
-    this.logger.log(`PDF export ${task.id} ready (${pdf.length} bytes)`);
+    return pdf;
   }
 
   async cleanupExpiredExports(): Promise<void> {

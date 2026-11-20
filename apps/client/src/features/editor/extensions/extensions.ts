@@ -67,6 +67,7 @@ import {
   Column,
   Status,
   BaseButton,
+  Bookmark,
   TransclusionSource,
   TransclusionReference,
   TableView,
@@ -139,6 +140,8 @@ import AutoJoiner from "@/features/editor/extensions/autojoiner.ts";
 import GlobalDragHandle from "@/features/editor/extensions/drag-handle.ts";
 import { CleanStyles } from "@/features/editor/extensions/clean-styles.ts";
 import BaseButtonView from "@/features/editor/components/base-button/base-button-view";
+import { BookmarkPasteMenuExtension } from "@/features/editor/extensions/bookmark-paste-menu";
+import BookmarkView from "@/features/editor/components/bookmark/bookmark-view";
 
 const lowlight = createLowlight(common);
 lowlight.register("mermaid", plaintext);
@@ -420,6 +423,10 @@ export const mainExtensions = [
   }),
   IntegrationPasteMenuExtension,
   BasePasteMenuExtension,
+  BookmarkPasteMenuExtension,
+  Bookmark.configure({
+    view: BookmarkView,
+  }),
   MicrosoftFile.configure({
     view: MicrosoftFileView,
   }),

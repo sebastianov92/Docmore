@@ -17,6 +17,7 @@ import {
   IconHistory,
   IconShieldCheck,
   IconSpeakerphone,
+  IconScissors,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router-dom";
 import classes from "./settings.module.css";
@@ -84,6 +85,7 @@ const groupedData: DataGroup[] = [
         path: "/settings/account/connections",
         requiresInstalledIntegration: true,
       },
+      { label: "Web clipper", icon: IconScissors, path: "/settings/account/clipper" },
     ],
   },
   {

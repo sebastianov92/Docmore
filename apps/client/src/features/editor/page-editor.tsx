@@ -98,6 +98,7 @@ import {
   getCollabSocket,
   releaseCollabSocket,
 } from "@/features/editor/collab-socket";
+import { BookmarkPasteMenu } from "@/features/editor/components/bookmark/bookmark-paste-menu.tsx";
 
 interface PageEditorProps {
   pageId: string;
@@ -546,6 +547,7 @@ function CollabPageEditor({
             <ColumnsMenu editor={editor} />
             <IntegrationPasteMenu editor={editor} />
             <BasePasteMenu editor={editor} />
+            <BookmarkPasteMenu editor={editor} />
             <MicrosoftFileMenu editor={editor} />
             <MicrosoftFolderMenu editor={editor} />
           </div>

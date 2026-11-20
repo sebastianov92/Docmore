@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { assertPublicUrl } from '../../../common/helpers/public-url';
 import { BaseAutomationRepo, AutomationRow } from '@docmost/db/repos/base/base-automation.repo';
 import { BaseRowRepo } from '@docmost/db/repos/base/base-row.repo';
 import { BasePropertyRepo } from '@docmost/db/repos/base/base-property.repo';
@@ -250,30 +251,4 @@ export class BaseAutomationService {
       clearTimeout(timer);
     }
   }
-}
-
-// Webhooks go to the outside world only (no loopback, link-local or private ranges).
-export function assertPublicUrl(raw: string): void {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new BadRequestException('Invalid webhook URL');
-  }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new BadRequestException('Webhook URL must be http(s)');
-  const host = url.hostname.toLowerCase();
-  const blocked =
-    host === 'localhost' ||
-    host.endsWith('.localhost') ||
-    host.endsWith('.local') ||
-    host.endsWith('.internal') ||
-    host === '0.0.0.0' ||
-    host === '::1' ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    /^fc|^fd|^fe80/i.test(host.replace(/[\[\]]/g, ''));
-  if (blocked) throw new BadRequestException('Webhook URL points inside the network');
 }

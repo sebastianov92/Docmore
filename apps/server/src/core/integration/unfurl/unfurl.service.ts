@@ -17,11 +17,15 @@ import { IntegrationConnection } from '@docmost/db/types/entity.types';
 import { RedisService } from '@nestjs-labs/nestjs-ioredis';
 import type { Redis } from 'ioredis';
 import * as crypto from 'crypto';
+import { assertPublicUrl, extractPageMeta, fetchPublicHtml } from '../../../common/helpers/public-url';
 
 const UNFURL_CACHE_TTL = 300; // 5 minutes
 // Short negative cache, so a card shows up soon after access changes.
 const UNFURL_ERROR_CACHE_TTL = 60;
 const UNFURL_CACHE_PREFIX = 'unfurl:';
+// Public pages change rarely; failures are retried sooner.
+const WEB_UNFURL_CACHE_TTL = 3600;
+const WEB_UNFURL_ERROR_TTL = 300;
 
 @Injectable()
 export class UnfurlService {
@@ -46,7 +50,10 @@ export class UnfurlService {
     const resolved = await this.resolveProvider(url, workspaceId);
 
     if (!resolved) {
-      return null;
+      // A link of a known integration that is not installed stays a plain
+      // link; any other web address gets a bookmark card from its metadata.
+      if (this.isIntegrationUrl(url)) return null;
+      return this.unfurlWeb(url);
     }
 
     const { provider, match, patternType, integration } = resolved;
@@ -162,6 +169,53 @@ export class UnfurlService {
       }
       this.logger.error(`Unfurl failed for ${url}: ${(err as Error).message}`);
       await this.cacheNull(cacheKey, UNFURL_ERROR_CACHE_TTL);
+      return null;
+    }
+  }
+
+  // Links any registered integration knows how to unfurl, installed or not
+  // (their pages need a login anyway).
+  private isIntegrationUrl(url: string): boolean {
+    if (this.registry.findUnfurlProvider(url)) return true;
+    for (const provider of this.registry.getAllProviders()) {
+      if (!provider.getUnfurlPatterns) continue;
+      let patterns: Array<{ regex: RegExp }> = [];
+      try {
+        patterns = provider.getUnfurlPatterns({});
+      } catch {
+        continue;
+      }
+      if (patterns.some((p) => p.regex.test(url))) return true;
+    }
+    return false;
+  }
+
+  // Title, description, image and icon of any public web page (cached per URL).
+  private async unfurlWeb(url: string): Promise<UnfurlResult | null> {
+    if (!/^https?:\/\//i.test(url)) return null;
+    const cacheKey = `${UNFURL_CACHE_PREFIX}web:${crypto.createHash('sha1').update(url).digest('hex')}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+    try {
+      assertPublicUrl(url);
+      const fetched = await fetchPublicHtml(url, { timeoutMs: 6_000, maxBytes: 512_000 });
+      if (!/text\/html|application\/xhtml/i.test(fetched.contentType) || fetched.status >= 400) {
+        await this.cacheNull(cacheKey, WEB_UNFURL_ERROR_TTL);
+        return null;
+      }
+      const meta = extractPageMeta(fetched.body, fetched.url);
+      const result: UnfurlResult = {
+        provider: 'web',
+        title: meta.title,
+        description: meta.description,
+        url: fetched.url,
+        metadata: { type: 'link', image: meta.image, siteName: meta.siteName, favicon: meta.favicon, hostname: meta.hostname },
+      };
+      await this.redis.set(cacheKey, JSON.stringify(result), 'EX', WEB_UNFURL_CACHE_TTL);
+      return result;
+    } catch (err) {
+      this.logger.debug(`Web unfurl failed for ${url}: ${(err as Error).message}`);
+      await this.cacheNull(cacheKey, WEB_UNFURL_ERROR_TTL);
       return null;
     }
   }

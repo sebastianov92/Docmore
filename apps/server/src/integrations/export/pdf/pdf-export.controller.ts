@@ -18,7 +18,7 @@ import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { PageRepo } from '@docmost/db/repos/page/page.repo';
 import { PagePermissionRepo } from '@docmost/db/repos/page/page-permission.repo';
-import { User } from '@docmost/db/types/entity.types';
+import { User, Workspace } from '@docmost/db/types/entity.types';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { AuthUser } from '../../../common/decorators/auth-user.decorator';
 import { ApiKeyScope } from '../../../common/decorators/api-key-scope.decorator';
@@ -29,11 +29,17 @@ import { AuditEvent, AuditResource } from '../../../common/events/audit-events';
 import { getPageTitle } from '../../../common/helpers';
 import { FileTaskStatus } from '../../import/utils/file.utils';
 import { PDF_EXPORT_SOURCE, PdfExportService } from './pdf-export.service';
-import { PdfDownloadDto, PdfRenderDto, StartPdfExportDto } from './dto/pdf-export.dto';
+import { PdfDownloadDto, PdfRenderDto, StartPdfExportDto, StartSpacePdfExportDto } from './dto/pdf-export.dto';
+import SpaceAbilityFactory from '../../../core/casl/abilities/space-ability.factory';
+import { SpaceCaslAction, SpaceCaslSubject } from '../../../core/casl/interfaces/space-ability.type';
+import { UserRole } from '../../../common/helpers/types/permission';
+import { AuthWorkspace } from '../../../common/decorators/auth-workspace.decorator';
 
 @Controller('pdf-export')
 export class PdfExportController {
   constructor(
+    private readonly spaceAbility: SpaceAbilityFactory,
+    private readonly pageAccessService: PageAccessService,
     @InjectKysely() private readonly db: KyselyDB,
     private readonly pdfExport: PdfExportService,
     private readonly pageRepo: PageRepo,
@@ -67,6 +73,20 @@ export class PdfExportController {
   }
 
   @HttpCode(HttpStatus.OK)
+  // A whole space (or every space, for workspace admins) as a zip of PDFs.
+  @HttpCode(HttpStatus.OK)
+  @Post('space')
+  async startSpace(@Body() dto: StartSpacePdfExportDto, @AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
+    if (dto.spaceId) {
+      const ability = await this.spaceAbility.createForUser(user, dto.spaceId);
+      if (ability.cannot(SpaceCaslAction.Manage, SpaceCaslSubject.Settings)) throw new ForbiddenException();
+      await this.pageAccessService.validateCanExport(dto.spaceId, workspace.id);
+    } else if (user.role !== UserRole.OWNER && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only workspace admins export everything');
+    }
+    return this.pdfExport.startSpace(dto.spaceId ?? null, user, workspace.id);
+  }
+
   @Post('config')
   async config() {
     return { enabled: this.pdfExport.isConfigured() };

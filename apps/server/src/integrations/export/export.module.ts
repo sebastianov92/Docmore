@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { CaslModule } from '../../core/casl/casl.module';
+import { PageAccessModule } from '../../core/page/page-access/page-access.module';
 import { ExportService } from './export.service';
 import { ExportController } from './export.controller';
 import { StorageModule } from '../storage/storage.module';
@@ -9,7 +11,7 @@ import { PdfExportController } from './pdf/pdf-export.controller';
 import { TokenModule } from '../../core/auth/token.module';
 
 @Module({
-  imports: [StorageModule, TokenModule],
+  imports: [StorageModule, TokenModule, CaslModule, PageAccessModule],
   providers: [ExportService, DocxExportService, PdfExportService],
   controllers: [ExportController, DocxExportController, PdfExportController],
   exports: [PdfExportService],

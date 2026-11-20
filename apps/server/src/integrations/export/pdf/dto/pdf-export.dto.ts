@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class StartPdfExportDto {
   @IsUUID()
@@ -17,4 +17,11 @@ export class PdfRenderDto {
 export class PdfDownloadDto {
   @IsUUID()
   fileTaskId: string;
+}
+
+// A space, or every space when spaceId is left out.
+export class StartSpacePdfExportDto {
+  @IsOptional()
+  @IsUUID()
+  spaceId?: string;
 }

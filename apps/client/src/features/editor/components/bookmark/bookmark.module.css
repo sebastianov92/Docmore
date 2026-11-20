@@ -1,0 +1,55 @@
+.card {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 8px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  background: var(--mantine-color-body);
+  transition: background-color 120ms ease;
+}
+
+.card:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.thumb {
+  flex: 0 0 160px;
+  max-width: 35%;
+  object-fit: cover;
+  background: var(--mantine-color-default-hover);
+}
+
+.site {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.empty {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px dashed var(--mantine-color-default-border);
+  border-radius: 8px;
+}

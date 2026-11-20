@@ -22,7 +22,10 @@ import { useTranslation } from "react-i18next";
 import { Feature } from "@/ee/features";
 import { useHasFeature } from "@/ee/hooks/use-feature";
 import { useUpgradeLabel } from "@/ee/hooks/use-upgrade-label";
-import { exportPageToPdf } from "@/features/pdf-export/services";
+import {
+  exportPageToPdf,
+  exportSpaceToPdf,
+} from "@/features/pdf-export/services";
 
 interface ExportModalProps {
   id: string;
@@ -68,7 +71,11 @@ export default function ExportModal({
         }
       }
       if (type === "space") {
-        await exportSpace({ spaceId: id, format, includeAttachments });
+        if (format === ExportFormat.Pdf) {
+          await exportSpaceToPdf(id, setPdfStatus);
+        } else {
+          await exportSpace({ spaceId: id, format, includeAttachments });
+        }
       }
       notifications.show({
         message: t("Export successful"),
@@ -117,7 +124,7 @@ export default function ExportModal({
               onChange={handleChange}
               includeDocx={type === "page"}
               docxEntitled={docxEntitled}
-              includePdf={type === "page"}
+              includePdf={type === "page" || type === "space"}
               pdfEntitled={pdfEntitled}
             />
           </Group>
@@ -125,7 +132,9 @@ export default function ExportModal({
           {isPdf && (
             <Text size="sm" c="dimmed" mt="sm">
               {pdfStatus === "rendering"
-                ? t("Rendering the page…")
+                ? type === "space"
+                  ? t("Printing every page of the space…")
+                  : t("Rendering the page…")
                 : pdfStatus === "downloading"
                   ? t("Downloading…")
                   : t("The page is printed on the server as it looks on screen. It can take a few seconds.")}

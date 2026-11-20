@@ -34,6 +34,7 @@ import {
   IconSuperscript,
   IconChartBar,
   IconPlayerPlay,
+  IconBookmark,
 } from "@tabler/icons-react";
 import {
   CommandProps,
@@ -398,6 +399,15 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       requiresBases: true,
       command: ({ editor, range }: CommandProps) => {
         insertBaseEmbedBlock(editor, { range, template: "kanban" });
+      },
+    },
+    {
+      title: "Bookmark",
+      description: "A card for any web address",
+      searchTerms: ["bookmark", "link", "preview", "card", "url", "web"],
+      icon: IconBookmark,
+      command: ({ editor, range }: CommandProps) => {
+        editor.chain().focus().deleteRange(range).insertBookmark({ url: "" }).run();
       },
     },
     {

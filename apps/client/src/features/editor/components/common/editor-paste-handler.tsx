@@ -14,6 +14,7 @@ import {
   getAttachmentInfo,
   uploadFile,
 } from "@/features/page/services/page-service.ts";
+import { bookmarkPasteMenuKey } from "@/features/editor/extensions/bookmark-paste-menu";
 
 const ATTACHMENT_NODE_TYPES = [
   "image",
@@ -129,6 +130,25 @@ export const handlePaste = (
         .run();
       return true;
     }
+  }
+
+  // Any other web address: the link extension pastes it, then "Paste as"
+  // offers a bookmark card for it.
+  const trimmedUrl = clipboardData.trim();
+  if (
+    /^https?:\/\/\S+$/i.test(trimmedUrl) &&
+    !INTERNAL_LINK_REGEX.test(trimmedUrl.replace(/\?[^#]*/, "")) &&
+    editor.state.selection.empty
+  ) {
+    const from = editor.state.selection.from;
+    queueMicrotask(() => {
+      if (editor.isDestroyed) return;
+      const to = from + trimmedUrl.length;
+      if (to > editor.state.doc.content.size) return;
+      if (editor.state.doc.textBetween(from, to, "\n", "\n") !== trimmedUrl) return;
+      editor.view.dispatch(editor.state.tr.setMeta(bookmarkPasteMenuKey, { from, to, url: trimmedUrl }));
+    });
+    return false;
   }
 
   // A query, such as a base's ?view=, still links to the same page.

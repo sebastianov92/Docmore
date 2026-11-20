@@ -40,6 +40,7 @@ import { AnnouncementModule } from './announcement/announcement.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { McpModule } from './mcp/mcp.module';
 import { ClsMiddleware } from 'nestjs-cls';
+import { ClipperModule } from './clipper/clipper.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { ClsMiddleware } from 'nestjs-cls';
     MfaModule,
     TemplateModule,
     BaseModule,
+    ClipperModule,
     PagePermissionModule,
     SsoModule,
     PageVerificationModule,
