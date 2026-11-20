@@ -15,6 +15,7 @@ export const IMPORTABLE_TYPES = [
   "email",
   "phone",
   "location",
+  "connected",
 ] as const satisfies readonly BasePropertyType[];
 
 export type ImportableType = (typeof IMPORTABLE_TYPES)[number];

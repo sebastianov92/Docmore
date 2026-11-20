@@ -1,3 +1,4 @@
+import { BaseConnectedService, IBaseConnectedFetchJob } from '../connected/base-connected.service';
 import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -52,6 +53,7 @@ export class BaseQueueProcessor
     private readonly basePropertyService: BasePropertyService,
     private readonly eventEmitter: EventEmitter2,
     private readonly formulaLock: FormulaLockService,
+    private readonly connected: BaseConnectedService,
   ) {
     super();
   }
@@ -149,6 +151,10 @@ export class BaseQueueProcessor
           data.pageId,
         );
         this.emitSchemaBumped(data.pageId, data.workspaceId, schemaVersion);
+        return;
+      }
+      case QueueJob.BASE_CONNECTED_FETCH: {
+        await this.connected.fetch(job.data as IBaseConnectedFetchJob);
         return;
       }
       case QueueJob.BASE_FORMULA_RECOMPUTE: {

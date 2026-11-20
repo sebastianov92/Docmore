@@ -34,6 +34,7 @@ import { IntegrationAccessService } from './integration-access.service';
     IntegrationAccessService,
   ],
   exports: [
+    UnfurlService,
     IntegrationRegistry,
     IntegrationService,
     IntegrationConnectionService,

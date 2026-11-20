@@ -108,6 +108,7 @@ export enum QueueJob {
   BASE_TYPE_CONVERSION = 'base-type-conversion',
   BASE_CELL_GC = 'base-cell-gc',
   BASE_FORMULA_RECOMPUTE = 'base-formula-recompute',
+  BASE_CONNECTED_FETCH = 'base-connected-fetch',
   BASE_CSV_IMPORT = 'base-csv-import',
   BASE_AI_FILL = 'base-ai-fill',
   WEBHOOK_DELIVER = 'webhook-deliver',

@@ -2334,5 +2334,6 @@
   "is not empty": "no está vacío",
   "contains": "contiene",
   "checked": "marcado",
-  "unchecked": "sin marcar"
+  "unchecked": "sin marcar",
+  "no details": "sin detalles"
 }

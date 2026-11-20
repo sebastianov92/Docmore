@@ -17,6 +17,7 @@ export const BasePropertyType = {
   EMAIL: 'email',
   PHONE: 'phone',
   LOCATION: 'location',
+  CONNECTED: 'connected',
   ID: 'id',
   RELATION: 'relation',
   ROLLUP: 'rollup',
@@ -213,6 +214,7 @@ const typeOptionsSchemaMap: Record<BasePropertyTypeValue, z.ZodType> = {
   [BasePropertyType.EMAIL]: emailTypeOptionsSchema,
   [BasePropertyType.PHONE]: textTypeOptionsSchema,
   [BasePropertyType.LOCATION]: emptyTypeOptionsSchema,
+  [BasePropertyType.CONNECTED]: emptyTypeOptionsSchema,
   [BasePropertyType.ID]: idTypeOptionsSchema,
   [BasePropertyType.RELATION]: relationTypeOptionsSchema,
   [BasePropertyType.ROLLUP]: rollupTypeOptionsSchema,
@@ -281,7 +283,54 @@ const cellValueSchemaMap: Partial<Record<BasePropertyTypeValue, z.ZodType>> = {
       lng: z.number().min(-180).max(180).nullable().optional(),
     })
     .refine((v) => v.name.length > 0 || (typeof v.lat === 'number' && typeof v.lng === 'number'), 'A place needs a name or coordinates'),
+
+
+  // A link to something outside (a pull request, an issue, a file) whose
+  // details the server fetches and keeps fresh.
+  [BasePropertyType.CONNECTED]: z.object({
+    url: z.url().max(2000),
+    title: z.string().max(500).nullable().optional(),
+    description: z.string().max(2000).nullable().optional(),
+    status: z.string().max(100).nullable().optional(),
+    statusColor: z.string().max(40).nullable().optional(),
+    author: z.string().max(200).nullable().optional(),
+    provider: z.string().max(60).nullable().optional(),
+    providerIcon: z.string().max(60).nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+    fetchedAt: z.string().nullable().optional(),
+    error: z.string().max(300).nullable().optional(),
+    byUserId: z.string().nullable().optional(),
+  }),
 };
+
+export interface ConnectedValue {
+  url: string;
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  statusColor?: string | null;
+  author?: string | null;
+  provider?: string | null;
+  providerIcon?: string | null;
+  metadata?: Record<string, unknown> | null;
+  fetchedAt?: string | null;
+  error?: string | null;
+  byUserId?: string | null;
+}
+
+export function connectedToText(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const v = value as ConnectedValue;
+  if (!v.url) return '';
+  const bits = [v.title, v.status ? `[${v.status}]` : null].filter(Boolean).join(' ');
+  return bits ? `${bits} (${v.url})` : v.url;
+}
+
+export function parseConnectedText(text: string): ConnectedValue | null {
+  const raw = String(text ?? '').trim();
+  const m = /(https?:\/\/[^\s)]+)/i.exec(raw);
+  return m ? { url: m[1] } : null;
+}
 
 export interface LocationValue {
   name: string;
@@ -428,6 +477,14 @@ export function attemptCellConversion(
       const title = ctx.pageTitles?.get(value);
       return { converted: true, value: title ?? '' };
     }
+  }
+
+  // Connected links become their text; a text with a URL becomes a link.
+  if ((toType === BasePropertyType.TEXT || toType === BasePropertyType.LONG_TEXT || toType === BasePropertyType.URL) && fromType === BasePropertyType.CONNECTED) {
+    return { converted: true, value: toType === BasePropertyType.URL ? (value as any)?.url ?? null : connectedToText(value) };
+  }
+  if (toType === BasePropertyType.CONNECTED && fromType !== BasePropertyType.CONNECTED) {
+    return { converted: true, value: typeof value === 'string' ? parseConnectedText(value) : null };
   }
 
   // Places become their text, and text becomes a place when it reads as one.

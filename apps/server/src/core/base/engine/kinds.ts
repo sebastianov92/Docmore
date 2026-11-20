@@ -23,6 +23,7 @@ export function propertyKind(type: string): PropertyKindValue | null {
     case BasePropertyType.EMAIL:
     case BasePropertyType.PHONE:
     case BasePropertyType.LOCATION:
+    case BasePropertyType.CONNECTED:
       return PropertyKind.TEXT;
     case BasePropertyType.NUMBER:
       return PropertyKind.NUMERIC;

@@ -21,6 +21,7 @@ export type BasePropertyType =
   | 'email'
   | 'phone'
   | 'location'
+  | 'connected'
   | 'id'
   | 'relation'
   | 'rollup'

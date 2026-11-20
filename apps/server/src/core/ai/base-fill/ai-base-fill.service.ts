@@ -1,4 +1,4 @@
-import { parseLocationText } from '../../base/base.schemas';
+import { parseConnectedText, parseLocationText } from '../../base/base.schemas';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -140,6 +140,8 @@ export function coerce(text: string, property: BaseProperty): unknown {
       return t.slice(0, property.type === 'longText' ? 25_000 : 2_000);
     case 'location':
       return parseLocationText(t) ?? undefined;
+    case 'connected':
+      return parseConnectedText(t) ?? undefined;
     case 'number': {
       const n = Number(t.replace(/[^\d.,-]/g, '').replace(',', '.'));
       return Number.isFinite(n) ? n : undefined;

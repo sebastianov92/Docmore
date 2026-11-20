@@ -1,3 +1,6 @@
+import { BaseConnectedService } from './connected/base-connected.service';
+import { BaseConnectedListener } from './connected/base-connected.listener';
+import { IntegrationModule } from '../integration/integration.module';
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { BaseController } from './controllers/base.controller';
@@ -47,6 +50,7 @@ import { BaseFormController, BaseFormPublicController } from './forms/base-form.
     ShareModule,
     PublicSpaceModule,
     PageModule,
+    IntegrationModule,
   ],
   controllers: [
     BaseHistoryController,
@@ -63,6 +67,8 @@ import { BaseFormController, BaseFormPublicController } from './forms/base-form.
     BaseAutomationRepo,
     BaseAutomationService,
     BaseAutomationListener,
+    BaseConnectedService,
+    BaseConnectedListener,
     BaseFormRepo,
     BaseFormService,
     BaseVisibilityService,

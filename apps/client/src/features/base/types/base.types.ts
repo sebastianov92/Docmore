@@ -14,6 +14,7 @@ export type BasePropertyType =
   | 'email'
   | 'phone'
   | 'location'
+  | 'connected'
   | 'id'
   | 'relation'
   | 'rollup'
@@ -556,3 +557,6 @@ export type IPublicForm = {
 
 // A place: name, optional address and coordinates.
 export type ILocationValue = { name: string; address?: string | null; lat?: number | null; lng?: number | null };
+
+// A link to something outside whose details the server fetches.
+export type IConnectedValue = { url: string; title?: string | null; description?: string | null; status?: string | null; statusColor?: string | null; author?: string | null; provider?: string | null; providerIcon?: string | null; metadata?: Record<string, unknown> | null; fetchedAt?: string | null; error?: string | null };
