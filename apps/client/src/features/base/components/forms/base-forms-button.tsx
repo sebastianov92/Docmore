@@ -5,6 +5,7 @@ import { ActionIcon, Anchor, Button, Checkbox, Drawer, Group, Stack, Switch, Tex
 import { notifications } from "@mantine/notifications";
 import { IconForms, IconLink, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { FormField, IBase, IBaseForm } from "@/features/base/types/base.types";
+import { FormConditionEditor } from "@/features/base/components/forms/form-condition-editor";
 import { createForm, deleteForm, listForms, updateForm } from "@/features/base/services/base-service";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useClipboard } from "@/hooks/use-clipboard";
@@ -105,22 +106,36 @@ export function BaseFormsButton({ base, canEdit }: { base: IBase; canEdit: boole
             {eligible.map((p) => {
               const field = editing.draft.fields.find((f) => f.propertyId === p.id);
               return (
-                <Group key={p.id} gap="xs" justify="space-between" wrap="nowrap">
-                  <Checkbox size="xs" label={p.name} checked={Boolean(field)} onChange={(e) => setField(p.id, e.currentTarget.checked)} />
-                  {field && (
-                    <Switch
-                      size="xs"
-                      label={t("Required")}
-                      checked={Boolean(field.required)}
-                      onChange={(e) =>
-                        setEditing({
-                          ...editing,
-                          draft: { ...editing.draft, fields: editing.draft.fields.map((f) => (f.propertyId === p.id ? { ...f, required: e.currentTarget.checked } : f)) },
-                        })
-                      }
-                    />
+                <div key={p.id}>
+                  <Group gap="xs" justify="space-between" wrap="nowrap">
+                    <Checkbox size="xs" label={p.name} checked={Boolean(field)} onChange={(e) => setField(p.id, e.currentTarget.checked)} />
+                    {field && (
+                      <Switch
+                        size="xs"
+                        label={t("Required")}
+                        checked={Boolean(field.required)}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            draft: { ...editing.draft, fields: editing.draft.fields.map((f) => (f.propertyId === p.id ? { ...f, required: e.currentTarget.checked } : f)) },
+                          })
+                        }
+                      />
+                    )}
+                  </Group>
+                  {field && editing.draft.fields.length > 1 && (
+                    <div style={{ paddingLeft: 24, paddingTop: 4 }}>
+                      <FormConditionEditor
+                        field={field}
+                        fields={editing.draft.fields}
+                        properties={base.properties}
+                        onChange={(showIf) =>
+                          setEditing({ ...editing, draft: { ...editing.draft, fields: editing.draft.fields.map((f) => (f.propertyId === p.id ? { ...f, showIf } : f)) } })
+                        }
+                      />
+                    </div>
                   )}
-                </Group>
+                </div>
               );
             })}
             <TextInput size="xs" label={t("Submit button")} placeholder={t("Send")} value={editing.draft.submitLabel} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, submitLabel: e.currentTarget.value } })} />

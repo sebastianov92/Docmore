@@ -2322,5 +2322,17 @@
   "Name, or lat, lng": "Nombre, o lat, lng",
   "Address": "Dirección",
   "Latitude": "Latitud",
-  "Longitude": "Longitud"
+  "Longitude": "Longitud",
+  "Always shown": "Siempre visible",
+  "when {{name}}": "cuando {{name}}",
+  "Show when": "Mostrar cuando",
+  "Condition": "Condición",
+  "is": "es",
+  "is not": "no es",
+  "is any of": "es alguno de",
+  "is empty": "está vacío",
+  "is not empty": "no está vacío",
+  "contains": "contiene",
+  "checked": "marcado",
+  "unchecked": "sin marcar"
 }

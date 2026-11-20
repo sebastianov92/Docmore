@@ -1,3 +1,4 @@
+import { visibleFieldIds } from "@/features/base/forms/form-logic";
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -21,15 +22,16 @@ export default function PublicFormPage() {
   const [done, setDone] = useState<string | null>(null);
 
   const submit = useMutation({
-    mutationFn: () => submitPublicForm({ token, cells: values, website }),
+    mutationFn: () => submitPublicForm({ token, cells: Object.fromEntries(Object.entries(values).filter(([id]) => shown.has(id))), website }),
     onSuccess: (r) => setDone(r.thanksText || t("Thanks, we got it.")),
     onError: (err) => setErrors({ _form: getApiErrorMessage(err) }),
   });
 
+  const shown = useMemo(() => (form ? visibleFieldIds(form.fields as any, values) : new Set<string>()), [form, values]);
   const missing = useMemo(() => {
     if (!form) return [];
-    return form.fields.filter((f) => f.required && isEmpty(values[f.propertyId])).map((f) => f.propertyId);
-  }, [form, values]);
+    return form.fields.filter((f) => shown.has(f.propertyId) && f.required && isEmpty(values[f.propertyId])).map((f) => f.propertyId);
+  }, [form, values, shown]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +75,7 @@ export default function PublicFormPage() {
               </Text>
             )}
             <Stack gap="sm">
-              {form.fields.map((f) => (
+              {form.fields.filter((f) => shown.has(f.propertyId)).map((f) => (
                 <FieldInput key={f.propertyId} field={f} value={values[f.propertyId]} error={errors[f.propertyId]} onChange={(v) => setValues((prev) => ({ ...prev, [f.propertyId]: v }))} />
               ))}
               {/* honeypot: hidden from people, filled by bots */}

@@ -9,6 +9,7 @@ import { BaseRowService } from '../services/base-row.service';
 import { validateCellValue, BasePropertyTypeValue, parseLocationText } from '../base.schemas';
 import { basePropertyIdSchema } from '../base-ids';
 import { CreateFormDto, UpdateFormDto } from '../dto/form.dto';
+import { FORM_CONDITION_OPS, visibleFieldIds } from './form-logic';
 
 // Property types a stranger can fill in.
 const FORM_FIELD_TYPES = new Set(['text', 'longText', 'number', 'select', 'status', 'multiSelect', 'date', 'checkbox', 'url', 'email', 'phone', 'location']);
@@ -18,6 +19,15 @@ const fieldSchema = z.object({
   required: z.boolean().optional(),
   label: z.string().trim().max(120).optional(),
   help: z.string().trim().max(500).optional(),
+  // shown only when another field's answer matches
+  showIf: z
+    .object({
+      propertyId: basePropertyIdSchema,
+      op: z.enum(FORM_CONDITION_OPS as [string, ...string[]]),
+      value: z.unknown().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 const fieldsSchema = z.array(fieldSchema).min(1).max(40);
 export type FormField = z.infer<typeof fieldSchema>;
@@ -95,6 +105,7 @@ export class BaseFormService {
           help: f.help ?? null,
           type: p.type,
           required: Boolean(f.required),
+          showIf: f.showIf ?? null,
           typeOptions:
             p.type === 'select' || p.type === 'status' || p.type === 'multiSelect'
               ? { choices: (opts.choices ?? []).map((c: any) => ({ id: c.id, name: c.name, color: c.color })), choiceOrder: opts.choiceOrder ?? [] }
@@ -122,9 +133,12 @@ export class BaseFormService {
     this.rateLimit(`${token}:${ip}`);
     const properties = await this.basePropertyRepo.findByPageId(form.pageId);
     const out: Record<string, unknown> = {};
+    const shown = visibleFieldIds(form.fields as FormField[], cells ?? {});
     for (const field of form.fields as FormField[]) {
       const p = properties.find((x) => x.id === field.propertyId);
       if (!p || !this.fieldAllowed(p)) continue;
+      // a hidden field neither counts as required nor keeps what it sent
+      if (!shown.has(field.propertyId)) continue;
       let value = cells?.[p.id];
       if (value === '' || value === undefined) value = null;
       if (value === null) {
@@ -150,6 +164,12 @@ export class BaseFormService {
   private async parseFields(input: unknown, pageId: string): Promise<FormField[]> {
     const parsed = fieldsSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException({ message: 'Invalid form fields', errors: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
+    const ids = new Set(parsed.data.map((f) => f.propertyId));
+    for (const f of parsed.data) {
+      if (f.showIf && (f.showIf.propertyId === f.propertyId || !ids.has(f.showIf.propertyId))) {
+        throw new BadRequestException('A condition must point at another field of this form');
+      }
+    }
     const properties = await this.basePropertyRepo.findByPageId(pageId);
     for (const f of parsed.data) {
       const p = properties.find((x) => x.id === f.propertyId);

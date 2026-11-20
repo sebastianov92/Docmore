@@ -517,7 +517,8 @@ export type IAutomationRun = {
   createdAt: string;
 };
 
-export type FormField = { propertyId: string; required?: boolean; label?: string; help?: string };
+export type FormCondition = { propertyId: string; op: 'eq' | 'neq' | 'isEmpty' | 'isNotEmpty' | 'contains' | 'any'; value?: unknown };
+export type FormField = { propertyId: string; required?: boolean; label?: string; help?: string; showIf?: FormCondition | null };
 
 export type IBaseForm = {
   id: string;
@@ -539,6 +540,7 @@ export type IPublicFormField = {
   help: string | null;
   type: BasePropertyType;
   required: boolean;
+  showIf?: { propertyId: string; op: string; value?: unknown } | null;
   typeOptions: { choices?: Choice[]; choiceOrder?: string[]; format?: string };
 };
 
