@@ -635,11 +635,12 @@ export class WorkspaceService {
         typeof updateWorkspaceDto.analyticsEnabled !== 'undefined' ||
         typeof updateWorkspaceDto.analyticsAnonymous !== 'undefined'
       ) {
-        const analytics = { ...((settingsBefore?.analytics as Record<string, unknown>) ?? {}) };
+        const prevAnalytics = settingsBefore?.analytics;
+        const analytics: Record<string, unknown> = { ...(prevAnalytics && typeof prevAnalytics === 'object' ? (prevAnalytics as Record<string, unknown>) : {}) };
         if (typeof updateWorkspaceDto.analyticsEnabled !== 'undefined') analytics.enabled = updateWorkspaceDto.analyticsEnabled;
         if (typeof updateWorkspaceDto.analyticsAnonymous !== 'undefined') analytics.anonymous = updateWorkspaceDto.analyticsAnonymous;
         after.analytics = analytics;
-        await sql`update workspaces set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{analytics}', ${JSON.stringify(analytics)}::jsonb) where id = ${workspaceId}`.execute(trx);
+        await sql`update workspaces set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{analytics}', ${analytics as any}::jsonb) where id = ${workspaceId}`.execute(trx);
       }
 
       if (typeof updateWorkspaceDto.publicSpacesDirectory !== 'undefined') {

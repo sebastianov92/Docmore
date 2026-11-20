@@ -112,7 +112,7 @@ export class ScimService {
   // Deprovision: the account is deactivated and marked deleted, never purged.
   async deleteUser(workspaceId: string, id: string) {
     const user = await this.findUser(workspaceId, id);
-    await this.userRepo.updateUser({ deactivatedAt: new Date(), deletedAt: new Date() } as any, user.id, workspaceId);
+    await this.userRepo.updateUser({ deactivatedAt: new Date() } as any, user.id, workspaceId);
   }
 
   // ---------- groups
@@ -180,7 +180,7 @@ export class ScimService {
   async deleteGroup(workspaceId: string, id: string) {
     const group = await this.findGroup(workspaceId, id);
     if (group.isDefault) throw new BadRequestException('The default group cannot be deleted');
-    await this.groupRepo.delete(group.id, workspaceId);
+    await this.groupRepo.delete(group.id, workspaceId, {});
   }
 
   // ---------- shapes

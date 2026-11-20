@@ -134,7 +134,12 @@ export class AiMcpServerService {
       .where('id', '=', row.id)
       .returningAll()
       .executeTakeFirstOrThrow();
-    const refreshed = data.url !== undefined || data.authValue !== undefined ? await this.refreshTools(updated as any).catch(() => updated) : updated;
+    const refreshed =
+      data.url !== undefined || data.authValue !== undefined
+        ? await this.refreshTools(updated as any).catch(() =>
+            this.db.selectFrom('aiMcpServers').selectAll().where('id', '=', row.id).executeTakeFirstOrThrow(),
+          )
+        : updated;
     return this.view(refreshed as any);
   }
 

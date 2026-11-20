@@ -78,7 +78,11 @@ export class NotificationWebhookService {
     const workspace = await this.workspaceRepo.findById(workspaceId);
     const hook = this.read(workspace?.settings).find((h) => h.id === id);
     if (!hook) throw new BadRequestException('Webhook not found');
-    await this.post(hook, { title: 'Docmore test', text: 'This webhook is connected.', url: this.environment.getAppUrl() });
+    try {
+      await this.post(hook, { title: 'Docmore test', text: 'This webhook is connected.', url: this.environment.getAppUrl() });
+    } catch (err: any) {
+      throw new BadRequestException(`The webhook ${String(err?.message ?? 'failed').slice(0, 200)}`);
+    }
     return { ok: true };
   }
 
