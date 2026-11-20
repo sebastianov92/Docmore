@@ -222,6 +222,63 @@ outside the `ee/` directories, so they are always on:
   Markdown; `/pages/create` and `/pages/update` take `format: markdown`.
   `tools/docmore-cli/docmore.mjs` wraps the API (login, spaces, pages,
   get, create, update, search, export) with an API key.
+- **Bases, second batch**: relation and rollup properties (rows of
+  another base, with the reverse side and server-side aggregates),
+  sub-items and blocks / blocked-by dependencies, a timeline view, grouping
+  and sub-grouping in the table, a chart view (bar, line, pie), linked
+  views (`/base` can embed one view of any base, so a page works as a
+  dashboard), per-column visibility (everyone, editors, admins), row
+  comments, cell history with restore, automations (row created or changed,
+  form submitted or a button pressed; conditions as a filter tree; set
+  cells, create a row, notify people, call a webhook; a run log), button
+  blocks and button properties, public forms that create rows, and AI
+  autofill of a property from a prompt.
+- **Links and files**: a bookmark card for any URL (Open Graph, with an
+  SSRF guard), PDF export of a whole space or workspace as a ZIP, and a
+  browser web clipper (`apps/clipper`, plus `/clip`) that saves a readable
+  copy of a page into a space with an API key.
+- **People and access**: a guest role that reaches pages only through
+  page permissions, a commenter space role, admin scopes (members,
+  spaces, audit, settings...), Slack and Teams notification webhooks,
+  page and workspace analytics (views and readers per day, optional
+  anonymous mode) and a public hostname per space.
+- **Integration and identity**: outgoing webhooks with HMAC signatures,
+  retries and a delivery log; SIEM export of the audit log to a webhook,
+  Splunk HEC or Elasticsearch; SAML 2.0 identity providers next to OIDC;
+  SCIM 2.0 provisioning at `/api/scim/v2`; Jira and Google Drive link
+  connectors.
+- **AI, second batch**: the chat can call tools on outside MCP servers
+  (workspace ones set by admins, personal ones per member; read-only tools
+  run at once, the rest wait for an Allow in the chat), skills (reusable
+  instructions picked with `/` in the chat, in Ask AI, and served as MCP
+  prompts), a research mode that plans sub-questions, reads the wiki as
+  you and writes a long cited report you can save as a page, and meeting
+  notes from an uploaded recording (summary, decisions, action items and a
+  stamped transcript appended to the page) with a transcription model
+  chosen under Settings > AI.
+- **Desktop**: `desktop/` holds an Electron shell around your server
+  (native notifications, badge, deep links, shortcuts); the web app is
+  also installable as a PWA.
+- **Interactive HTML blocks**: `/html` in the editor holds markup, styles
+  and scripts and shows them in a sandboxed iframe (scripts yes,
+  same-origin no, no network), so the code never reaches the wiki.
+- **Suggest mode**: anyone who can read a page proposes a new version
+  ("Suggest edits"); editors see the diff, accept (the page takes that
+  version) or reject with a note; authors are notified.
+- **Bases, third batch**: a feed view (rows as posts), a location property
+  (name, address, coordinates, map link), conditional form fields ("show
+  when"), and connected properties (a link whose title, status and author
+  the integrations fill in and refresh).
+- **Live meeting recorder**: "Record meeting" records the microphone with
+  a live transcript every 45 seconds; stopping turns the recording into
+  notes on the page.
+- **Managed users**: admins fix a member's name or email, sign them out
+  everywhere, send or set a password, or restrict the account to single
+  sign-on; the members table shows the last sign-in.
+- **Home widgets and shortcuts**: the home page shows the rows assigned to
+  you across bases, what is due this week and your shortcuts (pages pinned
+  from their menu or links); shortcuts also live in the sidebar, and
+  Cmd/Ctrl + / lists the keyboard shortcuts.
 
 For development only, `DOCMORE_PREVIEW_EE=true` makes the server report
 every enterprise feature as licensed so the upstream enterprise screens
