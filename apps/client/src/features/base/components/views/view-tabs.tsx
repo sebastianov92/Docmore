@@ -20,6 +20,7 @@ import {
   IconCalendar,
   IconLayoutList,
   IconLayoutGrid,
+  IconRss,
   IconTimeline,
   IconChartBar,
   IconLink,
@@ -32,6 +33,7 @@ export const VIEW_ICONS: Record<BaseViewType, typeof IconTable> = {
   calendar: IconCalendar,
   list: IconLayoutList,
   gallery: IconLayoutGrid,
+  feed: IconRss,
   timeline: IconTimeline,
   chart: IconChartBar,
 };
@@ -176,6 +178,9 @@ export function ViewTabs({
             </Menu.Item>
             <Menu.Item leftSection={<IconLayoutGrid size={14} />} onClick={() => onAddView("gallery")}>
               {t("Gallery")}
+            </Menu.Item>
+            <Menu.Item leftSection={<IconRss size={14} />} onClick={() => onAddView("feed")}>
+              {t("Feed")}
             </Menu.Item>
             <Menu.Item leftSection={<IconTimeline size={14} />} onClick={() => onAddView("timeline")}>
               {t("Timeline")}

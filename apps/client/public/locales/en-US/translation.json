@@ -2413,5 +2413,10 @@
   "Pick a suggestion to see what it changes.": "Pick a suggestion to see what it changes.",
   "<bold>{{name}}</bold> suggested edits to a page": "<bold>{{name}}</bold> suggested edits to a page",
   "<bold>{{name}}</bold> accepted your suggested edits": "<bold>{{name}}</bold> accepted your suggested edits",
-  "<bold>{{name}}</bold> rejected your suggested edits": "<bold>{{name}}</bold> rejected your suggested edits"
+  "<bold>{{name}}</bold> rejected your suggested edits": "<bold>{{name}}</bold> rejected your suggested edits",
+  "Feed": "Feed",
+  "New post": "New post",
+  "Nothing posted yet.": "Nothing posted yet.",
+  "No body": "No body",
+  "Post body": "Post body"
 }

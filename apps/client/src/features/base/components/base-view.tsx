@@ -241,6 +241,7 @@ export function BaseView({
     isCalendar ||
     effectiveView?.type === "list" ||
     effectiveView?.type === "gallery" ||
+    effectiveView?.type === "feed" ||
     effectiveView?.type === "timeline" ||
     effectiveView?.type === "chart";
 
@@ -298,6 +299,7 @@ export function BaseView({
         gallery: t("Gallery"),
         timeline: t("Timeline"),
         chart: t("Chart"),
+        feed: t("Feed"),
       };
       const config: Record<string, unknown> = {};
       if (type === "chart") {
@@ -318,6 +320,16 @@ export function BaseView({
         const file = base?.properties.find((p) => p.type === "file");
         if (file) config.coverPropertyId = file.id;
         config.cardSize = "medium";
+      }
+      if (type === "feed") {
+        const text = base?.properties.find((p) => p.type === "longText");
+        if (text) config.feedBodyPropertyId = text.id;
+        const file = base?.properties.find((p) => p.type === "file");
+        if (file) config.coverPropertyId = file.id;
+        config.feedShowProperties = true;
+        // newest first when the base stamps creation
+        const created = base?.properties.find((p) => p.type === "createdAt");
+        if (created) config.sorts = [{ propertyId: created.id, direction: "desc" }];
       }
       if (type === "kanban") {
         const groupable = base?.properties.find((p) => p.type === "select" || p.type === "status");

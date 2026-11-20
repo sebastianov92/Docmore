@@ -2311,5 +2311,10 @@
   "Pick a suggestion to see what it changes.": "Elige una sugerencia para ver qué cambia.",
   "<bold>{{name}}</bold> suggested edits to a page": "<bold>{{name}}</bold> sugirió cambios en una página",
   "<bold>{{name}}</bold> accepted your suggested edits": "<bold>{{name}}</bold> aceptó tus cambios sugeridos",
-  "<bold>{{name}}</bold> rejected your suggested edits": "<bold>{{name}}</bold> rechazó tus cambios sugeridos"
+  "<bold>{{name}}</bold> rejected your suggested edits": "<bold>{{name}}</bold> rechazó tus cambios sugeridos",
+  "Feed": "Feed",
+  "New post": "Nueva publicación",
+  "Nothing posted yet.": "Aún no hay publicaciones.",
+  "No body": "Sin cuerpo",
+  "Post body": "Cuerpo de la publicación"
 }

@@ -9,6 +9,7 @@ import { BaseKanban } from "@/features/base/components/views/kanban/base-kanban"
 import { BaseCalendar } from "@/features/base/components/views/calendar/base-calendar";
 import { BaseList } from "@/features/base/components/views/list/base-list";
 import { BaseGallery } from "@/features/base/components/views/gallery/base-gallery";
+import { BaseFeed } from "@/features/base/components/views/feed/base-feed";
 import { BaseTimeline } from "@/features/base/components/views/timeline/base-timeline";
 import { BaseChart } from "@/features/base/components/views/chart/base-chart";
 
@@ -82,6 +83,22 @@ export function ViewRenderer(props: ViewRendererProps) {
   if (viewType === "list") {
     return (
       <BaseList
+        base={props.base}
+        rows={props.rows}
+        effectiveView={props.effectiveView}
+        embedded={props.embedded}
+        onCardClick={props.onCardClick}
+        onAddRow={props.onAddRow}
+        hasNextPage={props.hasNextPage}
+        isFetchingNextPage={props.isFetchingNextPage}
+        onFetchNextPage={props.onFetchNextPage}
+      />
+    );
+  }
+
+  if (viewType === "feed") {
+    return (
+      <BaseFeed
         base={props.base}
         rows={props.rows}
         effectiveView={props.effectiveView}

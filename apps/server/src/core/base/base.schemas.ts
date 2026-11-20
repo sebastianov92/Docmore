@@ -507,6 +507,10 @@ export const viewConfigSchema = z
     // Gallery-only: card size and the file property shown as cover.
     cardSize: z.enum(['small', 'medium', 'large']).optional(),
     coverPropertyId: basePropertyIdSchema.optional(),
+    // Feed: the long text shown as the post body, and whether the other
+    // properties ride along under it.
+    feedBodyPropertyId: basePropertyIdSchema.optional(),
+    feedShowProperties: z.boolean().optional(),
     // Timeline: start and (optional) end date properties, zoom level.
     timelineStartPropertyId: basePropertyIdSchema.optional(),
     timelineEndPropertyId: basePropertyIdSchema.optional(),

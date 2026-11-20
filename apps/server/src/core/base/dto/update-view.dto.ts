@@ -20,7 +20,7 @@ export class UpdateViewDto {
   name?: string;
 
   @IsOptional()
-  @IsIn(['table', 'kanban', 'calendar', 'list', 'gallery', 'timeline', 'chart'])
+  @IsIn(['table', 'kanban', 'calendar', 'list', 'gallery', 'timeline', 'chart', 'feed'])
   type?: string;
 
   @IsOptional()

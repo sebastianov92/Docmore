@@ -211,6 +211,8 @@ export type ViewConfig = {
   // Gallery
   cardSize?: 'small' | 'medium' | 'large';
   coverPropertyId?: string;
+  feedBodyPropertyId?: string;
+  feedShowProperties?: boolean;
   // Timeline
   timelineStartPropertyId?: string;
   timelineEndPropertyId?: string;
@@ -228,7 +230,7 @@ export type ViewConfig = {
   chartShowValues?: boolean;
 };
 
-export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery' | 'timeline' | 'chart';
+export type BaseViewType = 'table' | 'kanban' | 'calendar' | 'list' | 'gallery' | 'timeline' | 'chart' | 'feed';
 
 export type ReferenceUser = { id: string; name: string | null; avatarUrl: string | null };
 export type ReferencePage = {

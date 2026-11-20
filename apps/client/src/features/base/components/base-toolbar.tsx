@@ -40,6 +40,7 @@ import { useAtomValue } from "jotai";
 import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 import { RowTemplatesMenu } from "@/features/base/components/templates/row-templates-menu";
 import { GalleryControls } from "@/features/base/components/views/gallery/gallery-controls";
+import { FeedControls } from "@/features/base/components/views/feed/feed-controls";
 import { BaseHistoryButton } from "@/features/base/components/history/base-history-button";
 import { BaseAutomationsButton } from "@/features/base/components/automations/base-automations-button";
 import { BaseFormsButton } from "@/features/base/components/forms/base-forms-button";
@@ -174,6 +175,7 @@ export function BaseToolbar({
   const isCalendar = activeView?.type === "calendar";
   const isList = activeView?.type === "list";
   const isGallery = activeView?.type === "gallery";
+  const isFeed = activeView?.type === "feed";
   const isTimeline = activeView?.type === "timeline";
   const isTable = activeView?.type === "table";
 
@@ -204,6 +206,14 @@ export function BaseToolbar({
       } as any,
     });
   }, [activeView, base.id, updateViewMutation]);
+
+  const handleFeedConfig = useCallback(
+    (patch: Record<string, unknown>) => {
+      if (!activeView) return;
+      updateViewMutation.mutate({ viewId: activeView.id, pageId: base.id, config: { ...activeView.config, ...patch } as any });
+    },
+    [activeView, base.id, updateViewMutation],
+  );
 
   const handleCoverChange = useCallback(
     (propertyId: string | null) => {
@@ -346,6 +356,15 @@ export function BaseToolbar({
             aria-label={t("Sub-items")}
           />
         </Tooltip>
+      )}
+      {isFeed && canEdit && (
+        <FeedControls
+          properties={base.properties}
+          bodyPropertyId={activeView?.config?.feedBodyPropertyId ?? null}
+          showProperties={activeView?.config?.feedShowProperties !== false}
+          onBodyChange={(id) => handleFeedConfig({ feedBodyPropertyId: id ?? undefined })}
+          onShowPropertiesChange={(show) => handleFeedConfig({ feedShowProperties: show })}
+        />
       )}
       {isGallery && canEdit && (
         <GalleryControls
