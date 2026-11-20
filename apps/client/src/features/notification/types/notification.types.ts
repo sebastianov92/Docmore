@@ -18,7 +18,10 @@ export type NotificationType =
   | "base.import_failed"
   | "ai.research_completed"
   | "ai.meeting_notes_ready"
-  | "ai.meeting_notes_failed";
+  | "ai.meeting_notes_failed"
+  | "page.suggestion_created"
+  | "page.suggestion_accepted"
+  | "page.suggestion_rejected";
 
 export type INotification = {
   id: string;

@@ -20,6 +20,9 @@ export const NotificationType = {
   AI_RESEARCH_COMPLETED: 'ai.research_completed',
   AI_MEETING_NOTES_READY: 'ai.meeting_notes_ready',
   AI_MEETING_NOTES_FAILED: 'ai.meeting_notes_failed',
+  PAGE_SUGGESTION_CREATED: 'page.suggestion_created',
+  PAGE_SUGGESTION_ACCEPTED: 'page.suggestion_accepted',
+  PAGE_SUGGESTION_REJECTED: 'page.suggestion_rejected',
 } as const;
 
 export type NotificationType =
@@ -58,6 +61,9 @@ export const DIRECT_NOTIFICATION_TYPES: NotificationType[] = [
   NotificationType.AI_RESEARCH_COMPLETED,
   NotificationType.AI_MEETING_NOTES_READY,
   NotificationType.AI_MEETING_NOTES_FAILED,
+  NotificationType.PAGE_SUGGESTION_CREATED,
+  NotificationType.PAGE_SUGGESTION_ACCEPTED,
+  NotificationType.PAGE_SUGGESTION_REJECTED,
 ];
 
 export const UPDATES_NOTIFICATION_TYPES: NotificationType[] = [

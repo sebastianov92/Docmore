@@ -88,6 +88,9 @@ export const AuditEvent = {
   PAGE_VERIFIED: 'page.verified',
   PAGE_APPROVAL_REQUESTED: 'page.approval_requested',
   PAGE_APPROVAL_REJECTED: 'page.approval_rejected',
+  PAGE_SUGGESTION_CREATED: 'page.suggestion_created',
+  PAGE_SUGGESTION_ACCEPTED: 'page.suggestion_accepted',
+  PAGE_SUGGESTION_REJECTED: 'page.suggestion_rejected',
   PAGE_MARKED_OBSOLETE: 'page.marked_obsolete',
   PAGE_VERIFICATION_INVALIDATED: 'page.verification_invalidated',
 

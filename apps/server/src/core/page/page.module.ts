@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { PageService } from './services/page.service';
 import { PageController } from './page.controller';
+import { NotificationModule } from '../notification/notification.module';
+import { PageSuggestionController } from './suggestions/page-suggestion.controller';
+import { PageSuggestionService } from './suggestions/page-suggestion.service';
 import { PageHistoryService } from './services/page-history.service';
 import { TrashCleanupService } from './services/trash-cleanup.service';
 import { BacklinkService } from './services/backlink.service';
@@ -14,15 +17,16 @@ import { UnsplashModule } from '../../integrations/unsplash/unsplash.module';
 import { PageVerificationInvalidationModule } from './verification/page-verification-invalidation.module';
 
 @Module({
-  controllers: [PageController],
+  controllers: [PageController, PageSuggestionController],
   providers: [
+    PageSuggestionService,
     PageService,
     PageHistoryService,
     TrashCleanupService,
     BacklinkService,
   ],
   exports: [PageService, PageHistoryService],
-  imports: [
+  imports: [NotificationModule, 
     StorageModule,
     CollaborationModule,
     WatcherModule,

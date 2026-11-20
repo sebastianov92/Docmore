@@ -86,6 +86,12 @@ export function NotificationItem({
         return "Meeting notes from <bold>{{fileName}}</bold> are ready";
       case "ai.meeting_notes_failed":
         return "Couldn't transcribe <bold>{{fileName}}</bold>";
+      case "page.suggestion_created":
+        return "<bold>{{name}}</bold> suggested edits to a page";
+      case "page.suggestion_accepted":
+        return "<bold>{{name}}</bold> accepted your suggested edits";
+      case "page.suggestion_rejected":
+        return "<bold>{{name}}</bold> rejected your suggested edits";
       default:
         return "";
     }
@@ -134,6 +140,9 @@ export function NotificationItem({
       : undefined;
 
   const getImportDetail = (): string | null => {
+    if ((notification.type === "page.suggestion_created" || notification.type === "page.suggestion_rejected" || notification.type === "page.suggestion_accepted") && typeof (notification.data?.note ?? notification.data?.reviewNote) === "string") {
+      return (notification.data?.note ?? notification.data?.reviewNote) as string;
+    }
     if (notification.type === "ai.meeting_notes_failed") {
       return typeof notification.data?.error === "string" ? notification.data.error : null;
     }

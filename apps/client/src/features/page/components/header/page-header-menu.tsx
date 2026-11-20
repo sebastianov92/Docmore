@@ -56,6 +56,11 @@ import {
 } from "@/features/editor/atoms/editor-atoms.ts";
 import { formattedDate } from "@/lib/time.ts";
 import { PageEditModeToggle } from "@/features/user/components/page-state-pref.tsx";
+import { SuggestButton } from "@/features/page-suggestion/components/suggest-button";
+import { SuggestEditorModal } from "@/features/page-suggestion/components/suggest-editor-modal";
+import { SuggestionsModal } from "@/features/page-suggestion/components/suggestions-modal";
+import { suggestEditorOpenAtom, suggestionsModalOpenAtom } from "@/features/page-suggestion/services";
+import { IconListCheck, IconPencilQuestion } from "@tabler/icons-react";
 import MovePageModal from "@/features/page/components/move-page-modal.tsx";
 import PageAttachmentsModal from "@/features/attachments/components/page-attachments-modal.tsx";
 import PresentationModal from "@/features/editor/components/presentation/presentation-modal.tsx";
@@ -135,6 +140,7 @@ export default function PageHeaderMenu({ readOnly }: PageHeaderMenuProps) {
       {!readOnly && !page?.isBase && (
         <PageEditModeToggle size="xs" pageId={page?.id} />
       )}
+      <SuggestButton page={page} readOnly={readOnly} />
 
       <PageShareModal readOnly={readOnly} />
 
@@ -173,6 +179,8 @@ interface PageActionMenuProps {
 function PageActionMenu({ readOnly }: PageActionMenuProps) {
   const { t } = useTranslation();
   const [, setHistoryModalOpen] = useAtom(historyAtoms);
+  const [, setSuggestEditorOpen] = useAtom(suggestEditorOpenAtom);
+  const [, setSuggestionsOpen] = useAtom(suggestionsModalOpenAtom);
   const clipboard = useClipboard({ timeout: 500 });
   const { pageSlug, spaceSlug } = useParams();
   const { data: page, isLoading } = usePageQuery({
@@ -380,6 +388,17 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
           )}
 
           {!page?.isBase && (
+            <Menu.Item leftSection={<IconPencilQuestion size={16} />} onClick={() => setSuggestEditorOpen(true)}>
+              {t("Suggest edits")}
+            </Menu.Item>
+          )}
+          {!page?.isBase && (
+            <Menu.Item leftSection={<IconListCheck size={16} />} onClick={() => setSuggestionsOpen(true)}>
+              {t("Suggested edits")}
+            </Menu.Item>
+          )}
+
+          {!page?.isBase && (
             <Menu.Item
               leftSection={<IconPaperclip size={16} />}
               onClick={openAttachmentsModal}
@@ -538,6 +557,8 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
         opened={presentationOpened}
         onClose={closePresentationModal}
       />
+      <SuggestEditorModal page={page} />
+      <SuggestionsModal page={page} />
     </>
   );
 }

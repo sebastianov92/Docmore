@@ -10,6 +10,7 @@ import { BaseAutomationRuns, BaseAutomations, BaseForms } from '@docmost/db/type
 import { PageViews } from '@docmost/db/types/analytics.types';
 import { WebhookDeliveries, Webhooks } from '@docmost/db/types/webhook.types';
 import { AiMcpServers, AiMeetingNotes, AiResearchReports, AiSkills, AiToolApprovals } from '@docmost/db/types/ai-extras.types';
+import { PageSuggestions } from '@docmost/db/types/suggestion.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -29,4 +30,5 @@ export interface DbInterface extends DB {
   aiSkills: AiSkills;
   aiResearchReports: AiResearchReports;
   aiMeetingNotes: AiMeetingNotes;
+  pageSuggestions: PageSuggestions;
 }
