@@ -9,7 +9,10 @@ describe('GroupController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GroupController],
       providers: [GroupService],
-    }).compile();
+    })
+      // every dependency not declared above is a plain mock
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<GroupController>(GroupController);
   });

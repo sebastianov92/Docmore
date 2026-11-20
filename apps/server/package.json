@@ -201,7 +201,8 @@
       "^@docmost/base-formula/server$": "<rootDir>/../../../packages/base-formula/src/index.server.ts",
       "^@docmost/base-formula/client$": "<rootDir>/../../../packages/base-formula/src/index.client.ts",
       "^@docmore/base-formula/server$": "<rootDir>/../../../packages/base-formula-core/src/index.server.ts",
-      "^@docmore/base-formula/client$": "<rootDir>/../../../packages/base-formula-core/src/index.client.ts"
+      "^@docmore/base-formula/client$": "<rootDir>/../../../packages/base-formula-core/src/index.client.ts",
+      "^content-disposition$": "<rootDir>/../test/mocks/content-disposition.js"
     }
   }
 }

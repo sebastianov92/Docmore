@@ -7,7 +7,10 @@ describe('SearchService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [SearchService],
-    }).compile();
+    })
+      // every dependency not declared above is a plain mock
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get<SearchService>(SearchService);
   });

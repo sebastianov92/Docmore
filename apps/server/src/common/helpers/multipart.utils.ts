@@ -30,7 +30,12 @@ export async function streamMultipartFile(
   });
 
   // Unlike pipe(), this also fails the stream when the client disconnects
-  pipeline(source, stream, () => undefined);
+  if (source.destroyed && !source.readableEnded) {
+    // the client left before anyone read the file
+    stream.destroy(Object.assign(new Error('Premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }));
+  } else {
+    pipeline(source, stream, () => undefined);
+  }
 
   try {
     await upload(stream);

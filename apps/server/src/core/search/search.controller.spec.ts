@@ -8,7 +8,10 @@ describe('SearchController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SearchController],
-    }).compile();
+    })
+      // every dependency not declared above is a plain mock
+      .useMocker(() => ({}))
+      .compile();
 
     controller = module.get<SearchController>(SearchController);
   });

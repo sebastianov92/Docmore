@@ -7,7 +7,10 @@ describe('SpaceService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [SpaceService],
-    }).compile();
+    })
+      // every dependency not declared above is a plain mock
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get<SpaceService>(SpaceService);
   });

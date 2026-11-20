@@ -143,15 +143,17 @@ describe('multipart utils', () => {
         fileReceived,
       );
 
-      expect((await failed).message).toBe('Premature close');
-      await expect(settled).rejects.toThrow('Premature close');
+      // Node 22 says "Premature close", newer versions "aborted"
+      expect((await failed).message).toMatch(/Premature close|aborted/);
+      await expect(settled).rejects.toThrow(/Premature close|aborted/);
     });
 
     it('fails the stream when the client left before reading started', async () => {
       let streamFailed: (err: Error) => void;
       const failed = new Promise<Error>((resolve) => (streamFailed = resolve));
       onFile = async (file) => {
-        await once(file.file, 'close');
+        // newer Node versions error the file stream before closing it
+        await once(file.file, 'close').catch(() => undefined);
         return streamMultipartFile(file, (stream) =>
           collect(stream).catch(streamFailed),
         );

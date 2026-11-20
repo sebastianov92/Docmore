@@ -7,7 +7,10 @@ describe('StorageService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [StorageService],
-    }).compile();
+    })
+      // every dependency not declared above is a plain mock
+      .useMocker(() => ({}))
+      .compile();
 
     service = module.get<StorageService>(StorageService);
   });
