@@ -17,11 +17,16 @@ export interface IMeetingNotes {
 export const MEETING_ACCEPTED_FILES = ".mp3,.m4a,.wav,.webm,.ogg,.oga,.mp4,.mpga,.mpeg,.flac,.aac,audio/*";
 
 export async function transcribeMeeting(file: File, target: { pageId?: string; spaceId?: string }): Promise<IMeetingNotes> {
+  // fields go before the file: multipart fields that follow the file are not
+  // available when the server starts reading it
   const form = new FormData();
-  form.append("file", file);
   if (target.pageId) form.append("pageId", target.pageId);
   if (target.spaceId) form.append("spaceId", target.spaceId);
-  return (await api.post("/ai/meetings/transcribe", form, { headers: { "Content-Type": "multipart/form-data" } })).data;
+  form.append("file", file);
+  const query = new URLSearchParams();
+  if (target.pageId) query.set("pageId", target.pageId);
+  if (target.spaceId) query.set("spaceId", target.spaceId);
+  return (await api.post(`/ai/meetings/transcribe?${query.toString()}`, form, { headers: { "Content-Type": "multipart/form-data" } })).data;
 }
 // One piece of a running recording -> its text.
 export async function transcribeLiveChunk(blob: Blob, fileName: string): Promise<{ text: string; language: string | null }> {

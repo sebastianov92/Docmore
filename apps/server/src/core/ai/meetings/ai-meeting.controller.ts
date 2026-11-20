@@ -34,10 +34,15 @@ export class AiMeetingController {
       if (err?.statusCode === 413) throw new PayloadTooLargeException('Recordings up to 200 MB');
     }
     if (!file) throw new BadRequestException('Failed to upload file');
+    // multipart fields that follow the file are not parsed yet, so the query
+    // string carries them too
+    const query = (req.query ?? {}) as Record<string, string | undefined>;
     const field = (name: string): string | undefined => {
       const f = file.fields?.[name];
       const v = Array.isArray(f) ? f[0]?.value : f?.value;
-      return typeof v === 'string' && v ? v : undefined;
+      if (typeof v === 'string' && v) return v;
+      const q = query[name];
+      return typeof q === 'string' && q ? q : undefined;
     };
     return this.meetings.start(user, workspace, Promise.resolve(file), { pageId: field('pageId'), spaceId: field('spaceId') });
   }

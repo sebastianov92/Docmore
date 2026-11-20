@@ -101,9 +101,8 @@ export class AiProviderService {
       }
       case 'ollama': {
         const { createOllama } = await import('ai-sdk-ollama');
-        return createOllama({ baseURL: `${ollamaRoot(creds.baseUrl ?? 'http://localhost:11434')}/api` })(
-          picked.model,
-        );
+        // ai-sdk-ollama appends /api/... itself: the base is the host root
+        return createOllama({ baseURL: ollamaRoot(creds.baseUrl ?? 'http://localhost:11434') })(picked.model);
       }
       case 'compatible': {
         const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible');
@@ -140,7 +139,7 @@ export class AiProviderService {
       case 'ollama': {
         const { createOllama } = await import('ai-sdk-ollama');
         return createOllama({
-          baseURL: `${ollamaRoot(creds.baseUrl ?? 'http://localhost:11434')}/api`,
+          baseURL: ollamaRoot(creds.baseUrl ?? 'http://localhost:11434'),
         }).textEmbeddingModel(picked.model);
       }
       case 'compatible': {
