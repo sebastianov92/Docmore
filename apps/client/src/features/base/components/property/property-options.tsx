@@ -1,4 +1,8 @@
-import { useCallback, useMemo } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import {
   Stack,
   NumberInput,
@@ -6,6 +10,7 @@ import {
   Switch,
   Text,
   TextInput,
+  Textarea,
 } from "@mantine/core";
 import {
   IBaseProperty,
@@ -17,12 +22,17 @@ import {
   IdTypeOptions,
   RelationTypeOptions,
   RollupTypeOptions,
+  ButtonTypeOptions,
+  AiFillOptions,
 } from "@/features/base/types/base.types";
 import { ChoiceEditor } from "./choice-editor";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { useBaseQuery } from "@/features/base/queries/base-query";
-import { listBases } from "@/features/base/services/base-service";
+import {
+  listBases,
+  listAutomations,
+} from "@/features/base/services/base-service";
 
 type PropertyOptionsProps = {
   property: IBaseProperty;
@@ -32,10 +42,26 @@ type PropertyOptionsProps = {
   hideButtons?: boolean;
 };
 
-export function PropertyOptions({ property, onUpdate, onClose, onDirtyChange, hideButtons }: PropertyOptionsProps) {
+// Property types whose value an AI prompt can fill in.
+const AI_FILL_TYPES = new Set(["text", "longText", "number", "select", "status", "multiSelect", "checkbox"]);
+
+export function PropertyOptions(props: PropertyOptionsProps) {
+  const inner = <PropertyOptionsByType {...props} />;
+  if (!AI_FILL_TYPES.has(props.property.type)) return inner;
+  return (
+    <Stack gap="sm">
+      {inner}
+      <AiFillOptionsEditor property={props.property} onUpdate={props.onUpdate} />
+    </Stack>
+  );
+}
+
+function PropertyOptionsByType({ property, onUpdate, onClose, onDirtyChange, hideButtons }: PropertyOptionsProps) {
   const { t } = useTranslation();
 
   switch (property.type) {
+    case "button":
+      return <ButtonOptions property={property} onUpdate={onUpdate} />;
     case "select":
     case "multiSelect":
       return (
@@ -415,6 +441,107 @@ function PersonOptions({
           })
         }
       />
+    </Stack>
+  );
+}
+
+function ButtonOptions({
+  property,
+  onUpdate,
+}: {
+  property: IBaseProperty;
+  onUpdate: (typeOptions: Record<string, unknown>) => void;
+}) {
+  const { t } = useTranslation();
+  const options = (property.typeOptions ?? {}) as ButtonTypeOptions;
+  const { data } = useQuery({
+    queryKey: ["base-automations", property.pageId],
+    queryFn: () => listAutomations(property.pageId),
+  });
+  const automations = (data?.items ?? []).map((a) => ({ value: a.id, label: `${a.name}${a.trigger?.type === "button" ? "" : ` (${a.trigger?.type})`}` }));
+  return (
+    <Stack gap="xs">
+      <TextInput
+        size="xs"
+        label={t("Button label")}
+        placeholder={t("Run")}
+        maxLength={60}
+        value={options.label ?? ""}
+        onChange={(e) => onUpdate({ ...property.typeOptions, label: e.currentTarget.value })}
+      />
+      <Select
+        size="xs"
+        label={t("Automation to run")}
+        placeholder={automations.length ? t("Pick an automation") : t("No automations yet (toolbar: Automations)")}
+        data={automations}
+        value={options.automationId ?? null}
+        onChange={(val) => onUpdate({ ...property.typeOptions, automationId: val ?? undefined })}
+        clearable
+        comboboxProps={{ withinPortal: true }}
+      />
+      <Text size="xs" c="dimmed">
+        {t("Pressing the button runs the automation for that row.")}
+      </Text>
+    </Stack>
+  );
+}
+
+// AI autofill: a prompt answered from the row's other cells.
+function AiFillOptionsEditor({
+  property,
+  onUpdate,
+}: {
+  property: IBaseProperty;
+  onUpdate: (typeOptions: Record<string, unknown>) => void;
+}) {
+  const { t } = useTranslation();
+  const ai = ((property.typeOptions ?? {}) as { ai?: AiFillOptions }).ai;
+  const [prompt, setPrompt] = useState(ai?.prompt ?? "");
+  const enabled = Boolean(ai?.prompt);
+  const save = (patch: Partial<AiFillOptions> | null) => {
+    const current = (property.typeOptions ?? {}) as Record<string, unknown>;
+    if (patch === null) {
+      const { ai: _drop, ...rest } = current;
+      onUpdate(rest);
+      return;
+    }
+    onUpdate({ ...current, ai: { ...(ai ?? { prompt: "" }), ...patch } });
+  };
+  return (
+    <Stack gap={6} data-testid="ai-fill-options">
+      <Switch
+        size="xs"
+        label={t("AI autofill")}
+        checked={enabled}
+        onChange={(e) => {
+          if (e.currentTarget.checked) {
+            const p = prompt.trim() || t("Summarize this row in one line");
+            setPrompt(p);
+            save({ prompt: p });
+          } else save(null);
+        }}
+      />
+      {enabled && (
+        <>
+          <Textarea
+            size="xs"
+            label={t("Prompt")}
+            description={t("Runs over the row's other cells; the answer becomes this cell.")}
+            autosize
+            minRows={2}
+            maxLength={2000}
+            value={prompt}
+            onChange={(e) => setPrompt(e.currentTarget.value)}
+            onBlur={() => prompt.trim() && prompt.trim() !== ai?.prompt && save({ prompt: prompt.trim() })}
+          />
+          <Switch
+            size="xs"
+            label={t("Refill when the row changes")}
+            checked={Boolean(ai?.autoUpdate)}
+            onChange={(e) => save({ autoUpdate: e.currentTarget.checked })}
+          />
+        </>
+      )}
     </Stack>
   );
 }

@@ -20,6 +20,7 @@ import {
   IconId,
   IconArrowsRightLeft,
   IconSum,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import type {
   BasePropertyType,
@@ -44,6 +45,7 @@ import { CellLastEditedBy } from "@/ee/base/components/cells/cell-last-edited-by
 import { CellFormula } from "@/ee/base/components/cells/cell-formula";
 import { defaultStatusChoices } from "@/ee/base/components/property/choice-editor";
 import type { ClientPropertyTypeDescriptor } from "./property-type.descriptor";
+import { CellButton } from "@/features/base/components/cells/cell-button";
 
 export const PROPERTY_TYPE_REGISTRY: Record<
   BasePropertyType,
@@ -198,6 +200,16 @@ export const PROPERTY_TYPE_REGISTRY: Record<
     isSystem: false,
     hasOptions: true,
   },
+  button: {
+    type: "button",
+    cellComponent: CellButton,
+    icon: IconPlayerPlay,
+    labelKey: "Button",
+    filterOperators: [],
+    filterInput: "text",
+    isSystem: false,
+    hasOptions: true,
+  },
   phone: {
     type: "phone",
     cellComponent: CellEmail,
@@ -290,7 +302,7 @@ export const DEFAULT_FILTER_OPERATORS = ["eq", "neq", "isEmpty", "isNotEmpty"];
 
 export const PROPERTY_PICKER_ORDER: BasePropertyType[] = [
   "text", "longText", "number", "select", "status", "multiSelect", "date",
-  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "id", "relation", "rollup",
+  "person", "file", "formula", "page", "checkbox", "url", "email", "phone", "id", "relation", "rollup", "button",
   "createdAt", "lastEditedAt", "lastEditedBy",
 ];
 

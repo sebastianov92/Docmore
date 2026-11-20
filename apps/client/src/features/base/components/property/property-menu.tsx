@@ -18,6 +18,7 @@ import {
   IconChevronRight,
   IconSettings,
   IconLock,
+  IconSparkles,
 } from "@tabler/icons-react";
 import {
   IBaseProperty,
@@ -39,6 +40,9 @@ import { useTranslation } from "react-i18next";
 import { isSystemPropertyType } from "@/features/base/hooks/use-base-table";
 import cellClasses from "@/features/base/styles/cells.module.css";
 import { useBaseQuery } from "@/features/base/queries/base-query";
+import { aiFillProperty } from "@/features/base/services/base-service";
+import { notifications } from "@mantine/notifications";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 type PropertyMenuContentProps = {
   property: IBaseProperty;
@@ -533,7 +537,21 @@ function MainPanel({
       property.type === "date" ||
       property.type === "id" ||
       property.type === "relation" ||
-      property.type === "rollup");
+      property.type === "rollup" ||
+      property.type === "button" ||
+      // AI autofill lives in the options of these
+      property.type === "text" ||
+      property.type === "longText" ||
+      property.type === "checkbox");
+  const aiPrompt = ((property.typeOptions ?? {}) as { ai?: { prompt?: string } }).ai?.prompt;
+  const fillWithAi = async () => {
+    try {
+      await aiFillProperty({ pageId: property.pageId, propertyId: property.id });
+      notifications.show({ message: t("Filling empty cells in the background") });
+    } catch (err) {
+      notifications.show({ message: getApiErrorMessage(err), color: "red" });
+    }
+  };
   // Relations are not converted to other types; rollups are system-like.
   const canChangeType = !isSystem && !isPending && !property.isPrimary && property.type !== "relation";
 
@@ -576,6 +594,9 @@ function MainPanel({
           rightIcon={<IconChevronRight size={14} />}
           onClick={onOptions}
         />
+      )}
+      {aiPrompt && (
+        <MenuItem icon={<IconSparkles size={14} />} label={t("Fill empty cells with AI")} onClick={fillWithAi} />
       )}
       {canRestrict && !property.isPrimary && onVisibility && (
         <MenuItem

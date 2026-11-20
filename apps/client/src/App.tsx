@@ -38,6 +38,7 @@ const SpaceHome = lazyWithPrefetch(() => import("@/pages/space/space-home.tsx"))
 const PageRedirect = lazyWithPrefetch(() => import("@/pages/page/page-redirect.tsx"));
 const InviteSignup = lazyWithPrefetch(() => import("@/pages/auth/invite-signup.tsx"));
 const DomainSignupPage = lazyWithPrefetch(() => import("@/pages/auth/domain-signup.tsx"));
+const PublicFormPage = lazyWithPrefetch(() => import("@/pages/form/public-form-page.tsx"));
 const ForgotPassword = lazyWithPrefetch(() => import("@/pages/auth/forgot-password.tsx"));
 const PasswordReset = lazyWithPrefetch(() => import("./pages/auth/password-reset"));
 const Billing = lazyWithPrefetch(() => import("@/ee/billing/pages/billing.tsx"));
@@ -127,6 +128,7 @@ export default function App() {
         <Route element={<WorkspaceLocaleLayout />}>
           <Route path={"/login"} element={<LoginPage />} />
           <Route path={"/signup"} element={<DomainSignupPage />} />
+          <Route path={"/form/:token"} element={<PublicFormPage />} />
           <Route path={"/invites/:invitationId"} element={<InviteSignup />} />
           <Route path={"/forgot-password"} element={<ForgotPassword />} />
           <Route path={"/password-reset"} element={<PasswordReset />} />

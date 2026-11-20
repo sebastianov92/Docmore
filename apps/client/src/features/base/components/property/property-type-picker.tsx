@@ -23,6 +23,7 @@ import {
   IconId,
   IconArrowsRightLeft,
   IconSum,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import { BasePropertyType } from "@/features/base/types/base.types";
 import { useTranslation } from "react-i18next";
@@ -51,6 +52,7 @@ const propertyTypes: {
   { type: "id", icon: IconId, labelKey: "ID" },
   { type: "relation", icon: IconArrowsRightLeft, labelKey: "Relation" },
   { type: "rollup", icon: IconSum, labelKey: "Rollup" },
+  { type: "button", icon: IconPlayerPlay, labelKey: "Button" },
   { type: "createdAt", icon: IconClockPlus, labelKey: "Created at" },
   { type: "lastEditedAt", icon: IconClockEdit, labelKey: "Last edited at" },
   { type: "lastEditedBy", icon: IconUserEdit, labelKey: "Last edited by" },

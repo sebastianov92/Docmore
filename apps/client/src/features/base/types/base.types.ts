@@ -16,6 +16,7 @@ export type BasePropertyType =
   | 'id'
   | 'relation'
   | 'rollup'
+  | 'button'
   | 'createdAt'
   | 'lastEditedAt'
   | 'lastEditedBy'
@@ -104,6 +105,7 @@ export type TypeOptions =
   | IdTypeOptions
   | RelationTypeOptions
   | RollupTypeOptions
+  | ButtonTypeOptions
   | Record<string, unknown>;
 
 export type IBaseProperty = {
@@ -463,4 +465,86 @@ export type IRowVersion = {
 export type IRowVersionPage = {
   items: IRowVersion[];
   meta: { hasNextPage: boolean; nextBefore: string | null };
+};
+
+// A button cell runs one automation of the base.
+export type ButtonTypeOptions = {
+  label?: string;
+  automationId?: string;
+};
+
+// AI autofill settings carried on text/number/select/checkbox properties.
+export type AiFillOptions = {
+  prompt: string;
+  autoUpdate?: boolean;
+  sourcePropertyIds?: string[];
+};
+
+export type AutomationTrigger =
+  | { type: 'row.created' }
+  | { type: 'row.updated'; propertyId?: string }
+  | { type: 'form.submitted'; formId?: string }
+  | { type: 'button' };
+
+export type AutomationAction =
+  | { type: 'set_cells'; cells: Record<string, unknown> }
+  | { type: 'create_row'; pageId?: string; cells: Record<string, unknown> }
+  | { type: 'notify'; userIds?: string[]; personPropertyId?: string; notifyCreator?: boolean; message: string }
+  | { type: 'webhook'; url: string; secret?: string };
+
+export type IAutomation = {
+  id: string;
+  pageId: string;
+  name: string;
+  enabled: boolean;
+  trigger: AutomationTrigger;
+  conditions: FilterGroup | null;
+  actions: AutomationAction[];
+  runCount: number;
+  lastRunAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+};
+
+export type IAutomationRun = {
+  id: string;
+  rowId: string | null;
+  status: 'ok' | 'error';
+  error: string | null;
+  createdAt: string;
+};
+
+export type FormField = { propertyId: string; required?: boolean; label?: string; help?: string };
+
+export type IBaseForm = {
+  id: string;
+  pageId: string;
+  token: string;
+  name: string;
+  description: string | null;
+  fields: FormField[];
+  submitLabel: string | null;
+  thanksText: string | null;
+  enabled: boolean;
+  submissions: number;
+  createdAt: string;
+};
+
+export type IPublicFormField = {
+  propertyId: string;
+  name: string;
+  help: string | null;
+  type: BasePropertyType;
+  required: boolean;
+  typeOptions: { choices?: Choice[]; choiceOrder?: string[]; format?: string };
+};
+
+export type IPublicForm = {
+  id: string;
+  name: string;
+  description: string | null;
+  submitLabel: string | null;
+  thanksText: string | null;
+  baseTitle: string;
+  fields: IPublicFormField[];
 };

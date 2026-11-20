@@ -19,6 +19,7 @@ import { CellPhone } from "./cell-phone";
 import { CellId } from "./cell-id";
 import { CellRelation } from "./cell-relation";
 import { CellRollup } from "./cell-rollup";
+import { CellButton } from "./cell-button";
 
 export type CellComponentProps = {
   value: unknown;
@@ -47,6 +48,7 @@ export const cellComponents: Record<
   id: CellId,
   relation: CellRelation,
   rollup: CellRollup,
+  button: CellButton,
   person: CellPerson,
   file: CellFile,
   page: CellPage,

@@ -66,6 +66,7 @@ import {
   Columns,
   Column,
   Status,
+  BaseButton,
   TransclusionSource,
   TransclusionReference,
   TableView,
@@ -137,6 +138,7 @@ import { countWords } from "alfaaz";
 import AutoJoiner from "@/features/editor/extensions/autojoiner.ts";
 import GlobalDragHandle from "@/features/editor/extensions/drag-handle.ts";
 import { CleanStyles } from "@/features/editor/extensions/clean-styles.ts";
+import BaseButtonView from "@/features/editor/components/base-button/base-button-view";
 
 const lowlight = createLowlight(common);
 lowlight.register("mermaid", plaintext);
@@ -426,6 +428,9 @@ export const mainExtensions = [
   }),
   Status.configure({
     view: StatusView,
+  }),
+  BaseButton.configure({
+    view: BaseButtonView,
   }),
   TransclusionSource.configure({
     view: TransclusionView,

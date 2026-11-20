@@ -23,6 +23,7 @@ export type BasePropertyType =
   | 'id'
   | 'relation'
   | 'rollup'
+  | 'button'
   | 'createdAt'
   | 'lastEditedAt'
   | 'lastEditedBy'

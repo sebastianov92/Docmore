@@ -33,6 +33,7 @@ import {
   IconRotate2,
   IconSuperscript,
   IconChartBar,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import {
   CommandProps,
@@ -397,6 +398,16 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       requiresBases: true,
       command: ({ editor, range }: CommandProps) => {
         insertBaseEmbedBlock(editor, { range, template: "kanban" });
+      },
+    },
+    {
+      title: "Button",
+      description: "A button that runs an automation of a base",
+      searchTerms: ["button", "run", "automation", "action", "trigger"],
+      icon: IconPlayerPlay,
+      requiresBases: true,
+      command: ({ editor, range }: CommandProps) => {
+        editor.chain().focus().deleteRange(range).insertBaseButton({ label: "Run" }).run();
       },
     },
     {

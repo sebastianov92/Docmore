@@ -28,6 +28,14 @@ import {
   BaseTemplate,
   RowReferences,
   IRowVersionPage,
+  IAutomation,
+  AutomationTrigger,
+  AutomationAction,
+  FilterGroup,
+  IAutomationRun,
+  IBaseForm,
+  FormField,
+  IPublicForm,
 } from "@/features/base/types/base.types";
 import { IPagination } from "@/lib/types";
 import { ImportSpec } from "@/features/base/csv-import/csv-import.types";
@@ -256,5 +264,76 @@ export async function restoreBaseVersion(params: { pageId: string; versionId: st
 
 export async function restoreDeletedRows(params: { pageId: string; since: string }): Promise<{ count: number }> {
   const req = await api.post("/bases/history/restore-deleted", params);
+  return req.data;
+}
+
+// --- Automations ---
+export async function listAutomations(pageId: string): Promise<{ items: IAutomation[] }> {
+  const req = await api.post("/bases/automations", { pageId });
+  return req.data;
+}
+export async function createAutomation(data: {
+  pageId: string;
+  name: string;
+  enabled?: boolean;
+  trigger: AutomationTrigger;
+  conditions?: FilterGroup | null;
+  actions: AutomationAction[];
+}): Promise<IAutomation> {
+  const req = await api.post("/bases/automations/create", data);
+  return req.data;
+}
+export async function updateAutomation(data: {
+  pageId: string;
+  automationId: string;
+  name?: string;
+  enabled?: boolean;
+  trigger?: AutomationTrigger;
+  conditions?: FilterGroup | null;
+  actions?: AutomationAction[];
+}): Promise<IAutomation> {
+  const req = await api.post("/bases/automations/update", data);
+  return req.data;
+}
+export async function deleteAutomation(data: { pageId: string; automationId: string }): Promise<void> {
+  await api.post("/bases/automations/delete", data);
+}
+export async function runAutomation(data: { pageId: string; automationId: string; rowId?: string }): Promise<{ ran: boolean; ok?: boolean; errors?: string[]; reason?: string }> {
+  const req = await api.post("/bases/automations/run", data);
+  return req.data;
+}
+export async function listAutomationRuns(data: { pageId: string; automationId: string; limit?: number }): Promise<{ items: IAutomationRun[] }> {
+  const req = await api.post("/bases/automations/runs", data);
+  return req.data;
+}
+
+// --- Forms ---
+export async function listForms(pageId: string): Promise<{ items: IBaseForm[] }> {
+  const req = await api.post("/bases/forms", { pageId });
+  return req.data;
+}
+export async function createForm(data: Partial<IBaseForm> & { pageId: string; name: string; fields: FormField[] }): Promise<IBaseForm> {
+  const req = await api.post("/bases/forms/create", data);
+  return req.data;
+}
+export async function updateForm(data: Partial<IBaseForm> & { pageId: string; formId: string }): Promise<IBaseForm> {
+  const req = await api.post("/bases/forms/update", data);
+  return req.data;
+}
+export async function deleteForm(data: { pageId: string; formId: string }): Promise<void> {
+  await api.post("/bases/forms/delete", data);
+}
+export async function getPublicForm(token: string): Promise<IPublicForm> {
+  const req = await api.post("/forms/public/info", { token });
+  return req.data;
+}
+export async function submitPublicForm(data: { token: string; cells: Record<string, unknown>; website?: string }): Promise<{ id: string; thanksText: string | null }> {
+  const req = await api.post("/forms/public/submit", data);
+  return req.data;
+}
+
+// --- AI autofill ---
+export async function aiFillProperty(data: { pageId: string; propertyId: string; rowIds?: string[] }): Promise<{ queued: boolean }> {
+  const req = await api.post("/ai/bases/fill", data);
   return req.data;
 }

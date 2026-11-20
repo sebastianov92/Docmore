@@ -41,6 +41,8 @@ import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom
 import { RowTemplatesMenu } from "@/features/base/components/templates/row-templates-menu";
 import { GalleryControls } from "@/features/base/components/views/gallery/gallery-controls";
 import { BaseHistoryButton } from "@/features/base/components/history/base-history-button";
+import { BaseAutomationsButton } from "@/features/base/components/automations/base-automations-button";
+import { BaseFormsButton } from "@/features/base/components/forms/base-forms-button";
 
 type BaseToolbarProps = {
   base: IBase;
@@ -359,6 +361,8 @@ export function BaseToolbar({
         {canEdit && !publicCtx && onOpenRow && (
           <RowTemplatesMenu base={base} onOpenRow={onOpenRow} />
         )}
+        {!publicCtx && <BaseAutomationsButton base={base} canEdit={canEdit} />}
+        {!publicCtx && <BaseFormsButton base={base} canEdit={canEdit} />}
         {!publicCtx && <BaseHistoryButton base={base} canEdit={canEdit} />}
         {!publicCtx && (locked || onToggleLock) && (
           <Tooltip
