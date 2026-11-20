@@ -9,6 +9,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { mainExtensions } from "@/features/editor/extensions/extensions";
 import historyClasses from "@/features/page-history/components/css/history.module.css";
 import { IPage } from "@/features/page/types/page.types";
+import { getPageById } from "@/features/page/services/page-service";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { createSuggestion, SUGGESTION_COUNT_KEY, SUGGESTIONS_KEY, suggestEditorOpenAtom } from "../services";
 
@@ -24,12 +25,25 @@ export function SuggestEditorModal({ page }: { page: IPage | undefined }) {
   const [saving, setSaving] = useState(false);
   const editor = useEditor({ extensions: mainExtensions, editable: true, content: "", textDirection: "auto" });
 
+  // The header's page object has no body: fetch the page fresh when opening.
   useEffect(() => {
-    if (!open || !editor || editor.isDestroyed) return;
-    editor.commands.setContent((page?.content as any) ?? { type: "doc", content: [{ type: "paragraph" }] });
-    setTitle(page?.title ?? "");
+    if (!open || !editor || editor.isDestroyed || !page?.id) return;
+    let cancelled = false;
+    setTitle(page.title ?? "");
     setNote("");
-    requestAnimationFrame(() => editor.commands.focus("start"));
+    editor.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] });
+    getPageById({ pageId: page.id })
+      .then((fresh) => {
+        if (cancelled || editor.isDestroyed) return;
+        editor.commands.setContent((fresh.content as any) ?? (page.content as any) ?? { type: "doc", content: [{ type: "paragraph" }] });
+        requestAnimationFrame(() => editor.commands.focus("end"));
+      })
+      .catch(() => {
+        if (!cancelled && !editor.isDestroyed) editor.commands.setContent((page.content as any) ?? { type: "doc", content: [{ type: "paragraph" }] });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, editor, page?.id]);
 
   const propose = async () => {
