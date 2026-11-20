@@ -60,6 +60,8 @@ import { SuggestButton } from "@/features/page-suggestion/components/suggest-but
 import { SuggestEditorModal } from "@/features/page-suggestion/components/suggest-editor-modal";
 import { SuggestionsModal } from "@/features/page-suggestion/components/suggestions-modal";
 import { MeetingRecorderModal } from "@/features/ai/meetings/components/meeting-recorder-modal";
+import { useShortcuts } from "@/features/home/hooks/use-shortcuts";
+import { IconPinned, IconPinnedOff } from "@tabler/icons-react";
 import { MEETING_RECORDER_EVENT } from "@/features/ai/meetings/services";
 import { IconMicrophone } from "@tabler/icons-react";
 import { suggestEditorOpenAtom, suggestionsModalOpenAtom } from "@/features/page-suggestion/services";
@@ -216,6 +218,9 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
     { open: openPresentationModal, close: closePresentationModal },
   ] = useDisclosure(false);
   const [pageEditor] = useAtom(pageEditorAtom);
+  const shortcutsApi = useShortcuts();
+  const pageShortcutUrl = page && page.space ? buildPageUrl(page.space.slug, page.slugId, page.title) : null;
+  const isPinned = pageShortcutUrl ? shortcutsApi.has(pageShortcutUrl) : false;
   const pageUpdatedAt = useTimeAgo(page?.updatedAt);
   const favoriteIds = useFavoriteIds("page", page?.spaceId);
   const addFavoriteMutation = useAddFavoriteMutation();
@@ -390,6 +395,15 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
             </Menu.Item>
           )}
 
+          {pageShortcutUrl && (
+            <Menu.Item
+              leftSection={isPinned ? <IconPinnedOff size={16} /> : <IconPinned size={16} />}
+              onClick={() => (isPinned ? shortcutsApi.remove(pageShortcutUrl) : shortcutsApi.add({ type: "page", id: page?.id, title: page?.title || t("Untitled"), url: pageShortcutUrl }))}
+              data-testid="page-shortcut"
+            >
+              {isPinned ? t("Remove from shortcuts") : t("Add to shortcuts")}
+            </Menu.Item>
+          )}
           {!page?.isBase && (
             <Menu.Item leftSection={<IconPencilQuestion size={16} />} onClick={() => setSuggestEditorOpen(true)}>
               {t("Suggest edits")}

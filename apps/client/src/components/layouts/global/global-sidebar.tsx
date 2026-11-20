@@ -17,6 +17,10 @@ import { useAtom } from "jotai";
 import { mobileSidebarAtom } from "@/components/layouts/global/hooks/atoms/sidebar-atom";
 import { useToggleSidebar } from "@/components/layouts/global/hooks/hooks/use-toggle-sidebar";
 import { useFavoritesQuery } from "@/features/favorite/queries/favorite-query";
+import { useShortcuts } from "@/features/home/hooks/use-shortcuts";
+import { KeyboardShortcutsModal, keyboardShortcutsOpenAtom } from "@/components/layouts/global/keyboard-shortcuts-modal";
+import { useSetAtom } from "jotai";
+import { IconExternalLink, IconKeyboard, IconX } from "@tabler/icons-react";
 import { getSpaceUrl } from "@/lib/config";
 import { useDisclosure } from "@mantine/hooks";
 import { WorkspaceInviteForm } from "@/features/workspace/components/members/components/workspace-invite-form";
@@ -56,6 +60,8 @@ export default function GlobalSidebar() {
     });
   const [inviteOpened, { open: openInvite, close: closeInvite }] =
     useDisclosure(false);
+  const { shortcuts, remove: removeShortcut } = useShortcuts();
+  const openKeyboardHelp = useSetAtom(keyboardShortcutsOpenAtom);
 
   useEffect(() => {
     setActive(location.pathname);
@@ -158,6 +164,43 @@ export default function GlobalSidebar() {
             </>
           )}
         </div>
+
+        {shortcuts.length > 0 && (
+          <>
+            <Divider my="xs" />
+            <div className={classes.section} data-testid="sidebar-shortcuts">
+              <Text component="h2" className={classes.sectionHeader}>{t("Shortcuts")}</Text>
+              {shortcuts.slice(0, 12).map((s) =>
+                s.url.startsWith("/") ? (
+                  <Link key={s.url} className={classes.spaceItem} to={s.url} onClick={handleNavClick}>
+                    <Text size="sm" fw={500} lineClamp={1} style={{ flex: 1 }}>
+                      {s.title}
+                    </Text>
+                    <IconX size={12} style={{ opacity: 0.5 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeShortcut(s.url); }} aria-label={t("Remove")} />
+                  </Link>
+                ) : (
+                  <a key={s.url} className={classes.spaceItem} href={s.url} target="_blank" rel="noopener noreferrer">
+                    <Text size="sm" fw={500} lineClamp={1} style={{ flex: 1 }}>
+                      {s.title}
+                    </Text>
+                    <IconExternalLink size={12} style={{ opacity: 0.5 }} />
+                    <IconX size={12} style={{ opacity: 0.5 }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeShortcut(s.url); }} aria-label={t("Remove")} />
+                  </a>
+                ),
+              )}
+            </div>
+          </>
+        )}
+        <Divider my="xs" />
+        <div className={classes.section}>
+          <button type="button" className={classes.spaceItem} onClick={() => openKeyboardHelp(true)} style={{ width: "100%", background: "none", border: 0, cursor: "pointer", font: "inherit", color: "inherit" }} data-testid="keyboard-shortcuts">
+            <IconKeyboard size={16} />
+            <Text size="sm" fw={500}>
+              {t("Keyboard shortcuts")}
+            </Text>
+          </button>
+        </div>
+        <KeyboardShortcutsModal />
 
       </ScrollArea>
 

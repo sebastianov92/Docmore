@@ -61,6 +61,24 @@ export class UserService {
       );
     }
 
+    if (typeof updateUserDto.homeWidgets !== 'undefined') {
+      const allowed = new Set(['tasks', 'upcoming', 'shortcuts', 'recent']);
+      return this.userRepo.updatePreferenceJson(userId, 'homeWidgets', updateUserDto.homeWidgets.filter((w) => allowed.has(w)).slice(0, 12));
+    }
+
+    if (typeof updateUserDto.shortcuts !== 'undefined') {
+      const clean = updateUserDto.shortcuts
+        .map((s: any) => ({
+          type: s?.type === 'url' ? 'url' : 'page',
+          id: typeof s?.id === 'string' ? s.id.slice(0, 100) : null,
+          title: String(s?.title ?? '').slice(0, 120),
+          url: String(s?.url ?? '').slice(0, 2000),
+        }))
+        .filter((s) => s.title && s.url && (s.url.startsWith('/') || /^https?:\/\//i.test(s.url)))
+        .slice(0, 30);
+      return this.userRepo.updatePreferenceJson(userId, 'shortcuts', clean);
+    }
+
     if (typeof updateUserDto.editorToolbar !== 'undefined') {
       return this.userRepo.updatePreference(
         userId,

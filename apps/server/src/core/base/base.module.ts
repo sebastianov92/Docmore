@@ -1,3 +1,5 @@
+import { BaseMyWorkService } from './my-work/base-my-work.service';
+import { BaseMyWorkController } from './my-work/base-my-work.controller';
 import { BaseConnectedService } from './connected/base-connected.service';
 import { BaseConnectedListener } from './connected/base-connected.listener';
 import { IntegrationModule } from '../integration/integration.module';
@@ -53,6 +55,7 @@ import { BaseFormController, BaseFormPublicController } from './forms/base-form.
     IntegrationModule,
   ],
   controllers: [
+    BaseMyWorkController,
     BaseHistoryController,
     BaseAutomationController,
     BaseFormController,
@@ -68,6 +71,7 @@ import { BaseFormController, BaseFormPublicController } from './forms/base-form.
     BaseAutomationService,
     BaseAutomationListener,
     BaseConnectedService,
+    BaseMyWorkService,
     BaseConnectedListener,
     BaseFormRepo,
     BaseFormService,

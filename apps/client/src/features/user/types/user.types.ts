@@ -46,6 +46,9 @@ export interface IUserSettings {
     pageFont?: "default" | "serif" | "mono";
     pageTextSize?: "small" | "normal" | "large";
     highContrast?: boolean;
+    // home widgets shown, in order; sidebar shortcuts
+    homeWidgets?: string[];
+    shortcuts?: IShortcut[];
   };
   notifications?: {
     "page.updated"?: boolean;
@@ -60,3 +63,5 @@ export enum PageEditMode {
   Read = "read",
   Edit = "edit",
 }
+
+export type IShortcut = { type: "page" | "url"; id?: string | null; title: string; url: string };

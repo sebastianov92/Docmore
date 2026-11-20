@@ -225,6 +225,21 @@ export class UserRepo {
       .executeTakeFirst();
   }
 
+  // A preference that is a list or an object (the driver serializes it as JSON).
+  async updatePreferenceJson(userId: string, prefKey: string, prefValue: unknown) {
+    return await this.db
+      .updateTable('users')
+      .set({
+        settings: sql`COALESCE(settings, '{}'::jsonb)
+                || jsonb_build_object('preferences', COALESCE(settings->'preferences', '{}'::jsonb)
+                || jsonb_build_object('${sql.raw(prefKey)}', ${prefValue as any}::jsonb))`,
+        updatedAt: new Date(),
+      })
+      .where('id', '=', userId)
+      .returning(this.baseFields)
+      .executeTakeFirst();
+  }
+
   async updateNotificationSetting(
     userId: string,
     settingKey: NotificationSettingKey,
