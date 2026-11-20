@@ -143,7 +143,7 @@ export class AiChatController {
         workspace,
         {
           chatId: outcome.chatId,
-          content: `I approved the "${outcome.tool}" call on ${outcome.server}. It ran; its result:\n\n${resultText}\n\nContinue from there.`,
+          content: `I approved the "${outcome.tool}" call on ${outcome.server}. It already ran once; its result:\n\n${resultText}\n\nDo not call that tool again for this request. Tell me the outcome and continue from there.`,
           internalMetadata: { kind: 'tool_approval', approvalId: dto.approvalId, tool: outcome.tool, server: outcome.server, decision: 'approved' },
         },
         controller.signal,
@@ -175,7 +175,7 @@ export class AiChatController {
         workspace,
         {
           chatId: outcome.chatId,
-          content: `I did not approve the "${outcome.tool}" call on ${outcome.server}. Do not run it; continue without it.`,
+          content: `I did not approve the "${outcome.tool}" call on ${outcome.server}. Do not call it again; continue without it.`,
           internalMetadata: { kind: 'tool_approval', approvalId: dto.approvalId, tool: outcome.tool, server: outcome.server, decision: 'denied' },
         },
         controller.signal,
