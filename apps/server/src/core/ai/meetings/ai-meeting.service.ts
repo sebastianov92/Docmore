@@ -24,6 +24,9 @@ import { AiTranscriptionService, Transcript, TranscriptSegment } from './ai-tran
 
 export const MEETING_AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.webm', '.ogg', '.oga', '.mp4', '.mpga', '.mpeg', '.flac', '.aac'];
 export const MAX_MEETING_FILE_BYTES = 200 * 1024 * 1024;
+export const MAX_LIVE_CHUNK_BYTES = 25 * 1024 * 1024;
+const LIVE_WINDOW_MS = 10 * 60 * 1000;
+const LIVE_LIMIT = 40;
 const MAX_TRANSCRIPT_FOR_SUMMARY = 120_000;
 
 export interface MeetingNotesView {
@@ -127,6 +130,28 @@ export class AiMeetingService {
     return view(row);
   }
 
+  // Live mode: a piece of the recording (a minute or so) comes in while the
+  // meeting runs and goes back as text; nothing is stored.
+  private readonly liveRecent = new Map<string, number[]>();
+
+  async transcribeChunk(user: User, workspace: Workspace, filePromise: Promise<MultipartFile>): Promise<{ text: string; language: string | null }> {
+    if (!(await this.transcription.isConfigured(workspace.id))) {
+      throw new BadRequestException('No transcription model is set. An admin can pick one under Settings > AI.');
+    }
+    const now = Date.now();
+    const times = (this.liveRecent.get(user.id) ?? []).filter((t) => now - t < LIVE_WINDOW_MS);
+    if (times.length >= LIVE_LIMIT) throw new BadRequestException('Too many live chunks; slow down');
+    times.push(now);
+    this.liveRecent.set(user.id, times);
+    const prepared = await prepareFile(filePromise);
+    const ext = prepared.fileExtension.toLowerCase();
+    if (!MEETING_AUDIO_EXTENSIONS.includes(ext)) throw new BadRequestException('Unsupported recording');
+    if (!prepared.buffer?.length) return { text: '', language: null };
+    if (prepared.fileSize > MAX_LIVE_CHUNK_BYTES) throw new PayloadTooLargeException('Chunks up to 25 MB');
+    const transcript = await this.transcription.transcribe(workspace.id, prepared.buffer, prepared.fileName, prepared.mimeType);
+    return { text: transcript.text, language: transcript.language };
+  }
+
   async status(user: User, workspace: Workspace, meetingId: string): Promise<MeetingNotesView> {
     const row = await this.db
       .selectFrom('aiMeetingNotes')
@@ -225,7 +250,7 @@ export class AiMeetingService {
     const result = await generateText({
       model,
       system:
-        'You turn meeting transcripts into notes. Answer with one JSON object and nothing else: ' +
+        'You turn meeting transcripts into notes. Keep speaker labels ("Speaker 1:") when the transcript has them. Answer with one JSON object and nothing else: ' +
         '{"title": string, "summary": string (2-5 sentences), "topics": string[], "decisions": string[], "actionItems": [{"text": string, "owner": string|null}]}. ' +
         'Write in the language of the transcript. Never invent decisions or owners that were not said.',
       prompt: `Recording: ${fileName}\n\nTranscript:\n${text}`,

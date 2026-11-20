@@ -2335,5 +2335,22 @@
   "contains": "contiene",
   "checked": "marcado",
   "unchecked": "sin marcar",
-  "no details": "sin detalles"
+  "no details": "sin detalles",
+  "Record meeting": "Grabar reunión",
+  "Record from the microphone with a live transcript; notes land here when you stop.": "Graba desde el micrófono con transcripción en vivo; las notas quedan aquí al parar.",
+  "The microphone is recorded in the browser. Every 45 seconds a piece is transcribed and shown here; when you stop, the whole recording becomes notes on this page.": "El micrófono se graba en el navegador. Cada 45 segundos se transcribe un trozo y se muestra aquí; al parar, la grabación completa se convierte en notas en esta página.",
+  "Start recording": "Empezar a grabar",
+  "Recording": "Grabando",
+  "Pause": "Pausar",
+  "Paused": "En pausa",
+  "Resume": "Reanudar",
+  "Stop and make notes": "Parar y hacer las notas",
+  "Sending the recording…": "Enviando la grabación…",
+  "Nothing recorded yet.": "Aún no hay nada grabado.",
+  "Listening… the first text shows after about a minute.": "Escuchando… el primer texto aparece tras un minuto.",
+  "Live transcription failed": "Falló la transcripción en vivo",
+  "Microphone access was refused": "Se denegó el acceso al micrófono",
+  "Could not start recording": "No se pudo empezar a grabar",
+  "Recording sent. The notes will be added to this page when ready; you will be told.": "Grabación enviada. Las notas se añadirán a esta página cuando estén listas; te avisaremos.",
+  "Could not send the recording": "No se pudo enviar la grabación"
 }

@@ -23,6 +23,15 @@ export async function transcribeMeeting(file: File, target: { pageId?: string; s
   if (target.spaceId) form.append("spaceId", target.spaceId);
   return (await api.post("/ai/meetings/transcribe", form, { headers: { "Content-Type": "multipart/form-data" } })).data;
 }
+// One piece of a running recording -> its text.
+export async function transcribeLiveChunk(blob: Blob, fileName: string): Promise<{ text: string; language: string | null }> {
+  const form = new FormData();
+  form.append("file", blob, fileName);
+  return (await api.post("/ai/meetings/live", form, { headers: { "Content-Type": "multipart/form-data" } })).data;
+}
+
+export const MEETING_RECORDER_EVENT = "docmore:record-meeting";
+
 export async function meetingStatus(meetingId: string): Promise<IMeetingNotes> {
   return (await api.post("/ai/meetings/status", { meetingId })).data;
 }

@@ -6,7 +6,7 @@ import { AuthUser } from '../../../common/decorators/auth-user.decorator';
 import { AuthWorkspace } from '../../../common/decorators/auth-workspace.decorator';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { AiUsageService } from '../ai-usage.service';
-import { AiMeetingService, MAX_MEETING_FILE_BYTES } from './ai-meeting.service';
+import { AiMeetingService, MAX_LIVE_CHUNK_BYTES, MAX_MEETING_FILE_BYTES } from './ai-meeting.service';
 
 class MeetingIdDto {
   @IsUUID()
@@ -40,6 +40,21 @@ export class AiMeetingController {
       return typeof v === 'string' && v ? v : undefined;
     };
     return this.meetings.start(user, workspace, Promise.resolve(file), { pageId: field('pageId'), spaceId: field('spaceId') });
+  }
+
+  // multipart: "file", one piece of a running recording; answers its text.
+  @HttpCode(HttpStatus.OK)
+  @Post('live')
+  async live(@Req() req: FastifyRequest, @AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
+    await this.usage.assertAllowed(workspace, user);
+    let file: any = null;
+    try {
+      file = await req.file({ limits: { fileSize: MAX_LIVE_CHUNK_BYTES, fields: 2, files: 1 } });
+    } catch (err: any) {
+      if (err?.statusCode === 413) throw new PayloadTooLargeException('Chunks up to 25 MB');
+    }
+    if (!file) throw new BadRequestException('Failed to upload chunk');
+    return this.meetings.transcribeChunk(user, workspace, Promise.resolve(file));
   }
 
   @HttpCode(HttpStatus.OK)

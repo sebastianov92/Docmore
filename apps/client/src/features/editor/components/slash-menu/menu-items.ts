@@ -53,7 +53,7 @@ import IconDrawio from "@/components/icons/icon-drawio";
 import { IconColumns4 } from "@/components/icons/icon-columns-4";
 import { IconColumns5 } from "@/components/icons/icon-columns-5";
 import i18n from "@/i18n.ts";
-import { MEETING_ACCEPTED_FILES, transcribeMeeting } from "@/features/ai/meetings/services";
+import { MEETING_ACCEPTED_FILES, MEETING_RECORDER_EVENT, transcribeMeeting } from "@/features/ai/meetings/services";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   AirtableIcon,
@@ -231,6 +231,19 @@ const CommandGroups: SlashMenuGroupedItemsType = {
           input.remove();
         };
         input.click();
+      },
+    },
+    {
+      title: "Record meeting",
+      description: "Record from the microphone with a live transcript; notes land here when you stop.",
+      searchTerms: ["record", "meeting", "microphone", "live", "transcript", "ai"],
+      icon: IconMicrophone,
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        // @ts-ignore
+        const pageId = editor.storage?.pageId;
+        if (!pageId) return;
+        window.dispatchEvent(new CustomEvent(MEETING_RECORDER_EVENT, { detail: { pageId } }));
       },
     },
     {

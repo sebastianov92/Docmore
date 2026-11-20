@@ -59,6 +59,9 @@ import { PageEditModeToggle } from "@/features/user/components/page-state-pref.t
 import { SuggestButton } from "@/features/page-suggestion/components/suggest-button";
 import { SuggestEditorModal } from "@/features/page-suggestion/components/suggest-editor-modal";
 import { SuggestionsModal } from "@/features/page-suggestion/components/suggestions-modal";
+import { MeetingRecorderModal } from "@/features/ai/meetings/components/meeting-recorder-modal";
+import { MEETING_RECORDER_EVENT } from "@/features/ai/meetings/services";
+import { IconMicrophone } from "@tabler/icons-react";
 import { suggestEditorOpenAtom, suggestionsModalOpenAtom } from "@/features/page-suggestion/services";
 import { IconListCheck, IconPencilQuestion } from "@tabler/icons-react";
 import MovePageModal from "@/features/page/components/move-page-modal.tsx";
@@ -397,6 +400,11 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
               {t("Suggested edits")}
             </Menu.Item>
           )}
+          {!page?.isBase && !readOnly && (
+            <Menu.Item leftSection={<IconMicrophone size={16} />} onClick={() => window.dispatchEvent(new CustomEvent(MEETING_RECORDER_EVENT, { detail: { pageId: page?.id } }))}>
+              {t("Record meeting")}
+            </Menu.Item>
+          )}
 
           {!page?.isBase && (
             <Menu.Item
@@ -559,6 +567,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
       />
       <SuggestEditorModal page={page} />
       <SuggestionsModal page={page} />
+      <MeetingRecorderModal />
     </>
   );
 }

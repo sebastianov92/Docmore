@@ -2437,5 +2437,22 @@
   "contains": "contains",
   "checked": "checked",
   "unchecked": "unchecked",
-  "no details": "no details"
+  "no details": "no details",
+  "Record meeting": "Record meeting",
+  "Record from the microphone with a live transcript; notes land here when you stop.": "Record from the microphone with a live transcript; notes land here when you stop.",
+  "The microphone is recorded in the browser. Every 45 seconds a piece is transcribed and shown here; when you stop, the whole recording becomes notes on this page.": "The microphone is recorded in the browser. Every 45 seconds a piece is transcribed and shown here; when you stop, the whole recording becomes notes on this page.",
+  "Start recording": "Start recording",
+  "Recording": "Recording",
+  "Pause": "Pause",
+  "Paused": "Paused",
+  "Resume": "Resume",
+  "Stop and make notes": "Stop and make notes",
+  "Sending the recording…": "Sending the recording…",
+  "Nothing recorded yet.": "Nothing recorded yet.",
+  "Listening… the first text shows after about a minute.": "Listening… the first text shows after about a minute.",
+  "Live transcription failed": "Live transcription failed",
+  "Microphone access was refused": "Microphone access was refused",
+  "Could not start recording": "Could not start recording",
+  "Recording sent. The notes will be added to this page when ready; you will be told.": "Recording sent. The notes will be added to this page when ready; you will be told.",
+  "Could not send the recording": "Could not send the recording"
 }
