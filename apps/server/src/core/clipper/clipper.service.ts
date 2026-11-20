@@ -20,7 +20,13 @@ export class ClipperService {
     let title = dto.title?.trim();
     let html = dto.html?.trim();
     if (!html) {
-      const fetched = await fetchPublicHtml(url, { timeoutMs: 10_000, maxBytes: 2_000_000 });
+      let fetched: Awaited<ReturnType<typeof fetchPublicHtml>>;
+      try {
+        fetched = await fetchPublicHtml(url, { timeoutMs: 10_000, maxBytes: 2_000_000 });
+      } catch (err: any) {
+        if (err instanceof BadRequestException) throw err;
+        throw new BadRequestException(`Could not fetch that page: ${String(err?.cause?.message ?? err?.message ?? 'network error').slice(0, 200)}`);
+      }
       if (!/text\/html|application\/xhtml/i.test(fetched.contentType) || fetched.status >= 400) {
         throw new BadRequestException('That address does not serve a web page');
       }

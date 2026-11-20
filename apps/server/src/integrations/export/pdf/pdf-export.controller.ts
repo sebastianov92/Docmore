@@ -75,6 +75,8 @@ export class PdfExportController {
   @HttpCode(HttpStatus.OK)
   // A whole space (or every space, for workspace admins) as a zip of PDFs.
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
   @Post('space')
   async startSpace(@Body() dto: StartSpacePdfExportDto, @AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
     if (dto.spaceId) {

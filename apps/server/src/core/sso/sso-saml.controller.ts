@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpException, Logger, Param, ParseUUIDPipe, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, Logger, Param, ParseUUIDPipe, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ALL_NAMED_THROTTLERS_SKIPPED, AUTH_THROTTLER } from '../../integrations/throttle/throttler-names';
@@ -72,10 +72,13 @@ export class SsoSamlController {
   }
 
   @Get(':providerId/metadata')
-  @Header('content-type', 'application/xml')
-  async metadata(@Param('providerId', new ParseUUIDPipe()) providerId: string, @AuthWorkspace() workspace: Workspace) {
+  async metadata(
+    @Param('providerId', new ParseUUIDPipe()) providerId: string,
+    @AuthWorkspace() workspace: Workspace,
+    @Res() res: FastifyReply,
+  ) {
     const provider = await this.saml.getEnabledProvider(providerId, workspace.id);
-    return this.saml.metadata(provider);
+    return res.type('application/xml').send(this.saml.metadata(provider));
   }
 
   private failLogin(res: FastifyReply, err: unknown) {

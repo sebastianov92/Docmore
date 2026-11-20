@@ -233,6 +233,9 @@ export class AiChatService {
       throw new BadRequestException('Write a message first');
     }
     if (input.chatId) await this.ownedChat(user, workspace, input.chatId);
+    if (input.skillId && !(await this.skills.usable(user, workspace, input.skillId))) {
+      throw new BadRequestException('That skill is not available');
+    }
   }
 
   async *send(

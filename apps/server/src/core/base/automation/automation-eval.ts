@@ -121,6 +121,9 @@ export function renderTemplate(
   ctx: { row: BaseRow; properties: BaseProperty[]; actorId: string | null; title: string },
 ): unknown {
   if (Array.isArray(value)) return value.map((v) => renderTemplate(v, ctx));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, renderTemplate(v, ctx)]));
+  }
   if (typeof value !== 'string') return value;
   const whole = /^\{\{\s*row\.([A-Za-z0-9_-]+)\s*\}\}$/.exec(value);
   if (whole) return cellOf(ctx.row, ctx.properties.find((p) => p.id === whole[1]));

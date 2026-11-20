@@ -789,6 +789,8 @@ export class WorkspaceService {
       delete updateWorkspaceDto.allowPublicSpaces;
       delete updateWorkspaceDto.publicSpacesDirectory;
       delete updateWorkspaceDto.mcpEnabled;
+      delete updateWorkspaceDto.analyticsEnabled;
+      delete updateWorkspaceDto.analyticsAnonymous;
       delete updateWorkspaceDto.allowMemberTemplates;
       delete updateWorkspaceDto.aiChat;
       delete updateWorkspaceDto.allowPersonalSpaces;

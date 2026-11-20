@@ -27,6 +27,7 @@ export class UserRepo {
     'emailVerifiedAt',
     'avatarUrl',
     'role',
+    'adminScopes',
     'workspaceId',
     'locale',
     'timezone',
