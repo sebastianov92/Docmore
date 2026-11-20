@@ -62,6 +62,7 @@ function cleanHtml(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<(script|style|noscript|iframe|object|embed|svg|canvas|form|nav|header|footer|aside|button|input|select|textarea)[^>]*>[\s\S]*?<\/\1>/gi, '')
     .replace(/<(script|style|iframe|link|meta)[^>]*\/?>/gi, '')
+    .replace(/\s(href|src)=("\s*(?:javascript|data|vbscript):[^"]*"|'\s*(?:javascript|data|vbscript):[^']*')/gi, '')
     .replace(/\son\w+=("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/\s(class|id|style)=("[^"]*"|'[^']*')/gi, '')
     .replace(/javascript:/gi, '');

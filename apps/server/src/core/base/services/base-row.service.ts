@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectKysely } from 'nestjs-kysely';
+import { sql } from 'kysely';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { BaseRowRepo } from '@docmost/db/repos/base/base-row.repo';
@@ -260,6 +261,7 @@ export class BaseRowService {
       pageId: dto.pageId,
       workspaceId,
     });
+    await this.detachReferences(dto.pageId, [dto.rowId]);
 
     const event: BaseRowDeletedEvent = {
       pageId: dto.pageId,
@@ -269,6 +271,26 @@ export class BaseRowService {
       rowId: dto.rowId,
     };
     this.eventEmitter.emit(EventName.BASE_ROW_DELETED, event);
+  }
+
+  // Children of a deleted row become top-level rows and nothing stays
+  // "blocked by" it.
+  private async detachReferences(pageId: string, rowIds: string[]): Promise<void> {
+    if (rowIds.length === 0) return;
+    await this.db
+      .updateTable('baseRows')
+      .set({ parentRowId: null } as any)
+      .where('pageId', '=', pageId)
+      .where('parentRowId', 'in', rowIds)
+      .execute();
+    await sql`
+      update base_rows
+      set blocked_by = coalesce(
+        (select jsonb_agg(x) from jsonb_array_elements(blocked_by) x where not (x #>> '{}' = any(${rowIds}::text[]))),
+        '[]'::jsonb
+      )
+      where page_id = ${pageId} and blocked_by ?| ${rowIds}::text[]
+    `.execute(this.db);
   }
 
   async deleteMany(
@@ -289,6 +311,7 @@ export class BaseRowService {
       pageId: dto.pageId,
       workspaceId,
     });
+    await this.detachReferences(dto.pageId, dto.rowIds);
 
     const event: BaseRowsDeletedEvent = {
       pageId: dto.pageId,
