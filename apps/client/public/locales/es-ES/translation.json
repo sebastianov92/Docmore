@@ -2277,5 +2277,13 @@
   "Added a row": "Añadió una fila",
   "Changed a row": "Cambió una fila",
   "Meeting notes": "Notas de reunión",
-  "Transcribe a recording into summary, decisions and action items.": "Transcribe una grabación en resumen, decisiones y tareas."
+  "Transcribe a recording into summary, decisions and action items.": "Transcribe una grabación en resumen, decisiones y tareas.",
+  "HTML block": "Bloque HTML",
+  "runs in a sandbox: no access to the wiki, cookies or network": "corre en un sandbox: sin acceso al wiki, cookies ni red",
+  "Height in pixels": "Alto en píxeles",
+  "Show": "Mostrar",
+  "Edit the code": "Editar el código",
+  "Empty HTML block": "Bloque HTML vacío",
+  "HTML": "HTML",
+  "Interactive HTML, CSS and JavaScript in a sandbox": "HTML, CSS y JavaScript interactivos en un sandbox"
 }

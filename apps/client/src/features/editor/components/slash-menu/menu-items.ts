@@ -449,6 +449,15 @@ const CommandGroups: SlashMenuGroupedItemsType = {
       },
     },
     {
+      title: "HTML",
+      description: "Interactive HTML, CSS and JavaScript in a sandbox",
+      searchTerms: ["html", "iframe", "widget", "interactive", "script", "css", "embed code"],
+      icon: IconCode,
+      command: ({ editor, range }: CommandProps) => {
+        editor.chain().focus().deleteRange(range).insertHtmlBlock({ html: "" }).run();
+      },
+    },
+    {
       title: "Button",
       description: "A button that runs an automation of a base",
       searchTerms: ["button", "run", "automation", "action", "trigger"],

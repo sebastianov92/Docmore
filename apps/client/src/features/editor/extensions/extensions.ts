@@ -68,6 +68,7 @@ import {
   Status,
   BaseButton,
   Bookmark,
+  HtmlBlock,
   TransclusionSource,
   TransclusionReference,
   TableView,
@@ -142,6 +143,7 @@ import { CleanStyles } from "@/features/editor/extensions/clean-styles.ts";
 import BaseButtonView from "@/features/editor/components/base-button/base-button-view";
 import { BookmarkPasteMenuExtension } from "@/features/editor/extensions/bookmark-paste-menu";
 import BookmarkView from "@/features/editor/components/bookmark/bookmark-view";
+import HtmlBlockView from "@/features/editor/components/html-block/html-block-view";
 
 const lowlight = createLowlight(common);
 lowlight.register("mermaid", plaintext);
@@ -426,6 +428,9 @@ export const mainExtensions = [
   BookmarkPasteMenuExtension,
   Bookmark.configure({
     view: BookmarkView,
+  }),
+  HtmlBlock.configure({
+    view: HtmlBlockView,
   }),
   MicrosoftFile.configure({
     view: MicrosoftFileView,

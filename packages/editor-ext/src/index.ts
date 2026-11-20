@@ -45,3 +45,4 @@ export {
 export * from "./lib/base-embed";
 export * from "./lib/base-button";
 export * from "./lib/bookmark";
+export * from "./lib/html-block";

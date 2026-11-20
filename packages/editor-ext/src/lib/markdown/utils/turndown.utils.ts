@@ -40,6 +40,7 @@ export function htmlToMarkdown(html: string): string {
     video,
     footnoteRef,
     footnotesList,
+    htmlBlock,
   ]);
   const htmlWithoutColgroups = html.replace(
     /<colgroup\b[^>]*>[\s\S]*?<\/colgroup>/gi,
@@ -158,6 +159,19 @@ function orderedListItem(turndownService: _TurndownService) {
         content +
         (node.nextSibling && !/\n$/.test(content) ? '\n' : '')
       );
+    },
+  });
+}
+
+// An interactive HTML block travels as a fenced html code block.
+function htmlBlock(turndownService: _TurndownService) {
+  turndownService.addRule('htmlBlock', {
+    filter: function (node: HTMLInputElement) {
+      return node.nodeName === 'DIV' && node.getAttribute('data-type') === 'html-block';
+    },
+    replacement: function (_content: string, node: HTMLInputElement) {
+      const html = node.getAttribute('data-html') ?? '';
+      return `\n\n\`\`\`html\n${html.trim()}\n\`\`\`\n\n`;
     },
   });
 }

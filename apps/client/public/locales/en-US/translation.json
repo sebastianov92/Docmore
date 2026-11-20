@@ -2379,5 +2379,13 @@
   "Added a row": "Added a row",
   "Changed a row": "Changed a row",
   "Meeting notes": "Meeting notes",
-  "Transcribe a recording into summary, decisions and action items.": "Transcribe a recording into summary, decisions and action items."
+  "Transcribe a recording into summary, decisions and action items.": "Transcribe a recording into summary, decisions and action items.",
+  "HTML block": "HTML block",
+  "runs in a sandbox: no access to the wiki, cookies or network": "runs in a sandbox: no access to the wiki, cookies or network",
+  "Height in pixels": "Height in pixels",
+  "Show": "Show",
+  "Edit the code": "Edit the code",
+  "Empty HTML block": "Empty HTML block",
+  "HTML": "HTML",
+  "Interactive HTML, CSS and JavaScript in a sandbox": "Interactive HTML, CSS and JavaScript in a sandbox"
 }
