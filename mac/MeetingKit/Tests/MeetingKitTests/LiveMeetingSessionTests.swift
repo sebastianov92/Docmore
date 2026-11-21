@@ -323,15 +323,16 @@ final class LiveMeetingSessionTests: XCTestCase {
     func testUploadsStartAtTheFirstSegmentTheServerHasNotStored() async throws {
         let session = LiveMeetingSession(mode: .inPerson, transcriber: ScriptedTranscriber([text]), diarizer: ScriptedDiarizer([voices]), options: options())
         XCTAssertNil(session.pendingUpload(), "nothing yet")
-        let early = Box<LiveMeetingUpload>()
-        session.onUpdate = { [unowned session] update in
-            // after the second sentence the app posts what there is ...
-            if update.segmentCount == 2, early.count == 0, let upload = session.pendingUpload() { early.add(upload) }
+        let audio = ScriptedAudio.track(0, seconds: 60)
+        // half a minute in, two sentences are there and the app posts what there is ...
+        feed(session, room: Array(audio[0..<(30 * 16_000)]))
+        for _ in 0..<500 where session.processedSeconds < 27 {
+            try await Task.sleep(nanoseconds: 10_000_000)
         }
-        feed(session, room: ScriptedAudio.track(0, seconds: 60))
+        let first = try XCTUnwrap(session.pendingUpload())
+        feed(session, room: Array(audio[(30 * 16_000)...]))
         let transcript = await session.finish()
 
-        let first = try XCTUnwrap(early.values.first)
         XCTAssertEqual(first.fromIndex, 0)
         XCTAssertEqual(first.segments, Array(transcript.segments.prefix(2)))
         XCTAssertTrue(first.isComplete)

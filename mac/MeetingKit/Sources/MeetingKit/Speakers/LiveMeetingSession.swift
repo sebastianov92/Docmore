@@ -100,7 +100,8 @@ public final class LiveMeetingSession: @unchecked Sendable {
     public let mode: MeetingMode
     public let options: LiveMeetingOptions
 
-    /// Called for each update, on a background thread.
+    /// Called for each update, on a background queue, one at a time and in
+    /// the order of their revision. Do not call `finish()` from inside it.
     public var onUpdate: ((LiveMeetingUpdate) -> Void)?
     /// The same updates as a stream. It ends after `finish()`.
     public let updates: AsyncStream<LiveMeetingUpdate>
@@ -120,6 +121,10 @@ public final class LiveMeetingSession: @unchecked Sendable {
     }
 
     private let lock = NSLock()
+    /// Updates are handed out here, one after another, in the order of
+    /// their revision: a name typed while a window is being finished can
+    /// never arrive before the update that was made first.
+    private let emitter = DispatchQueue(label: "com.dezik.meetingkit.live-updates")
     private var windower: TrackWindower
     private var finished = false
     // touched only by the worker
@@ -210,16 +215,18 @@ public final class LiveMeetingSession: @unchecked Sendable {
         windowsContinuation.finish()
         await worker?.value
         // the last word on what there is: marks the end for whoever follows the updates
-        let closing: LiveMeetingUpdate = lock.withLock {
+        lock.withLock {
             revision += 1
             unsent.append((revision, current.count))
-            return LiveMeetingUpdate(
+            emit(LiveMeetingUpdate(
                 revision: revision, fromIndex: current.count, segments: [], segmentCount: current.count,
                 speakers: currentSpeakers, durationSeconds: processed, language: language, isFinal: true
-            )
+            ))
         }
-        onUpdate?(closing)
-        updatesContinuation.yield(closing)
+        // every update has been handed out when this returns
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            emitter.async { done.resume() }
+        }
         updatesContinuation.finish()
         return transcript
     }
@@ -232,21 +239,18 @@ public final class LiveMeetingSession: @unchecked Sendable {
     /// there is no such speaker.
     @discardableResult
     public func setName(_ name: String?, forSpeaker id: String) -> Bool {
-        let update: LiveMeetingUpdate? = lock.withLock {
-            guard speakerState.setName(name, for: id) else { return nil }
+        lock.withLock {
+            guard speakerState.setName(name, for: id) else { return false }
             let named = speakerState.speakers
             currentSpeakers = currentSpeakers.map { speaker in named.first { $0.id == speaker.id } ?? speaker }
             revision += 1
             unsent.append((revision, current.count))
-            return LiveMeetingUpdate(
+            emit(LiveMeetingUpdate(
                 revision: revision, fromIndex: current.count, segments: [], segmentCount: current.count,
                 speakers: currentSpeakers, durationSeconds: processed, language: language, isFinal: false
-            )
+            ))
+            return true
         }
-        guard let update else { return false }
-        onUpdate?(update)
-        updatesContinuation.yield(update)
-        return true
     }
 
     // MARK: - What there is so far
@@ -408,7 +412,7 @@ public final class LiveMeetingSession: @unchecked Sendable {
         }
 
         // 3. Put it together and say what changed.
-        let update: LiveMeetingUpdate? = lock.withLock {
+        lock.withLock {
             var labelled: [[LabelledSegment]] = []
             for index in tracks.indices {
                 labelled.append(label(track: index))
@@ -424,17 +428,23 @@ public final class LiveMeetingSession: @unchecked Sendable {
             current = new
             currentSpeakers = speakers
             processed = window.endSeconds
-            guard from < new.count || new.count != old.count || speakersChanged else { return nil }
+            guard from < new.count || new.count != old.count || speakersChanged else { return }
             revision += 1
             unsent.append((revision, from))
-            return LiveMeetingUpdate(
+            emit(LiveMeetingUpdate(
                 revision: revision, fromIndex: from, segments: Array(new[from...]), segmentCount: new.count,
                 speakers: speakers, durationSeconds: processed, language: language, isFinal: false
-            )
+            ))
         }
-        if let update {
-            onUpdate?(update)
-            updatesContinuation.yield(update)
+    }
+
+    /// Queues an update for delivery. Called under `lock`, so the queue has
+    /// the updates in the order of their revision.
+    private func emit(_ update: LiveMeetingUpdate) {
+        emitter.async { [weak self] in
+            guard let self else { return }
+            self.onUpdate?(update)
+            self.updatesContinuation.yield(update)
         }
     }
 
