@@ -52,7 +52,8 @@ const NEVER =
 export function normalizeRoute(url: string | undefined): string {
   if (!url) return "";
   let route = url.split("?")[0].split("#")[0];
-  if (route.startsWith("http")) {
+  // absolute, whatever the scheme (the desktop app lives on docmore-app://)
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(route)) {
     try {
       route = new URL(route).pathname;
     } catch {

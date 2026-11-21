@@ -479,6 +479,18 @@ async function snapshot(): Promise<void> {
   } catch (error) {
     if (isNoAnswer(error)) throw error;
   }
+  // each space in full (role, settings): pages ask for it by slug or by id
+  for (const space of snap.spaces) {
+    try {
+      const info = await rawPost<any>("/spaces/info", { spaceId: space.id });
+      if (!info?.id) continue;
+      await saveSpaces([info]);
+      await recordResponse("/spaces/info", { spaceId: info.id }, info);
+      if (info.slug) await recordResponse("/spaces/info", { spaceId: info.slug }, info);
+    } catch (error) {
+      if (isNoAnswer(error)) throw error;
+    }
+  }
   await kvSet(CURSOR_KEY, snap.cursor);
   await recomputeWanted();
   await dropUnreachable();

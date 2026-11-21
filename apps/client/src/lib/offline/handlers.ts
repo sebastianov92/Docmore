@@ -165,6 +165,15 @@ export const READERS: Record<string, (body: any) => Promise<unknown | undefined>
     return { items, meta };
   },
 
+  // A space the device knows in full (the engine fetches each one), asked by
+  // id or by slug: a page that was downloaded opens even if its space was
+  // never looked at on this device.
+  "/spaces/info": async (body) => {
+    if (!body?.spaceId) return undefined;
+    const space = await getSpace(body.spaceId);
+    return space?.membership ? space : undefined;
+  },
+
   "/search": (body) => searchPagesOffline(body),
 
   "/search/suggest": (body) => searchSuggestionsOffline(body),

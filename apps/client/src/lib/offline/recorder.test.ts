@@ -7,6 +7,7 @@ describe("offline recorder routes", () => {
     expect(normalizeRoute("/api/pages/info?x=1")).toBe("/pages/info");
     expect(normalizeRoute("http://localhost:3100/api/spaces/")).toBe("/spaces");
     expect(normalizeRoute("users/me")).toBe("/users/me");
+    expect(normalizeRoute("docmore-app://abc123/api/pages/info?x=1")).toBe("/pages/info");
   });
 
   it("records reads", () => {
