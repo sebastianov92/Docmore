@@ -82,6 +82,13 @@ class LiveStartDto {
   @IsString()
   @MaxLength(20)
   language?: string;
+
+  // the language of the recorder's own interface ("es-ES"): default labels
+  // and headings follow it, so the notes match what the person saw live
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  locale?: string;
 }
 
 class LiveUpdateDto {
@@ -222,6 +229,12 @@ class FromTranscriptDto {
   @ValidateNested({ each: true })
   @Type(() => SpeakerDto)
   speakers?: SpeakerDto[];
+
+  // the language of the recorder's own interface; see LiveStartDto
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  locale?: string;
 }
 
 // Meeting notes from a recording: upload, then poll.

@@ -74,6 +74,7 @@ const LIVE_ROUNDS = 3;
 // less new text than this waits for the next update
 const LIVE_MIN_CHARS = 60;
 const LIVE_STALE_MS = 24 * 60 * 60 * 1000;
+const FINAL_TIMEOUT_MS = 10 * 60 * 1000;
 
 export interface MeetingNotesView {
   id: string;
@@ -257,6 +258,7 @@ export class AiMeetingService {
       meetingId?: string;
       mode?: string;
       speakers?: unknown[];
+      locale?: string;
     },
   ): Promise<MeetingNotesView> {
     const text = input.transcript.trim();
@@ -286,6 +288,7 @@ export class AiMeetingService {
             mode: mode ?? live.mode,
             // the final transcript names its own speakers; without them the live ones stay
             ...(speakers.length ? { speakers: speakers } : {}),
+            ...(input.locale ? { notes: { lang: langFromLocale(input.locale) } } : {}),
             updatedAt: new Date(),
           } as any)
           .where('id', '=', live.id)
@@ -302,6 +305,7 @@ export class AiMeetingService {
             attachmentId: null,
             mode,
             speakers: speakers,
+            notes: input.locale ? { lang: langFromLocale(input.locale) } : null,
           } as any)
           .returningAll()
           .executeTakeFirstOrThrow();
@@ -382,7 +386,7 @@ export class AiMeetingService {
   async liveStart(
     user: User,
     workspace: Workspace,
-    input: { pageId?: string; spaceId?: string; title?: string; mode?: string; language?: string },
+    input: { pageId?: string; spaceId?: string; title?: string; mode?: string; language?: string; locale?: string },
   ): Promise<MeetingDetailView> {
     const { pageId, spaceId } = await this.resolveTarget(user, workspace, input);
     // meetings that never finished (a crash, a closed tab) do not pile up
@@ -405,6 +409,7 @@ export class AiMeetingService {
         status: 'live',
         mode: isMode(input.mode) ? input.mode : null,
         language: input.language?.slice(0, 20) ?? null,
+        notes: input.locale ? { lang: langFromLocale(input.locale) } : null,
       } as any)
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -466,7 +471,7 @@ export class AiMeetingService {
       if (size < LIVE_MIN_CHARS) return true;
       const speakers = cleanSpeakers(row.speakers);
       const mode = isMode(row.mode) ? row.mode : null;
-      const lang = pickLang(user.locale, row.language);
+      const lang = langOf(row, user);
       const earlier = transcriptLines(turns(segments.slice(Math.max(0, cursor - 12), cursor), '', speakers, mode, lang)).slice(-1500);
       const text = transcriptLines(turns(fresh, '', speakers, mode, lang));
       let ops: ReturnType<typeof parseOps>;
@@ -695,20 +700,24 @@ export class AiMeetingService {
       const label = attachment?.fileName ?? row.fileName ?? 'Meeting';
       const speakers = cleanSpeakers(row.speakers);
       const mode = isMode(row.mode) ? row.mode : null;
-      const lang = pickLang(user.locale, transcript.language);
+      // the recorder's own language when it said one, else the person's, else the one spoken
+      const stored = (row.notes as { lang?: string } | null)?.lang;
+      const lang: MeetingLang = stored === 'es' || stored === 'en' ? stored : pickLang(user.locale, transcript.language);
       const list = turns(segments, transcript.text, speakers, mode, lang);
 
       // the list kept while the meeting ran is where the final one starts
       let items = cleanItems(row.items);
       let notes: NotesText;
+      let noSummary: string | null = null;
       try {
         const answer = await this.summarize(row.workspaceId, label, items, transcriptLines(list, false));
         notes = answer.notes;
         items = mergeFinalItems(items, answer.items, transcript.durationSeconds ?? null);
       } catch (err: any) {
-        // with no model to write the summary, the device's transcript is still worth keeping
-        if (!fromDevice) throw err;
-        this.logger.warn(`meeting notes ${row.id}: no summary (${String(err?.message ?? err).slice(0, 200)})`);
+        // no model, or one that did not answer: the transcript and the list
+        // kept during the meeting are still worth having on the page
+        noSummary = String(err?.message ?? err).slice(0, 300);
+        this.logger.warn(`meeting notes ${row.id}: no summary (${noSummary})`);
         notes = { title: '', summary: '', topics: [] };
       }
       const markdown = renderNotes(notes, items, list, {
@@ -742,7 +751,8 @@ export class AiMeetingService {
         status: 'done',
         summary: notes.summary,
         pageId,
-        error: null,
+        // done, but say why the notes have no summary
+        error: noSummary ? `No summary: ${noSummary}` : null,
         items: items,
         itemsRevision: row.itemsRevision + 1,
         notes: { title: notes.title, topics: notes.topics, lang, ...marks },
@@ -785,6 +795,8 @@ export class AiMeetingService {
       prompt: finalPrompt(label, items, text),
       temperature: 0.2,
       maxOutputTokens: 4_000,
+      // a model that stopped answering must not hold the notes back for ever
+      abortSignal: AbortSignal.timeout(FINAL_TIMEOUT_MS),
     });
     const parsed = parseJson(result.text) ?? {};
     return {
@@ -812,6 +824,10 @@ export class AiMeetingService {
       .where('id', '=', id)
       .execute();
   }
+}
+
+function langFromLocale(locale: string): MeetingLang {
+  return locale.toLowerCase().startsWith('es') ? 'es' : 'en';
 }
 
 // The language the notes of a meeting were (or will be) written in.
