@@ -36,7 +36,7 @@ struct Arguments {
     var options: [String: String] = [:]
     var flags: Set<String> = []
 
-    static let flagNames: Set<String> = ["json", "check", "progress", "no-system-audio", "no-microphone", "help", "prints"]
+    static let flagNames: Set<String> = ["json", "check", "progress", "no-system-audio", "no-microphone", "help", "prints", "words", "no-speakers", "no-echo-pass"]
 
     init(_ raw: [String]) throws {
         var index = 0
@@ -136,6 +136,32 @@ func jsonString<T: Encodable>(_ value: T) throws -> String {
 func timestamp(_ seconds: Double) -> String {
     let total = Int(seconds)
     return String(format: "%02d:%02d", total / 60, total % 60)
+}
+
+/// "virtual" or "in_person" from --mode; without it, what the tracks say.
+func meetingMode(_ arguments: Arguments, tracks: MeetingTracks) throws -> MeetingMode {
+    guard let text = arguments.options["mode"] else { return tracks.remote == nil ? .inPerson : .virtual }
+    switch text.lowercased().replacingOccurrences(of: "-", with: "_") {
+    case "virtual": return .virtual
+    case "in_person", "inperson": return .inPerson
+    default: throw CLIError("--mode is in_person or virtual")
+    }
+}
+
+/// The default label of the contract: the name, else "Speaker 2 (remote)";
+/// a segment without a speaker shows its side.
+func label(_ segment: MeetingTranscript.Segment, in transcript: MeetingTranscript) -> String {
+    let side = segment.side.map { $0 == .room ? "room" : "remote" }
+    guard let speaker = transcript.speaker(segment.speaker) else { return side.map { $0.capitalized } ?? "" }
+    if let name = speaker.name { return name }
+    return "Speaker \(speaker.number)" + (side.map { " (\($0))" } ?? "")
+}
+
+func printTranscript(_ transcript: MeetingTranscript) {
+    for segment in transcript.segments {
+        let who = label(segment, in: transcript)
+        print("[\(timestamp(segment.start)) - \(timestamp(segment.end))] \(who.isEmpty ? "" : who + ": ")\(segment.text)")
+    }
 }
 
 func run(_ command: String, _ arguments: Arguments) async throws {
@@ -257,6 +283,40 @@ func run(_ command: String, _ arguments: Arguments) async throws {
                           diarization.durationSeconds, diarization.clusters.count, diarization.turns.count,
                           loadSeconds, seconds, seconds > 0 ? diarization.durationSeconds / seconds : 0))
 
+    case "transcribe" where arguments.flags.contains("words") || arguments.options["channel"] != nil:
+        // one track of the file, with the time of every word
+        let file = URL(fileURLWithPath: try arguments.first("audio file"))
+        let samples = try AudioTrackReader.samples(of: file, channel: arguments.options["channel"].flatMap { Int($0) })
+        let whisper = try transcriber(arguments)
+        try await whisper.prepare()
+        let started = Date()
+        let timed = try await whisper.transcribeWords(samples: samples, language: nil)
+        let seconds = Date().timeIntervalSince(started)
+        if arguments.flags.contains("json") {
+            struct Output: Encodable {
+                struct Word: Encodable { var start: Double; var end: Double; var text: String }
+                struct Segment: Encodable { var start: Double; var end: Double; var text: String; var words: [Word] }
+                var language: String?
+                var durationSeconds: Double
+                var segments: [Segment]
+            }
+            print(try jsonString(Output(
+                language: timed.language,
+                durationSeconds: timed.durationSeconds,
+                segments: timed.segments.map { segment in
+                    .init(start: segment.start, end: segment.end, text: segment.text,
+                          words: segment.words.map { .init(start: $0.start, end: $0.end, text: $0.text) })
+                }
+            )))
+        } else {
+            for segment in timed.segments {
+                print(String(format: "[%6.2f - %6.2f] %@", segment.start, segment.end, segment.text))
+            }
+        }
+        printError(String(format: "language %@, %.1f s of audio, %d segments, %d words, %.1f s to transcribe",
+                          timed.language ?? "?", timed.durationSeconds, timed.segments.count,
+                          timed.segments.reduce(0) { $0 + $1.words.count }, seconds))
+
     case "transcribe":
         let file = URL(fileURLWithPath: try arguments.first("audio file"))
         let started = Date()
@@ -273,6 +333,63 @@ func run(_ command: String, _ arguments: Arguments) async throws {
             printError(String(format: "language %@, %.1f s of audio, %d segments, %.1f s to transcribe",
                               transcript.language ?? "?", transcript.durationSeconds, transcript.segments.count, Date().timeIntervalSince(started)))
         }
+
+    case "process":
+        let file = URL(fileURLWithPath: try arguments.first("audio file"))
+        let tracks: MeetingTracks
+        if let system = arguments.options["system"] {
+            tracks = try MeetingTracks(microphone: file, systemAudio: URL(fileURLWithPath: system))
+        } else {
+            tracks = try MeetingTracks(contentsOf: file)
+        }
+        let mode = try meetingMode(arguments, tracks: tracks)
+        let store = ModelStore(directory: try arguments.directory("models-dir"))
+        let whisper = try transcriber(arguments)
+        var options = MeetingProcessingOptions()
+        options.removesEcho = !arguments.flags.contains("no-echo-pass")
+        if let threshold = arguments.options["threshold"].flatMap({ Float($0) }) { options.diarization.clusterThreshold = threshold }
+        let processor = MeetingProcessor(
+            transcriber: whisper,
+            diarizer: arguments.flags.contains("no-speakers") ? nil : SpeakerDiarizer(modelStore: store),
+            options: options
+        )
+        var seed: MeetingSpeakerState?
+        if let path = arguments.options["state"] {
+            seed = try JSONDecoder().decode(MeetingSpeakerState.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+        }
+        let showProgress = arguments.flags.contains("progress")
+        let started = Date()
+        let result = try await processor.process(tracks, mode: mode, state: seed) { fraction in
+            if showProgress { printError(String(format: "progress %.0f%%", fraction * 100)) }
+        }
+        let seconds = Date().timeIntervalSince(started)
+        if let path = arguments.options["state-out"] {
+            try Data(try jsonString(result.state).utf8).write(to: URL(fileURLWithPath: path))
+        }
+        if arguments.flags.contains("json") {
+            struct Output: Encodable {
+                var transcript: MeetingTranscript
+                var echoes: [MeetingTranscript.Segment]
+                var notes: [String]
+                var seconds: Double
+                var transcriptionSeconds: Double
+                var diarizationSeconds: Double
+            }
+            print(try jsonString(Output(
+                transcript: result.transcript, echoes: result.echoes, notes: result.notes,
+                seconds: seconds, transcriptionSeconds: result.transcriptionSeconds, diarizationSeconds: result.diarizationSeconds
+            )))
+        } else {
+            printTranscript(result.transcript)
+            for echo in result.echoes {
+                print("echo dropped [\(timestamp(echo.start)) - \(timestamp(echo.end))] \(echo.text)")
+            }
+        }
+        for note in result.notes { printError("note: \(note)") }
+        printError(String(format: "%@, language %@, %.1f s of audio, %d segments, %d speakers, %d echoes dropped; %.1f s in all (%.1f s transcribing, %.1f s telling voices apart)",
+                          result.transcript.mode?.rawValue ?? "?", result.transcript.language ?? "?", result.transcript.durationSeconds,
+                          result.transcript.segments.count, result.transcript.speakers.count, result.echoes.count,
+                          seconds, result.transcriptionSeconds, result.diarizationSeconds))
 
     case "live":
         let audio = try WAVFile.read(URL(fileURLWithPath: try arguments.first("WAV file")))

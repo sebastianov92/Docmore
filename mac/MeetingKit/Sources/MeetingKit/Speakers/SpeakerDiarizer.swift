@@ -81,6 +81,12 @@ public enum SpeakerDiarizerError: Error, LocalizedError, Equatable, Sendable {
 
 /// How the voices of one piece of audio are grouped.
 public struct DiarizationOptions: Equatable, Sendable {
+    /// What MeetingKit uses: 0.5. With SpeakerKit's own 0.6 two clearly
+    /// different voices that had under a minute of speech between them were
+    /// taken for one; at 0.5 they were told apart, and nothing else in the
+    /// measurements changed (STATUS.md).
+    public static let meetingClusterThreshold: Float = 0.5
+
     /// How far apart two stretches of speech may sound and still be taken
     /// for one voice: smaller finds more voices. Nil: SpeakerKit's own
     /// value (0.6).
@@ -92,16 +98,24 @@ public struct DiarizationOptions: Equatable, Sendable {
         self.clusterThreshold = clusterThreshold
         self.speakerCount = speakerCount
     }
+
+    /// The options the live session and the final pass use.
+    public static let meeting = DiarizationOptions(clusterThreshold: meetingClusterThreshold)
 }
 
 /// Something that says who speaks when in 16 kHz mono samples.
 /// `SpeakerDiarizer` is the real one; the live session and the final pass
 /// accept any (tests use a fake).
 public protocol SampleDiarizing: AnyObject, Sendable {
+    /// False when it cannot work (the speaker models are not on disk): the
+    /// meeting then goes on without speakers.
+    var isAvailable: Bool { get }
     func diarize(samples: [Float], options: DiarizationOptions) async throws -> Diarization
 }
 
 public extension SampleDiarizing {
+    var isAvailable: Bool { true }
+
     func diarize(samples: [Float]) async throws -> Diarization {
         try await diarize(samples: samples, options: DiarizationOptions())
     }
