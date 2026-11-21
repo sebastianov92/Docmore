@@ -939,7 +939,7 @@ the name of the terminal application it runs in.
 swift test --build-path .build
 ```
 
-178 tests. 174 of them need no microphone, no model and no network
+179 tests. 175 of them need no microphone, no model and no network
 (one opens a connection to a closed local port to see a real connection
 failure): the recorder runs on scripted sources, the live session and the
 final pass on a scripted transcriber and a scripted diarizer.
