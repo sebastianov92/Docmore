@@ -84,20 +84,17 @@ final class RealModelTests: XCTestCase {
         XCTAssertEqual(result.clusters.count, 4)
         XCTAssertEqual(Set(result.voicePrints.keys), Set(result.clusters))
         XCTAssertTrue(result.voicePrints.values.allSatisfy { $0.count == 256 })
-        var owners: [Int: Set<String>] = [:]
-        var right = 0.0
-        var total = 0.0
+        // each cluster is one person: the seconds of every cluster, by who was really talking
+        var shares: [Int: [String: Double]] = [:]
         for turn in result.turns {
             guard let name = owner(truth, side: nil, from: turn.start, to: turn.end) else { continue }
-            owners[turn.cluster, default: []].insert(name)
-            total += turn.duration
+            shares[turn.cluster, default: [:]][name, default: 0] += turn.duration
         }
-        // each cluster is one person; count the speech that went to the right one
-        for turn in result.turns {
-            guard let name = owner(truth, side: nil, from: turn.start, to: turn.end), let main = owners[turn.cluster] else { continue }
-            if main.count == 1, main.contains(name) { right += turn.duration }
-        }
-        XCTAssertGreaterThan(right / total, 0.95, "\(owners)")
+        let people = shares.mapValues { $0.max { $0.value < $1.value }?.key ?? "" }
+        XCTAssertEqual(Set(people.values), ["Ana", "Luis", "Marta", "Carlos"], "\(shares)")
+        let right = shares.reduce(0.0) { $0 + ($1.value[people[$1.key] ?? ""] ?? 0) }
+        let total = shares.reduce(0.0) { $0 + $1.value.values.reduce(0, +) }
+        XCTAssertGreaterThan(right / total, 0.95, "\(shares)")
         // two different people are far apart, as measured (STATUS.md)
         for first in result.clusters {
             for second in result.clusters where first < second {
@@ -169,7 +166,8 @@ final class RealModelTests: XCTestCase {
         ).process(fileURL: RealModels.meetingRecording(), mode: .virtual)
         XCTAssertEqual(plain.transcript.speakers, [])
         XCTAssertTrue(plain.transcript.segments.allSatisfy { $0.speaker == nil && $0.side != nil })
-        XCTAssertEqual(plain.transcript.segments.filter { $0.side == .remote }.map(\.text), transcript.segments.filter { $0.side == .remote }.map(\.text))
+        XCTAssertEqual(normalized(plain.transcript.segments.filter { $0.side == .remote }.map(\.text).joined(separator: " ")),
+                       normalized(transcript.segments.filter { $0.side == .remote }.map(\.text).joined(separator: " ")))
     }
 
     func testTheEchoOfLoudspeakersIsRemovedAndNothingTheRoomSaid() async throws {

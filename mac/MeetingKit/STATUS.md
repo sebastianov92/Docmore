@@ -32,7 +32,10 @@ the first round and still holds (transcription, queue, server round trip).
 | **Live capture: system audio (Core Audio process tap)** | **Not verified, needs a human click** |
 | **Real voices, real rooms, real loudspeakers** | **Not verified: there was nobody to talk** |
 
-## Verified
+## Verified in the first round (still holds)
+
+The numbers of this part are from before the work on speakers; what was run
+again is said in each place.
 
 ### Build
 
@@ -47,8 +50,13 @@ xcodebuild -scheme MeetingKit-Package -destination 'platform=macOS,arch=arm64' -
 
 ```
 swift test --build-path .build
-# Executed 91 tests, with 0 failures (0 unexpected) in 1.7 seconds
+# Executed @@TEST_TOTAL@@ tests, with 0 failures (0 unexpected) in @@TEST_SECONDS@@ seconds
 ```
+
+@@UNIT_TOTAL@@ of them need no model (run again after the work on speakers:
+the 91 of the first round are all still there and green). The four of
+`RealModelTests` run the real models over the test meeting and are skipped
+without them.
 
 | Suite | Tests | What it covers |
 | --- | --- | --- |
@@ -58,10 +66,21 @@ swift test --build-path .build
 | LiveChunkerTests | 6 | windows cover the stream with no gap or overlap; 25 to 30 s each; cut falls in a pause; same windows however the audio arrives; 30 s cap |
 | LiveTranscriberTests | 5 | every sample transcribed once, in order; times moved to the recording's clock; language of the first speech kept; a failed window skipped and reported; stream ends |
 | MeetingRecorderTests | 14 | scripted microphone to a 16 kHz mono WAV (duration, energy, pitch, level, 0.1 s chunks); two sources at 44.1 and 48 kHz mixed; system audio refused -> microphone alone, with the warning; no microphone -> system audio alone; no source -> clean error, no file; silent source not reported as captured; file readable mid-recording; source lost midway; state errors; permission queries |
+| SeparateTracksTests | 10 | the options of the two kinds of meeting; a virtual recording is two channels, the microphone alone in 0 and the system audio alone in 1 (pitch and level of each), same length, live chunks per track that add up to the file; a missing source is a silent channel, never the other source; in person records the microphone alone; the mixed layout of the first version unchanged and read as one track; a late source is padded; a two-channel recording cut by a crash is repaired; reading tracks from one file or two; the speaker models are refused while a recording runs and allowed again after stop and after cancel |
+| TrackWindowerTests | 3 | both tracks cut at the same samples, in a pause both have; one track behaves like `LiveChunker`; unequal blocks padded |
 | MeetingQueueTests | 16 | one JSON file per job; survives a new queue object; retry classification table; network failure keeps the job and a later flush sends it once; the job id is the same on every attempt; 401 keeps it and reports needs-sign-in; 400/403 move to `failed/` with the reason; 404 keeps and goes on; 8 concurrent flushes send each job once, never two at a time; a job stored during a flush is sent; a second queue on the directory gets `busy`; `onChange`; unreadable file moved aside; removed job does not come back |
-| DocmoreMeetingSenderTests | 12 | request path, headers and exact JSON keys; the same `Idempotency-Key` on every attempt of a job, none for an id the server would refuse as a key; envelope parsing; status and message for 400/401/403/404/429/502; real connection failure is a network error; token asked each time; no token -> needs sign-in, nothing sent; odd 2xx body does not cause a resend; `status`; limits (title, 20,000 segments, 2,000,000 characters) |
-| MeetingTranscriptTests | 6 | JSON shape `{text, language, durationSeconds, segments:[{start,end,text}]}`; decode; build from segments; join; sound labels; Whisper markers |
+| MeetingJobCodingTests | 3 | a job file exactly as the first version wrote it decodes, encodes back to the same bytes and is sent with the old body; such a file left in the queue directory is flushed; a job with mode, speakers and `meetingId` survives the disk and another queue object |
+| DocmoreMeetingSenderTests | 17 | request path, headers and exact JSON keys; the same `Idempotency-Key` on every attempt of a job, none for an id the server would refuse as a key; envelope parsing; status and message for 400/401/403/404/429/502; real connection failure is a network error; token asked each time; no token -> needs sign-in, nothing sent; odd 2xx body does not cause a resend; `status`; limits (title, 20,000 segments, 2,000,000 characters). New: a plain transcript posts byte for byte the old body; `meetingId`, `mode`, `speakers` (with `side` and `name` as null when there is none) and `speaker`/`side` of segments exactly as the contract; no sides in person; invalid speaker ids, unknown references, a `meetingId` that is not a UUID and names over 80 characters never reach the server; joined segments keep a speaker only when both had it |
+| MeetingTranscriptTests | 10 | JSON shape `{text, language, durationSeconds, segments:[{start,end,text}]}`; decode; build from segments; join; sound labels; Whisper markers. New: the shape with mode, speakers and sides; speakers write `side` and `name` as null; the two tracks merge by time, the room first on a tie; join keeps mode and speakers |
 | ModelStoreTests | 5 | catalog identifiers and aliases; on-disk layout; `isDownloaded` needs model, tokenizer and marker; delete keeps a shared tokenizer; transcribing without the model says so |
+| SpeakerModelStoreTests | 6 | catalog and aliases; the layout SpeakerKit reads, next to the Whisper models; `isDownloaded` needs every part and the marker; delete removes the speaker models and nothing else; without the models the diarizer says so and starts no download; diarization values |
+| TrackSpeakersTests | 14 | speakers in order of first appearance; ids stay when the diarizer renumbers its clusters; a voice heard little waits one pass; a voice that melts into another never uses a number; what lies before the window is untouched; a voice that comes back is recognised by its print; the print does not fade as the window slides away; too little speech to tell waits; two speakers that were one person become one (the named one stays); one that was two; the final pass gives every voice a speaker and keeps the ids of the live session; the state survives JSON; voice print distance |
+| SpeakerAttributionTests | 7 | the speaker who talks the most in a segment; a segment two voices share is split at the word; the edge of a turn does not split; without word times; the nearest turn; no speakers; a voice not confirmed yet labels nothing |
+| EchoFilterTests | 8 | a room segment that repeats the remote side is dropped; what only the room said is never dropped (other words, the same words at another time, talking over the call); the quieter copy heard slightly differently; short answers need to be right on time; a voice that is mostly echo needs less evidence; without word times; deterministic; word normalisation |
+| EchoGateTests | 3 | delay (180 ms) and level (0.35) of a synthetic echo found; the echo silenced, its tail too; the room untouched sample for sample, also when it talks over the call; headphones; a silent remote side |
+| MeetingProcessorTests | 9 | a virtual meeting becomes one transcript with sides and speakers numbered by first appearance, the echo and its voice gone; the speakers of the live session keep ids, numbers and names; one of them with no text left is dropped; without speaker models only sides; a one-track recording has no sides; a silent track is not worked on; a track that cannot be diarized keeps its text; in person on two channels is one track; deterministic |
+| LiveMeetingSessionTests | 10 | updates carry the changed tail and the speakers, and following them gives the transcript; the stream ends; ids never change over four minutes of a sliding window while the diarizer renumbers its clusters on every pass, and a voice that comes back gets its id; the end of a turn that leaves the window keeps its speaker; a name typed during the meeting is on the same voice in the final transcript; sides, and silence is not given to Whisper; the echo is never shown; without speaker models only sides; a window that fails is skipped and reported; uploads start at the first segment the server has not stored |
+| RealModelTests | 4 | with the real models over the test meeting: the speaker models tell the four voices apart (one track, and each side); the final pass gives sides, four speakers in order of first appearance and the story (the decision, its change, the task) with the right people; the echo of loudspeakers (synthetic) is removed and nothing the room said; the live session ends with the four people and hands its ids, numbers and a name to the final pass |
 
 ### Models (real repository, real downloads)
 
@@ -204,8 +223,49 @@ Those are the answers for the process tree this ran in, not for the app.
 
 ## Not verified, and why
 
-Nobody was there to click, and the rules of this run forbid GUI automation
-and answering permission dialogs. `meetingkit record` was never started.
+Nobody was there to click or to talk, and the rules of these runs forbid
+GUI automation and answering permission dialogs. `meetingkit record` was
+never started.
+
+Meetings with speakers:
+
+- **Real voices.** Every voice was text-to-speech. Whether the speaker
+  models tell two real people apart, in particular two of the same sex and
+  age, how they cope with laughter, interruptions, people talking at once,
+  a bad microphone or a noisy room: not measured. The thresholds that
+  decide "the same voice" (0.35) and the clustering threshold (0.5) were
+  set on synthetic voices.
+- **Real echo.** The echo pass and the echo gate were only tried with the
+  remote track mixed into the microphone track, delayed 180 ms, at 0.35 of
+  its level. Never with loudspeakers, a room and a microphone.
+- **Two tracks from real devices.** `RecordingOptions(mode: .virtual)` is
+  tested with scripted sources. With real devices the two tracks are lined
+  up by arrival; how far apart they really are (and so how well the echo
+  measures line up) will only show in a real recording. The echo pass
+  tolerates 1.5 s.
+- **The server.** `meetingId`, `mode`, `speakers` and `speaker`/`side` were
+  never posted to a server: the routes were not deployed. The body is
+  checked against the contract by unit tests. `live/update` is not called
+  by MeetingKit at all: the session only says what to send
+  (`pendingUpload`).
+- **Meetings longer than an hour**, and more than six voices.
+- **Other languages than Spanish** for speakers and echo (the echo pass
+  compares words after removing accents and case; languages written
+  without spaces were not tried).
+- **Memory.** The final pass keeps a whole track in memory (230 MB per
+  track and hour); the live session ten minutes per track. Not measured
+  beyond the fact that the hour-long runs went through.
+- **The app's Xcode build with the SpeakerKit product**: the package was
+  built with `xcodebuild` on its own (@@XCODEBUILD@@), not inside the app.
+
+What a person needs to do to close the first three (ten minutes): record a
+short real call in virtual mode with loudspeakers and with headphones
+(`meetingkit record --seconds 120 --out DIR --mode virtual`), then
+`meetingkit process DIR/<file>.wav --model turbo --models-dir M` and read
+the result: the remote sentences once, on the remote side; the people in
+the room as speakers of the room; and the list of echoes dropped.
+
+Capture, as in the first round:
 
 - **Microphone capture** (`MicrophoneCapture`: AVAudioEngine input tap, the
   permission request, restart after a device change). Written, compiles,
@@ -265,10 +325,25 @@ Other things not exercised:
 ## Known limits
 
 - Two sources are aligned by arrival, not by timestamps: when one runs more
-  than 0.5 s behind, the other goes ahead alone. Fine for transcription, not
-  sample-accurate.
-- No echo cancellation: with loudspeakers the microphone also hears the
-  call. Whisper copes; headphones are cleaner.
+  than 0.5 s behind, the other goes ahead and the late one is filled with
+  silence. Fine for transcription, not sample-accurate.
+- No echo cancellation. With loudspeakers the echo of the call is removed
+  from the transcript as text and kept away from the speaker models, both
+  only as well as described above. Headphones are cleaner.
+- Voices that sound alike are one speaker; now and then a single sentence
+  gets a speaker of its own; the first minutes of a meeting are rough. All
+  with numbers above.
+- Speaker numbers can have gaps (a speaker that turned out to be part of
+  another one is gone, and its number is not used again), and they follow
+  the order in which voices were confirmed, which is not always the order
+  of the first word.
+- In the live session a sentence can change speaker for up to ten minutes
+  after it was said, and a new voice heard for under eight seconds has no
+  speaker for one window (15 s).
+- A segment is split between two voices only at a word, and only when each
+  part has two words and 0.7 s: a one-word answer inside somebody else's
+  sentence stays with that sentence.
+- A one-channel recording has no sides, whatever mode is asked.
 - No pause and resume.
 - The queue does not retry by itself: the app calls `flush()`.
 - `needsSignIn` lives in memory; after a relaunch the next flush finds out
