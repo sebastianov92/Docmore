@@ -21,11 +21,49 @@ public struct RecordingOptions: Sendable {
     public var captureSystemAudio: Bool
     /// File name inside the output directory. Nil: "meeting-<date>-<time>.wav".
     public var fileName: String?
+    /// The kind of meeting. Nil is the layout of the first version: the
+    /// sources that are switched on, mixed into one channel.
+    public private(set) var mode: MeetingMode?
 
+    /// The mixed layout: one channel with every source that is switched on
+    /// added up. Nobody can tell afterwards which side a sentence came from.
     public init(captureMicrophone: Bool = true, captureSystemAudio: Bool = true, fileName: String? = nil) {
         self.captureMicrophone = captureMicrophone
         self.captureSystemAudio = captureSystemAudio
         self.fileName = fileName
+        mode = nil
+    }
+
+    /// A meeting of one of the two kinds:
+    /// - `.inPerson`: the microphone alone, one channel;
+    /// - `.virtual`: the microphone (the room) and the system audio (the
+    ///   remote side) as two separate, time-aligned tracks: a two-channel
+    ///   file, channel 0 the microphone, channel 1 the system audio. The
+    ///   remote side is never taken from the microphone.
+    public init(mode: MeetingMode, fileName: String? = nil) {
+        captureMicrophone = true
+        captureSystemAudio = mode == .virtual
+        self.fileName = fileName
+        self.mode = mode
+    }
+
+    /// Whether the tracks are kept apart (a two-channel file).
+    public var keepsTracksApart: Bool { mode == .virtual }
+}
+
+/// A tenth of a second of a running recording, track by track: what
+/// `LiveMeetingSession.append` takes.
+public struct MeetingAudioChunk: Sendable {
+    /// The microphone (the room), 16 kHz mono.
+    public var microphone: [Float]
+    /// The system audio (the remote side), 16 kHz mono, as long as
+    /// `microphone` and covering the same span of time. Nil when the
+    /// recording has one track. Silence when the source is missing.
+    public var systemAudio: [Float]?
+
+    public init(microphone: [Float], systemAudio: [Float]? = nil) {
+        self.microphone = microphone
+        self.systemAudio = systemAudio
     }
 }
 
@@ -89,18 +127,23 @@ public struct RecordingWarning: Equatable, Sendable {
 }
 
 public struct RecordingResult: Sendable {
-    /// 16 kHz mono 16-bit PCM WAV.
+    /// 16 kHz 16-bit PCM WAV: one channel, or two for a virtual meeting
+    /// (channel 0 the microphone, channel 1 the system audio).
     public var fileURL: URL
     public var durationSeconds: Double
     /// The sources whose audio is really in the file. A source that failed to
     /// start, or that delivered only silence, is not here: see `warnings`.
+    /// In a virtual recording the channel of a missing source is silence.
     public var sources: [AudioSource]
     public var warnings: [RecordingWarning]
+    /// The mode the recording was made in. Nil for the mixed layout.
+    public var mode: MeetingMode?
 
-    public init(fileURL: URL, durationSeconds: Double, sources: [AudioSource], warnings: [RecordingWarning]) {
+    public init(fileURL: URL, durationSeconds: Double, sources: [AudioSource], warnings: [RecordingWarning], mode: MeetingMode? = nil) {
         self.fileURL = fileURL
         self.durationSeconds = durationSeconds
         self.sources = sources
         self.warnings = warnings
+        self.mode = mode
     }
 }

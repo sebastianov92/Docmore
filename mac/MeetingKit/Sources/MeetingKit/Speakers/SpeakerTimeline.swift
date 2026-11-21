@@ -24,11 +24,25 @@ public struct KnownVoice: Codable, Equatable, Sendable {
     public var print: [Float]
     /// How many seconds of speech that print stands for.
     public var printSeconds: Double
+    /// True for a voice that was heard too little, and in one pass only, to
+    /// be shown as a speaker yet. Its id is a private one ("?3").
+    public var isProvisional: Bool
 
-    public init(id: String, print: [Float] = [], printSeconds: Double = 0) {
+    public init(id: String, print: [Float] = [], printSeconds: Double = 0, isProvisional: Bool = false) {
         self.id = id
         self.print = print
         self.printSeconds = printSeconds
+        self.isProvisional = isProvisional
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, print, printSeconds, isProvisional }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        print = try container.decodeIfPresent([Float].self, forKey: .print) ?? []
+        printSeconds = try container.decodeIfPresent(Double.self, forKey: .printSeconds) ?? 0
+        isProvisional = try container.decodeIfPresent(Bool.self, forKey: .isProvisional) ?? false
     }
 }
 
@@ -48,8 +62,18 @@ public struct SpeakerMatchingPolicy: Equatable, Sendable {
     /// Speech a cluster needs before "close to nobody" is read as "somebody
     /// new" while there are known voices it could still turn out to be.
     public var reliablePrintSeconds: Double = 10
-    /// Speech a cluster needs to become a speaker at all, while the meeting runs.
+    /// Speech a cluster needs to count as a voice at all, while the meeting runs.
     public var minNewSpeakerSeconds: Double = 2
+    /// Speech a new voice needs to be shown as a speaker at once. With less
+    /// it waits, unseen, for the next pass: if it is still a voice of its
+    /// own then, it becomes a speaker; if it has melted into another voice
+    /// (the models often split a voice for one pass when they have heard
+    /// little), it is gone without ever having used a number.
+    public var confidentNewSpeakerSeconds: Double = 8
+    /// A voice print made of this much speech is as good as it gets: a newer
+    /// one of this much replaces an older one of more (voices and rooms
+    /// drift over a long meeting).
+    public var plentyPrintSeconds: Double = 120
     /// When a cluster covers what two known voices said (they were one
     /// person all along), the one the person gave a name to weighs this
     /// much more, so the name is not lost.
@@ -69,19 +93,41 @@ public struct SpeakerMatchingPolicy: Equatable, Sendable {
 public struct TrackSpeakers: Codable, Equatable, Sendable {
     public var side: MeetingSide?
     public private(set) var voices: [KnownVoice]
-    /// Ordered by start, not overlapping.
+    /// Ordered by start, not overlapping. Includes the turns of voices that
+    /// are still provisional (see `labelledTurns`).
     public private(set) var turns: [LabelledTurn]
+    private var provisionalCount: Int
 
     public init(side: MeetingSide? = nil, voices: [KnownVoice] = [], turns: [LabelledTurn] = []) {
         self.side = side
         self.voices = voices
         self.turns = turns.sorted { $0.start < $1.start }
+        provisionalCount = 0
+    }
+
+    private enum CodingKeys: String, CodingKey { case side, voices, turns, provisionalCount }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        side = try container.decodeIfPresent(MeetingSide.self, forKey: .side)
+        voices = try container.decodeIfPresent([KnownVoice].self, forKey: .voices) ?? []
+        turns = try container.decodeIfPresent([LabelledTurn].self, forKey: .turns) ?? []
+        provisionalCount = try container.decodeIfPresent(Int.self, forKey: .provisionalCount) ?? 0
+    }
+
+    /// Whether an id is the private id of a provisional voice.
+    public static func isProvisional(_ id: String) -> Bool { id.hasPrefix("?") }
+
+    /// The turns of the voices that are speakers.
+    public var labelledTurns: [LabelledTurn] {
+        turns.filter { !Self.isProvisional($0.speaker) }
     }
 
     /// What `absorb` did.
     public struct Outcome: Equatable, Sendable {
-        /// Cluster -> speaker id. A cluster that is not here stays without a
-        /// speaker for now (too little speech to tell who it is).
+        /// Cluster -> speaker id. A cluster that is not here, or that has the
+        /// private id of a provisional voice, stays without a speaker for
+        /// now (too little speech to tell who it is).
         public var assignment: [Int: String] = [:]
         /// Ids made in this run, in order of first appearance.
         public var created: [String] = []
@@ -151,9 +197,29 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
             return $0.id < $1.id
         }
         var used: Set<String> = []
+        var promoted: [String: String] = [:]
         for pair in pairs where outcome.assignment[pair.cluster] == nil && !used.contains(pair.id) {
             outcome.assignment[pair.cluster] = pair.id
             used.insert(pair.id)
+        }
+        // A provisional voice that is still a voice of its own in this pass
+        // is real: it becomes a speaker (in order of first appearance).
+        for cluster in clusters {
+            guard let id = outcome.assignment[cluster], Self.isProvisional(id) else { continue }
+            let real = makeSpeaker()
+            promoted[id] = real
+            outcome.assignment[cluster] = real
+            outcome.created.append(real)
+            used.insert(real)
+        }
+        if !promoted.isEmpty {
+            for index in voices.indices where promoted[voices[index].id] != nil {
+                voices[index].id = promoted[voices[index].id]!
+                voices[index].isProvisional = false
+            }
+            for index in turns.indices where promoted[turns[index].speaker] != nil {
+                turns[index].speaker = promoted[turns[index].speaker]!
+            }
         }
 
         // 2. By voice: a cluster nobody was heard saying may be a known
@@ -174,11 +240,20 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
                 outcome.assignment[cluster] = id
                 used.insert(id)
             } else if final || ((candidates.isEmpty || seconds >= policy.reliablePrintSeconds) && seconds >= policy.minNewSpeakerSeconds) {
-                let id = makeSpeaker()
-                outcome.assignment[cluster] = id
-                outcome.created.append(id)
-                used.insert(id)
-                voices.append(KnownVoice(id: id))
+                if final || seconds >= policy.confidentNewSpeakerSeconds {
+                    let id = makeSpeaker()
+                    outcome.assignment[cluster] = id
+                    outcome.created.append(id)
+                    used.insert(id)
+                    voices.append(KnownVoice(id: id))
+                } else {
+                    // heard too little to be shown yet: see `confidentNewSpeakerSeconds`
+                    provisionalCount += 1
+                    let id = "?\(provisionalCount)"
+                    outcome.assignment[cluster] = id
+                    used.insert(id)
+                    voices.append(KnownVoice(id: id, isProvisional: true))
+                }
             }
             // otherwise: too little speech to say who it is. It stays
             // without a speaker until a later run hears more of it.
@@ -207,12 +282,15 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
             return $0.speaker < $1.speaker
         }
 
-        // 4. Remember each voice by the run that heard the most of it.
+        // 4. Remember each voice by the run that heard the most of it. Never
+        // by a run that heard less: as the window slides away from a voice,
+        // every pass hears a little less of it, and a print that followed
+        // would end up made of its last two seconds.
         for (cluster, id) in outcome.assignment {
             guard let index = voices.firstIndex(where: { $0.id == id }),
                   let print = diarization.voicePrints[cluster], !print.isEmpty,
                   let seconds = speech[cluster] else { continue }
-            if voices[index].print.isEmpty || seconds >= 0.8 * voices[index].printSeconds {
+            if voices[index].print.isEmpty || seconds >= min(voices[index].printSeconds, policy.plentyPrintSeconds) {
                 voices[index].print = print
                 voices[index].printSeconds = seconds
             }
@@ -220,7 +298,7 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
 
         // 5. A voice with nothing left to its name is gone.
         let alive = Set(turns.map(\.speaker))
-        outcome.retired = voices.map(\.id).filter { !alive.contains($0) }
+        outcome.retired = voices.map(\.id).filter { !alive.contains($0) && !Self.isProvisional($0) }
         voices.removeAll { !alive.contains($0.id) }
         for id in outcome.retired {
             var heirs: [String: Double] = [:]
@@ -229,7 +307,7 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
                     heirs[turn.speaker, default: 0] += min(turn.end, old.end) - max(turn.start, old.start)
                 }
             }
-            let heir = heirs.max { first, second in
+            let heir = heirs.filter { !Self.isProvisional($0.key) }.max { first, second in
                 first.value != second.value ? first.value < second.value : first.key > second.key
             }
             if let heir { outcome.absorbedBy[id] = heir.key }
@@ -258,7 +336,7 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
     /// The speaker who talks the most between two times, with the seconds.
     public func speaker(from start: Double, to end: Double) -> (id: String, seconds: Double)? {
         var totals: [String: Double] = [:]
-        for turn in turns where turn.end > start && turn.start < end {
+        for turn in turns where turn.end > start && turn.start < end && !Self.isProvisional(turn.speaker) {
             totals[turn.speaker, default: 0] += min(end, turn.end) - max(start, turn.start)
         }
         return totals.max { first, second in
@@ -269,7 +347,7 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
     /// The turn closest to a moment, when it is within `reach` seconds.
     public func nearestSpeaker(to time: Double, within reach: Double) -> String? {
         var best: (id: String, distance: Double)?
-        for turn in turns {
+        for turn in turns where !Self.isProvisional(turn.speaker) {
             let distance = time < turn.start ? turn.start - time : (time > turn.end ? time - turn.end : 0)
             if distance <= reach, best == nil || distance < best!.distance {
                 best = (turn.speaker, distance)

@@ -17,6 +17,19 @@ public enum AudioTrackReader {
         return Int(file.processingFormat.channelCount)
     }
 
+    /// The mode a recording was made in, read from its channels: two is a
+    /// virtual meeting, one is in person (or a mixed recording of the first
+    /// version, which has no sides either). Nil when the file cannot be
+    /// read. For recordings found after a crash, once
+    /// `WAVFile.repairHeader(at:)` has run.
+    public static func recordedMode(of url: URL) -> MeetingMode? {
+        switch channelCount(of: url) {
+        case 0: return nil
+        case 1: return .inPerson
+        default: return .virtual
+        }
+    }
+
     /// Every channel of a file, each as 16 kHz mono samples of the same length.
     public static func channels(of url: URL) throws -> [[Float]] {
         if let data = try? Data(contentsOf: url, options: .mappedIfSafe), (try? WAVFile.parse(data)) != nil {

@@ -36,7 +36,7 @@ struct Arguments {
     var options: [String: String] = [:]
     var flags: Set<String> = []
 
-    static let flagNames: Set<String> = ["json", "check", "progress", "no-system-audio", "no-microphone", "help", "prints", "words", "no-speakers", "no-echo-pass"]
+    static let flagNames: Set<String> = ["json", "check", "progress", "no-system-audio", "no-microphone", "help", "prints", "words", "no-speakers", "no-echo-pass", "quiet"]
 
     init(_ raw: [String]) throws {
         var index = 0
@@ -390,6 +390,115 @@ func run(_ command: String, _ arguments: Arguments) async throws {
                           result.transcript.mode?.rawValue ?? "?", result.transcript.language ?? "?", result.transcript.durationSeconds,
                           result.transcript.segments.count, result.transcript.speakers.count, result.echoes.count,
                           seconds, result.transcriptionSeconds, result.diarizationSeconds))
+
+    case "live-meeting":
+        // replays a recording through the live session, a tenth of a second at a time
+        let file = URL(fileURLWithPath: try arguments.first("audio file"))
+        var tracks: MeetingTracks
+        if let system = arguments.options["system"] {
+            tracks = try MeetingTracks(microphone: file, systemAudio: URL(fileURLWithPath: system))
+        } else {
+            tracks = try MeetingTracks(contentsOf: file)
+        }
+        let mode = try meetingMode(arguments, tracks: tracks)
+        if mode == .inPerson, tracks.remote != nil { tracks = MeetingTracks(room: tracks.mixed) }
+        if let limit = arguments.options["seconds"].flatMap({ Double($0) }) {
+            let count = Int(limit * MeetingAudioFormat.sampleRate)
+            tracks = MeetingTracks(room: Array(tracks.room.prefix(count)), remote: tracks.remote.map { Array($0.prefix(count)) })
+        }
+        let store = ModelStore(directory: try arguments.directory("models-dir"))
+        let whisper = try transcriber(arguments)
+        try await whisper.prepare()
+        let diarizer: SpeakerDiarizer? = arguments.flags.contains("no-speakers") ? nil : SpeakerDiarizer(modelStore: store)
+        if let diarizer, diarizer.isAvailable { try await diarizer.prepare() }
+        var options = LiveMeetingOptions()
+        if let window = arguments.options["window"].flatMap({ Double($0) }) { options.windowSeconds = window }
+        if let window = arguments.options["speaker-window"].flatMap({ Double($0) }) { options.speakerWindowSeconds = window }
+        options.removesEcho = !arguments.flags.contains("no-echo-pass")
+        let session = LiveMeetingSession(mode: mode, transcriber: whisper, diarizer: diarizer, options: options)
+        let asJSON = arguments.flags.contains("json")
+        let quiet = arguments.flags.contains("quiet")
+        let started = Date()
+        struct UpdateLine: Encodable {
+            struct Body: Encodable {
+                var revision: Int
+                var fromIndex: Int
+                var segments: [MeetingTranscript.Segment]
+                var segmentCount: Int
+                var speakers: [MeetingSpeaker]
+                var durationSeconds: Double
+                var isFinal: Bool
+                /// Seconds since the replay started.
+                var at: Double
+            }
+            var update: Body
+        }
+        let compact = JSONEncoder()
+        compact.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        var names: [String: String] = [:]
+        for pair in (arguments.options["name"] ?? "").split(separator: ",") {
+            let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+            if parts.count == 2 { names[parts[0]] = parts[1] }
+        }
+        session.onUpdate = { update in
+            // names given on the command line are typed the moment the speaker shows up
+            for speaker in update.speakers where speaker.name == nil {
+                if let name = names[speaker.id] { session.setName(name, forSpeaker: speaker.id) }
+            }
+            guard !quiet else { return }
+            let at = Date().timeIntervalSince(started)
+            if asJSON {
+                let line = UpdateLine(update: .init(
+                    revision: update.revision, fromIndex: update.fromIndex, segments: update.segments,
+                    segmentCount: update.segmentCount, speakers: update.speakers,
+                    durationSeconds: update.durationSeconds, isFinal: update.isFinal, at: at
+                ))
+                if let data = try? compact.encode(line) { print(String(decoding: data, as: UTF8.self)) }
+            } else {
+                let who = update.speakers.map { "\($0.id)\($0.side.map { "/" + $0.rawValue } ?? "")\($0.name.map { "=" + $0 } ?? "")" }.joined(separator: " ")
+                print(String(format: "update %d at %@ (+%.1f s): from segment %d, %d in all; speakers: %@%@",
+                             update.revision, timestamp(update.durationSeconds), at, update.fromIndex, update.segmentCount,
+                             who.isEmpty ? "none" : who, update.isFinal ? " (final)" : ""))
+                let view = MeetingTranscript(text: "", language: nil, durationSeconds: 0, segments: update.segments, mode: mode, speakers: update.speakers)
+                for segment in update.segments {
+                    let label = label(segment, in: view)
+                    print("    [\(timestamp(segment.start)) - \(timestamp(segment.end))] \(label.isEmpty ? "" : label + ": ")\(segment.text)")
+                }
+            }
+        }
+        // the recorder hands over a tenth of a second at a time
+        let speed = Double(arguments.options["speed"] ?? "") ?? 0
+        var offset = 0
+        let total = tracks.room.count
+        while offset < total {
+            let end = min(total, offset + 1600)
+            session.append(microphone: Array(tracks.room[offset..<end]), systemAudio: tracks.remote.map { Array($0[offset..<min($0.count, end)]) })
+            offset = end
+            if speed > 0 {
+                // --speed 10: ten times faster than the meeting ran
+                let due = Double(offset) / MeetingAudioFormat.sampleRate / speed
+                let ahead = due - Date().timeIntervalSince(started)
+                if ahead > 0 { try await Task.sleep(nanoseconds: UInt64(ahead * 1_000_000_000)) }
+            }
+        }
+        let transcript = await session.finish()
+        let seconds = Date().timeIntervalSince(started)
+        for failure in session.errors { printError("failed: \(failure)") }
+        if let path = arguments.options["state-out"] {
+            try Data(try jsonString(session.state).utf8).write(to: URL(fileURLWithPath: path))
+        }
+        if let path = arguments.options["transcript-out"] {
+            try Data(try jsonString(transcript).utf8).write(to: URL(fileURLWithPath: path))
+        }
+        if !asJSON, !quiet {
+            print("transcript at the end:")
+            printTranscript(transcript)
+        }
+        let work = session.workSeconds
+        printError(String(format: "%@, language %@, %.1f s of audio, %d segments, %d speakers; replayed in %.1f s (%.1fx real time): %.1f s transcribing, %.1f s telling voices apart",
+                          mode.rawValue, transcript.language ?? "?", transcript.durationSeconds, transcript.segments.count,
+                          transcript.speakers.count, seconds, seconds > 0 ? transcript.durationSeconds / seconds : 0,
+                          work.transcription, work.speakers))
 
     case "live":
         let audio = try WAVFile.read(URL(fileURLWithPath: try arguments.first("WAV file")))

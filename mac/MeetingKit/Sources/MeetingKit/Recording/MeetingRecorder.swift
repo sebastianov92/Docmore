@@ -1,17 +1,23 @@
 import AVFoundation
 import Foundation
 
-/// Records a meeting: the microphone and what the Mac plays, mixed to
-/// 16 kHz mono and written, as it comes, to a 16-bit PCM WAV.
+/// Records a meeting: the microphone and what the Mac plays, at 16 kHz,
+/// written as it comes to a 16-bit PCM WAV.
 ///
 /// ```swift
-/// let recorder = MeetingRecorder(outputDirectory: directory)
-/// recorder.onLevel = { level in ... }            // 0...1, about ten times a second
-/// recorder.onChunk = { samples in live.append(samples: samples) }
+/// let recorder = MeetingRecorder(outputDirectory: directory, options: RecordingOptions(mode: .virtual))
+/// recorder.onLevel = { level in ... }                    // 0...1, about ten times a second
+/// recorder.onTrackChunk = { chunk in live.append(chunk) } // the tracks, apart
 /// try await recorder.start()
 /// ...
-/// let result = try await recorder.stop()         // result.fileURL, result.sources
+/// let result = try await recorder.stop()                 // result.fileURL, result.sources
 /// ```
+///
+/// `RecordingOptions(mode: .virtual)` keeps the microphone (the room) and
+/// the system audio (the remote side) as two time-aligned tracks in a
+/// two-channel file; `.inPerson` records the microphone alone. The options
+/// without a mode give the layout of the first version: every source mixed
+/// into one channel.
 ///
 /// A source that cannot start does not stop the other one: `start()` throws
 /// only when no source at all could start. `sources` and `warnings` tell what
@@ -28,7 +34,15 @@ public final class MeetingRecorder: @unchecked Sendable {
     public var onLevel: ((Float) -> Void)?
     /// The mixed audio, 16 kHz mono Float32, in pieces of 0.1 s: what
     /// `LiveTranscriber.append(samples:)` takes. Set before `start()`.
+    /// In a virtual recording it is the two tracks added up.
     public var onChunk: (([Float]) -> Void)?
+    /// The same pieces of 0.1 s track by track: what
+    /// `LiveMeetingSession.append(_:)` takes. In a virtual recording both
+    /// tracks are there, of the same length and covering the same span of
+    /// time (a source that is missing or late is silence); otherwise only
+    /// `microphone` is set, with the one channel of the file. Set before
+    /// `start()`.
+    public var onTrackChunk: ((MeetingAudioChunk) -> Void)?
     /// The recording cannot go on (the disk is full, every source is gone).
     /// What was written is kept: call `stop()` to get it. Set before `start()`.
     public var onFailure: ((MeetingRecorderError) -> Void)?
@@ -72,6 +86,11 @@ public final class MeetingRecorder: @unchecked Sendable {
         self.outputDirectory = outputDirectory
         self.options = options
         self.makeSource = makeSource
+    }
+
+    deinit {
+        // a recorder dropped in the middle of a recording must not block the speaker model download for good
+        if state == .recording { RecordingActivity.ended() }
     }
 
     // MARK: - State
@@ -147,9 +166,10 @@ public final class MeetingRecorder: @unchecked Sendable {
         guard free else { throw MeetingRecorderError.alreadyRecording }
 
         let url = options.fileName.map { outputDirectory.appendingPathComponent($0) } ?? Self.defaultFileURL(in: outputDirectory)
+        let separate = options.keepsTracksApart
         let writer: WAVWriter
         do {
-            writer = try WAVWriter(url: url, sampleRate: MeetingAudioFormat.sampleRateInt, channels: 1)
+            writer = try WAVWriter(url: url, sampleRate: MeetingAudioFormat.sampleRateInt, channels: separate ? 2 : 1)
         } catch {
             setState(.idle)
             throw MeetingRecorderError.file(error.localizedDescription)
@@ -186,11 +206,22 @@ public final class MeetingRecorder: @unchecked Sendable {
             throw failures.first?.error ?? MeetingRecorderError.nothingToRecord
         }
 
-        let pipeline = RecordingPipeline(writer: writer, sourceCount: started.count)
+        // Apart: the microphone is always channel 0 and the system audio
+        // channel 1, whichever of them started.
+        let pipeline = RecordingPipeline(
+            writer: writer,
+            sourceCount: started.count,
+            channelOfSlot: separate ? started.map { $0.kind == .microphone ? 0 : 1 } : nil
+        )
         pipeline.onBatch = { [weak self] batch in
             guard let self else { return }
-            self.onLevel?(AudioMath.meterLevel(rms: AudioMath.rms(batch)))
-            self.onChunk?(batch)
+            self.onLevel?(AudioMath.meterLevel(rms: AudioMath.rms(batch.mixed)))
+            self.onChunk?(batch.mixed)
+            if let tracks = batch.tracks, tracks.count >= 2 {
+                self.onTrackChunk?(MeetingAudioChunk(microphone: tracks[0], systemAudio: tracks[1]))
+            } else {
+                self.onTrackChunk?(MeetingAudioChunk(microphone: batch.mixed, systemAudio: nil))
+            }
         }
         queue.sync {
             self.pipeline = pipeline
@@ -208,6 +239,7 @@ public final class MeetingRecorder: @unchecked Sendable {
             startedAt = Date()
             state = .recording
         }
+        RecordingActivity.began()
     }
 
     /// Stops, closes the file and says what is in it.
@@ -218,6 +250,7 @@ public final class MeetingRecorder: @unchecked Sendable {
             return (url, self.captures, currentWarnings)
         }
         guard let taken else { throw MeetingRecorderError.notRecording }
+        RecordingActivity.ended()
         let url = taken.0
         let captures = taken.1
         var warnings = taken.2
@@ -268,7 +301,7 @@ public final class MeetingRecorder: @unchecked Sendable {
         if let failure, duration == 0 {
             throw MeetingRecorderError.file(failure.localizedDescription)
         }
-        return RecordingResult(fileURL: url, durationSeconds: duration, sources: captured, warnings: warnings)
+        return RecordingResult(fileURL: url, durationSeconds: duration, sources: captured, warnings: warnings, mode: options.mode)
     }
 
     /// Stops and deletes the file.

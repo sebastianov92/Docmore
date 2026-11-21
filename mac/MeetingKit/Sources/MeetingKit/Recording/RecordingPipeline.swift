@@ -1,33 +1,58 @@
 import Foundation
 
 /// The part of the recorder that has nothing to do with hardware: blocks of
-/// mono audio come in per source at whatever rate the device has, 16 kHz mono
+/// mono audio come in per source at whatever rate the device has, 16 kHz
 /// goes out to the WAV file and to the callbacks.
+///
+/// Two layouts:
+/// - mixed: every source added into one channel (what the first version
+///   did, still there for callers that ask for it);
+/// - separate: one channel per track, the tracks lined up in time. A track
+///   whose source is missing or behind is silence.
 ///
 /// Not thread safe: the recorder calls it from its serial queue.
 final class RecordingPipeline {
-    /// Mixed audio is handed to `onBatch` in pieces of exactly this size
-    /// (0.1 s); only the last piece of a recording is shorter.
+    /// One tenth of a second of the recording.
+    struct Batch {
+        /// Everything added up, 16 kHz mono.
+        var mixed: [Float]
+        /// One block per channel of the file, each as long as `mixed`. Nil
+        /// in the mixed layout.
+        var tracks: [[Float]]?
+    }
+
+    /// Audio is handed to `onBatch` in pieces of exactly this size (0.1 s);
+    /// only the last piece of a recording is shorter.
     static let batchSamples = MeetingAudioFormat.sampleRateInt / 10
 
     private let writer: WAVWriter
-    private var mixer: SourceMixer
+    private var aligner: SourceAligner
+    /// Separate layout: the channel of the file each source goes to.
+    private let channelOfSlot: [Int]?
+    private let channelCount: Int
     private var resamplers: [StreamResampler?]
     private var peaks: [Float]
     private var ended: [Bool]
-    private var batch: [Float] = []
+    private var mixedBatch: [Float] = []
+    private var trackBatches: [[Float]]
 
-    /// Called with each batch of mixed 16 kHz mono audio.
-    var onBatch: (([Float]) -> Void)?
+    /// Called with each batch.
+    var onBatch: ((Batch) -> Void)?
     /// The first write error. After it nothing more is written.
     private(set) var failure: Error?
 
-    init(writer: WAVWriter, sourceCount: Int) {
+    /// - Parameter channelOfSlot: nil mixes the sources into the writer's
+    ///   single channel; otherwise source `i` is written to channel
+    ///   `channelOfSlot[i]` of the writer.
+    init(writer: WAVWriter, sourceCount: Int, channelOfSlot: [Int]? = nil) {
         self.writer = writer
-        mixer = SourceMixer(sourceCount: sourceCount)
+        self.channelOfSlot = channelOfSlot
+        channelCount = channelOfSlot == nil ? 1 : writer.channels
+        aligner = SourceAligner(sourceCount: sourceCount)
         resamplers = Array(repeating: nil, count: sourceCount)
         peaks = Array(repeating: 0, count: sourceCount)
         ended = Array(repeating: false, count: sourceCount)
+        trackBatches = Array(repeating: [], count: channelOfSlot == nil ? 0 : writer.channels)
     }
 
     var durationSeconds: Double { writer.durationSeconds }
@@ -49,7 +74,7 @@ final class RecordingPipeline {
         }
         guard let resampler = resamplers[slot] else { return }
         converted.append(contentsOf: resampler.process(samples))
-        emit(mixer.push(converted, source: slot))
+        emit(aligner.push(converted, source: slot))
     }
 
     /// A source that stopped for good while the recording goes on.
@@ -57,22 +82,23 @@ final class RecordingPipeline {
         guard resamplers.indices.contains(slot), !ended[slot] else { return }
         ended[slot] = true
         if let tail = resamplers[slot]?.finish(), !tail.isEmpty {
-            emit(mixer.push(tail, source: slot))
+            emit(aligner.push(tail, source: slot))
         }
-        emit(mixer.end(source: slot))
+        emit(aligner.end(source: slot))
     }
 
     /// Drains everything and closes the file. Returns the duration.
     func finish() throws -> Double {
         for slot in resamplers.indices where !ended[slot] {
             if let tail = resamplers[slot]?.finish(), !tail.isEmpty {
-                emit(mixer.push(tail, source: slot))
+                emit(aligner.push(tail, source: slot))
             }
         }
-        emit(mixer.flush())
-        if !batch.isEmpty {
-            let rest = batch
-            batch = []
+        emit(aligner.flush())
+        if !mixedBatch.isEmpty {
+            let rest = Batch(mixed: mixedBatch, tracks: channelOfSlot == nil ? nil : trackBatches)
+            mixedBatch = []
+            trackBatches = trackBatches.map { _ in [] }
             onBatch?(rest)
         }
         do {
@@ -84,19 +110,52 @@ final class RecordingPipeline {
         return writer.durationSeconds
     }
 
-    private func emit(_ mixed: [Float]) {
-        guard !mixed.isEmpty, failure == nil else { return }
+    /// `blocks`: one block per source, all of the same length.
+    private func emit(_ blocks: [[Float]]) {
+        guard let count = blocks.first?.count, count > 0, failure == nil else { return }
+        let mixed = SourceMixer.sum(blocks)
+        var tracks: [[Float]] = []
         do {
-            try writer.append(mixed)
+            if let channelOfSlot {
+                // each source into its channel; a channel without a source is silence
+                tracks = Array(repeating: [Float](repeating: 0, count: count), count: channelCount)
+                for (slot, block) in blocks.enumerated() where slot < channelOfSlot.count && tracks.indices.contains(channelOfSlot[slot]) {
+                    tracks[channelOfSlot[slot]] = block
+                }
+                try writer.append(Self.interleave(tracks))
+            } else {
+                try writer.append(mixed)
+            }
         } catch {
             failure = error
             return
         }
-        batch.append(contentsOf: mixed)
-        while batch.count >= Self.batchSamples {
-            let ready = Array(batch[0..<Self.batchSamples])
-            batch.removeFirst(Self.batchSamples)
-            onBatch?(ready)
+        mixedBatch.append(contentsOf: mixed)
+        for index in tracks.indices {
+            trackBatches[index].append(contentsOf: tracks[index])
         }
+        while mixedBatch.count >= Self.batchSamples {
+            var batch = Batch(mixed: Array(mixedBatch[0..<Self.batchSamples]), tracks: nil)
+            mixedBatch.removeFirst(Self.batchSamples)
+            if channelOfSlot != nil {
+                batch.tracks = trackBatches.map { Array($0[0..<Self.batchSamples]) }
+                for index in trackBatches.indices {
+                    trackBatches[index].removeFirst(Self.batchSamples)
+                }
+            }
+            onBatch?(batch)
+        }
+    }
+
+    /// Channel blocks of equal length to frames (L R L R ...).
+    static func interleave(_ channels: [[Float]]) -> [Float] {
+        guard let count = channels.first?.count, channels.count > 1 else { return channels.first ?? [] }
+        var out = [Float](repeating: 0, count: count * channels.count)
+        for (index, channel) in channels.enumerated() {
+            for frame in 0..<min(count, channel.count) {
+                out[frame * channels.count + index] = channel[frame]
+            }
+        }
+        return out
     }
 }

@@ -60,6 +60,8 @@ public struct MeetingProcessingOptions: Equatable, Sendable {
     /// the loudspeakers (virtual meetings): as text (`EchoFilter`), and in
     /// what the speaker models listen to (`EchoGate`).
     public var removesEcho = true
+    /// Tests with made-up audio switch the audio half of that off.
+    var usesEchoGate = true
 
     public init() {}
 }
@@ -196,7 +198,7 @@ public final class MeetingProcessor: @unchecked Sendable {
                 do {
                     // the room track is heard without the echo of the remote side
                     var heard = samples
-                    if options.removesEcho, mode == .virtual, index == 0, audio.count > 1 {
+                    if options.removesEcho, options.usesEchoGate, mode == .virtual, index == 0, audio.count > 1 {
                         heard = EchoGate.suppress(microphone: samples, remote: audio[1]).samples
                     }
                     let diarization = try await diarizer.diarize(samples: heard, options: options.diarization)

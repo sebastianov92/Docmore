@@ -58,7 +58,7 @@ public enum SpeakerAttribution {
             let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { continue }
             let words = segment.words
-            if speakers.turns.isEmpty {
+            if speakers.labelledTurns.isEmpty {
                 out.append(LabelledSegment(start: segment.start, end: segment.end, text: text, words: words, speaker: nil, side: speakers.side))
                 continue
             }
