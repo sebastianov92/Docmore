@@ -98,6 +98,15 @@ import {
   getCollabSocket,
   releaseCollabSocket,
 } from "@/features/editor/collab-socket";
+import { isOnline, useConnectivity } from "@/lib/offline/connectivity.ts";
+import {
+  markPageDocServerSynced,
+  pageDocHasLocalCopy,
+} from "@/features/editor/hooks/use-page-ydoc";
+
+// Stands in for the collab token while there is no server to ask for one. The
+// socket stays closed offline, so the server never sees it.
+const OFFLINE_COLLAB_TOKEN = "offline";
 import { BookmarkPasteMenu } from "@/features/editor/components/bookmark/bookmark-paste-menu.tsx";
 
 interface PageEditorProps {
@@ -121,12 +130,23 @@ export default function PageEditor({
   const hasCollabToken = !!collabQuery?.token;
   const [showStatic, setShowStatic] = useState(true);
   const localDoc = usePageYdoc(pageId);
+  const { online } = useConnectivity();
+  // No server and a real local copy: open the room on the local document. The
+  // room syncs by itself when the token and the socket come back.
+  const roomToken =
+    collabQuery?.token ??
+    (!online && pageDocHasLocalCopy(localDoc) ? OFFLINE_COLLAB_TOKEN : undefined);
 
   useEffect(() => {
     if (!hasCollabToken) return;
     acquireCollabSocket();
     return () => releaseCollabSocket();
   }, [hasCollabToken]);
+
+  useEffect(() => {
+    // came back with no token yet: the query gave up retrying while offline
+    if (online && !hasCollabToken) void refetchCollabToken();
+  }, [online, hasCollabToken, refetchCollabToken]);
 
   const handleStateless = ({ payload }: onStatelessParameters) => {
     try {
@@ -173,7 +193,11 @@ export default function PageEditor({
   };
 
   const handleAuthenticationFailed = () => {
-    const payload = jwtDecode(collabQuery?.token);
+    if (!collabQuery?.token) {
+      refetchCollabToken();
+      return;
+    }
+    const payload = jwtDecode(collabQuery.token);
     const now = Date.now().valueOf() / 1000;
     const isTokenExpired = now >= payload.exp;
     if (isTokenExpired) {
@@ -186,12 +210,12 @@ export default function PageEditor({
       {showStatic && (
         <StaticPageEditor content={content} ariaLabel={t("Page content")} />
       )}
-      {collabQuery?.token && localDoc && (
+      {roomToken && localDoc && (
         <HocuspocusProviderWebsocketComponent websocketProvider={socket}>
           <HocuspocusRoom
             name={`page.${pageId}`}
             document={localDoc}
-            token={collabQuery.token}
+            token={roomToken}
             flushDelay={500}
             onStateless={handleStateless}
             onAuthenticationFailed={handleAuthenticationFailed}
@@ -257,7 +281,13 @@ function CollabPageEditor({
   );
   const { handleScrollTo } = useEditorScroll({ canScroll });
 
-  useHocuspocusEvent("synced", ({ state }) => setIsRemoteSynced(state));
+  const { online } = useConnectivity();
+  const hasLocalCopy = pageDocHasLocalCopy(provider.document);
+
+  useHocuspocusEvent("synced", ({ state }) => {
+    setIsRemoteSynced(state);
+    if (state) markPageDocServerSynced(provider.document);
+  });
   useHocuspocusEvent("status", ({ status }) => setYjsConnectionStatus(status));
 
   // Only connect/disconnect on tab/idle, not destroy
@@ -274,7 +304,8 @@ function CollabPageEditor({
     }
     if (
       documentState === "visible" &&
-      yjsConnectionStatus === WebSocketStatus.Disconnected
+      yjsConnectionStatus === WebSocketStatus.Disconnected &&
+      isOnline()
     ) {
       resetIdle();
       socket.connect();
@@ -511,6 +542,14 @@ function CollabPageEditor({
       onShown();
     }
   }, [yjsConnectionStatus, isSynced]);
+
+  useEffect(() => {
+    // Offline there is no server to wait for: the local copy is the page.
+    if (!hasConnectedOnceRef.current && !online && hasLocalCopy) {
+      hasConnectedOnceRef.current = true;
+      onShown();
+    }
+  }, [online, hasLocalCopy]);
 
   if (showStatic) {
     return null;

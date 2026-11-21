@@ -2,6 +2,12 @@ import axios, { AxiosInstance } from "axios";
 import APP_ROUTE from "@/lib/app-route.ts";
 import { isCloud } from "@/lib/config.ts";
 import { currentShareId, getShareAccessToken } from "@/features/share/share-access";
+import {
+  OfflineError,
+  isOnline,
+  reportNetworkFailure,
+  reportServerAnswered,
+} from "@/lib/offline/connectivity.ts";
 
 const api: AxiosInstance = axios.create({
   baseURL: "/api",
@@ -21,8 +27,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Offline: nothing leaves the browser. Requests are answered locally where the
+// offline engine can, and fail fast everywhere else.
+api.interceptors.request.use((config) => {
+  if (!isOnline()) {
+    return Promise.reject(new OfflineError(config));
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   (response) => {
+    reportServerAnswered();
     // we need the response headers for these endpoints
     const exemptEndpoints = [
       "/api/pages/export",
@@ -49,6 +65,17 @@ api.interceptors.response.use(
       } catch {
         // not json, keep the blob
       }
+    }
+
+    if (error.response) {
+      // a reverse proxy answering for a server that is down
+      if ([502, 503, 504].includes(error.response.status)) {
+        reportNetworkFailure();
+      } else {
+        reportServerAnswered();
+      }
+    } else if (error.code !== "ERR_CANCELED" && !error.isOffline) {
+      reportNetworkFailure();
     }
 
     if (error.response) {

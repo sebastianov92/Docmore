@@ -1,0 +1,15 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 14px;
+  color: light-dark(var(--mantine-color-orange-9), var(--mantine-color-orange-2));
+  background: light-dark(var(--mantine-color-orange-1), rgba(253, 126, 20, 0.18));
+  border: 1px solid light-dark(var(--mantine-color-orange-3), rgba(253, 126, 20, 0.35));
+  white-space: nowrap;
+}
+
+.pill:hover {
+  background: light-dark(var(--mantine-color-orange-2), rgba(253, 126, 20, 0.26));
+}

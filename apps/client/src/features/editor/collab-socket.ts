@@ -3,6 +3,7 @@ import {
   WebSocketStatus,
 } from "@hocuspocus/provider";
 import { getCollaborationUrl } from "@/lib/config.ts";
+import { isOnline, subscribeConnectivity } from "@/lib/offline/connectivity.ts";
 
 const RELEASE_GRACE_MS = 5000;
 
@@ -26,12 +27,27 @@ export function acquireCollabSocket(): void {
     clearTimeout(releaseTimer);
     releaseTimer = null;
   }
+  connectIfAllowed();
+}
+
+function connectIfAllowed(): void {
+  if (editorCount === 0 || !isOnline()) return;
   const collabSocket = getCollabSocket();
   collabSocket.shouldConnect = true;
   if (collabSocket.status === WebSocketStatus.Disconnected) {
     collabSocket.connect();
   }
 }
+
+// Offline the socket stays closed (no retry storm against a dead server); the
+// editor keeps writing to the local copy and the room syncs once we are back.
+subscribeConnectivity(() => {
+  if (isOnline()) {
+    connectIfAllowed();
+  } else {
+    socket?.disconnect();
+  }
+});
 
 export function releaseCollabSocket(): void {
   editorCount--;

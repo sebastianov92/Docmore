@@ -10,6 +10,7 @@ import {
   IconBrush,
   IconCheck,
   IconChevronDown,
+  IconCloudOff,
   IconDeviceDesktop,
   IconLogout,
   IconMoon,
@@ -33,12 +34,14 @@ import useAuth from "@/features/auth/hooks/use-auth.ts";
 import { CustomAvatar } from "@/components/ui/custom-avatar.tsx";
 import { useTranslation } from "react-i18next";
 import { AvatarIconType } from "@/features/attachments/types/attachment.types.ts";
+import { setWorkOffline, useConnectivity } from "@/lib/offline/connectivity.ts";
 
 export default function TopMenu() {
   const { t } = useTranslation();
   const [currentUser] = useAtom(currentUserAtom);
   const { logout } = useAuth();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { workOffline } = useConnectivity();
 
   const user = currentUser?.user;
   const workspace = currentUser?.workspace;
@@ -188,6 +191,17 @@ export default function TopMenu() {
             </Menu.Item>
           </Menu.Sub.Dropdown>
         </Menu.Sub>
+
+        <Menu.Divider />
+
+        <Menu.Item
+          onClick={() => setWorkOffline(!workOffline)}
+          leftSection={<IconCloudOff size={16} />}
+          rightSection={workOffline ? <IconCheck size={16} /> : null}
+          closeMenuOnClick={false}
+        >
+          {t("Work offline")}
+        </Menu.Item>
 
         <Menu.Divider />
 

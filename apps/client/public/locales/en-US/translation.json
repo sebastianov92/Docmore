@@ -2497,5 +2497,10 @@
   "Close dialogs": "Close dialogs",
   "The desktop app adds Home, AI chat and Settings under the File menu.": "The desktop app adds Home, AI chat and Settings under the File menu.",
   "Add to shortcuts": "Add to shortcuts",
-  "Remove from shortcuts": "Remove from shortcuts"
+  "Remove from shortcuts": "Remove from shortcuts",
+  "Offline": "Offline",
+  "Work offline": "Work offline",
+  "Go back online": "Go back online",
+  "You are working offline. Changes stay on this device and are sent when you go back online.": "You are working offline. Changes stay on this device and are sent when you go back online.",
+  "The server cannot be reached. Changes stay on this device and are sent when it is back.": "The server cannot be reached. Changes stay on this device and are sent when it is back."
 }
