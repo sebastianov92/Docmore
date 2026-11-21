@@ -14,3 +14,5 @@ npm run dist:mac     # or dist:win / dist:linux -> desktop/dist
 Signing and notarization are left to whoever builds: set the usual `CSC_*` / `APPLE_*` environment variables for electron-builder.
 
 The web app itself is also installable as a PWA (Chrome, Edge, Safari "Add to Dock") from `/manifest.json`; the desktop shell adds what a PWA cannot: a persistent session per server, native notifications when the window is closed, deep links and menu shortcuts.
+
+On a Mac, prefer the native app in `mac/`: it opens with no server, keeps the pages you choose on the device, sends offline changes when the server is back and records meetings with on-device transcription. This Electron shell stays for Windows and Linux and has no offline mode of its own (the web client's offline support still works inside it, with the app shell coming from the server).

@@ -1,0 +1,6 @@
+# Build products, downloaded models and scratch data all stay under .build
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+.DS_Store

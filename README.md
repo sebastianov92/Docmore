@@ -257,8 +257,9 @@ outside the `ee/` directories, so they are always on:
   stamped transcript appended to the page) with a transcription model
   chosen under Settings > AI.
 - **Desktop**: `desktop/` holds an Electron shell around your server
-  (native notifications, badge, deep links, shortcuts); the web app is
-  also installable as a PWA.
+  (native notifications, badge, deep links, shortcuts) for Windows and
+  Linux; the web app is also installable as a PWA. On a Mac use the
+  native app in `mac/`.
 - **Interactive HTML blocks**: `/html` in the editor holds markup, styles
   and scripts and shows them in a sandboxed iframe (scripts yes,
   same-origin no, no network), so the code never reaches the wiki.
@@ -300,6 +301,20 @@ only. Never set it on a real instance.
   covers a homelab behind a VPN, and there is a Work offline switch. In a
   browser a service worker keeps the app shell; signing out wipes the
   device.
+- **Mac app**: `mac/` is a native Swift/SwiftUI app that hosts this same
+  web client. It keeps the client on disk (downloaded from the server it
+  talks to, so both always match) and opens with no server; `/api` goes
+  through the app, which signs in through the system browser (OAuth with
+  PKCE, the token lives in the Keychain and never reaches the page).
+  Several accounts, native tabs, windows and menus, notifications and Dock
+  badge, Spotlight for the pages on the device, a quick note from a global
+  shortcut (queued when the server is away), an optional lock with Touch
+  ID, and meetings: it records the microphone and the system audio,
+  transcribes on the Mac with WhisperKit (also offline, no audio leaves the
+  machine) and sends the text for the notes. Build and run notes, the
+  automation used by its end-to-end script, and the signing and
+  notarization steps are in `mac/README.md`; the meeting engine is the
+  Swift package `mac/MeetingKit`.
 - **Sync API**: `/api/sync/snapshot`, `/sync/space-pages` and `/sync/pull`
   (what changed after a cursor, one entry per page, body, comment thread or
   base, filtered by the same rules as the sidebar), `/sync/docs` (Yjs in
