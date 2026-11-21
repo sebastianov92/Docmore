@@ -83,7 +83,19 @@ export class CommentService {
       }
     }
 
+    if (createCommentDto.id) {
+      // the same offline comment sent twice is the same comment
+      const existing = await this.commentRepo.findById(createCommentDto.id);
+      if (existing) {
+        if (existing.pageId !== page.id || existing.creatorId !== user.id) {
+          throw new BadRequestException('A comment with this id already exists');
+        }
+        return existing;
+      }
+    }
+
     const inserted = await this.commentRepo.insertComment({
+      ...(createCommentDto.id ? { id: createCommentDto.id } : {}),
       pageId: page.id,
       content: commentContent,
       selection: createCommentDto?.selection?.substring(0, 250) ?? null,

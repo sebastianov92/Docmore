@@ -144,6 +144,31 @@ export class PageService {
       parentPageId = parentPage.id;
     }
 
+    // A page created offline arrives with its id. Sent twice it is the same
+    // page; an id that belongs to someone else's page is refused.
+    if (createPageDto.id) {
+      const existing = await this.pageRepo.findById(createPageDto.id);
+      if (existing) {
+        if (
+          existing.workspaceId !== workspaceId ||
+          existing.creatorId !== userId ||
+          existing.spaceId !== createPageDto.spaceId
+        ) {
+          throw new ConflictException('A page with this id already exists');
+        }
+        return existing;
+      }
+    }
+    let slugId = generateSlugId();
+    if (createPageDto.slugId) {
+      const taken = await this.db
+        .selectFrom('pages')
+        .select('id')
+        .where('slugId', '=', createPageDto.slugId)
+        .executeTakeFirst();
+      if (!taken) slugId = createPageDto.slugId;
+    }
+
     let content = undefined;
     let textContent = undefined;
     let ydoc = undefined;
@@ -160,7 +185,8 @@ export class PageService {
     }
 
     const page = await this.pageRepo.insertPage({
-      slugId: generateSlugId(),
+      ...(createPageDto.id ? { id: createPageDto.id } : {}),
+      slugId,
       title: createPageDto.title,
       position: await this.nextPagePosition(
         createPageDto.spaceId,

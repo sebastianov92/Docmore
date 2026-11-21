@@ -19,6 +19,11 @@ export const yjsSelectionSchema = z.object({
 });
 
 export class CreateCommentDto {
+  // Chosen by a device that wrote the comment offline.
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @IsString()
   pageId: string;
 

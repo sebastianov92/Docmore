@@ -25,6 +25,8 @@ const OAUTH_CALLBACK_PATH =
 async function bootstrap() {
   const adapter = new FastifyAdapter({
     trustProxy: true,
+    // offline devices send the Yjs updates of whole pages as JSON (sync/docs)
+    bodyLimit: 8 * 1024 * 1024,
     routerOptions: {
       maxParamLength: 1000,
       ignoreTrailingSlash: true,

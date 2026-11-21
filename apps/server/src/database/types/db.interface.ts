@@ -11,6 +11,7 @@ import { PageViews } from '@docmost/db/types/analytics.types';
 import { WebhookDeliveries, Webhooks } from '@docmost/db/types/webhook.types';
 import { AiMcpServers, AiMeetingNotes, AiResearchReports, AiSkills, AiToolApprovals } from '@docmost/db/types/ai-extras.types';
 import { PageSuggestions } from '@docmost/db/types/suggestion.types';
+import { IdempotencyKeys, OfflinePins, SyncChanges } from '@docmost/db/types/sync.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -31,4 +32,7 @@ export interface DbInterface extends DB {
   aiResearchReports: AiResearchReports;
   aiMeetingNotes: AiMeetingNotes;
   pageSuggestions: PageSuggestions;
+  syncChanges: SyncChanges;
+  idempotencyKeys: IdempotencyKeys;
+  offlinePins: OfflinePins;
 }

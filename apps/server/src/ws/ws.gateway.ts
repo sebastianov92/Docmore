@@ -49,10 +49,16 @@ export class WsGateway
   async handleConnection(client: Socket, ...args: any[]): Promise<void> {
     try {
       const cookies = cookie.parse(client.handshake.headers.cookie ?? '');
-      const token: JwtPayload = await this.tokenService.verifyJwt(
-        cookies['authToken'],
-        JwtType.ACCESS,
-      );
+      // The desktop app loads the client from its own origin, so the browser
+      // never sends it the session cookie: it hands over the short-lived
+      // collab token it already holds for the editor instead.
+      const handshakeToken =
+        typeof client.handshake.auth?.token === 'string'
+          ? client.handshake.auth.token
+          : null;
+      const token: JwtPayload = cookies['authToken']
+        ? await this.tokenService.verifyJwt(cookies['authToken'], JwtType.ACCESS)
+        : await this.tokenService.verifyJwt(handshakeToken, JwtType.COLLAB);
 
       const userId = token.sub;
       const workspaceId = token.workspaceId;

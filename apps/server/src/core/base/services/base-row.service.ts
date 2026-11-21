@@ -80,6 +80,16 @@ export class BaseRowService {
     opts: { hidden?: Set<string>; automationDepth?: number; formId?: string | null } = {},
   ) {
     this.visibility.assertWritable(dto.cells ?? {}, opts.hidden);
+    if (dto.id) {
+      // the same offline row sent twice is the same row
+      const existing = await this.baseRowRepo.findById(dto.id, { workspaceId });
+      if (existing) {
+        if (existing.pageId !== dto.pageId || existing.creatorId !== userId) {
+          throw new BadRequestException('A row with this id already exists');
+        }
+        return existing;
+      }
+    }
     let position: string;
 
     if (dto.afterRowId) {
@@ -137,6 +147,7 @@ export class BaseRowService {
     const hierarchy = await this.checkHierarchy(dto.pageId, workspaceId, null, dto.parentRowId, dto.blockedBy);
 
     const created = await this.baseRowRepo.insertRow({
+      ...(dto.id ? { id: dto.id } : {}),
       pageId: dto.pageId,
       cells: finalCells as any,
       position,

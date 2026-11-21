@@ -16,6 +16,8 @@ import {
   AUTH_CODE_TTL_SECONDS,
   AUTH_METHODS,
   MAX_CLIENTS_PER_WORKSPACE,
+  APP_REDIRECT_SCHEME,
+  APP_SCOPE,
   OAUTH_SCOPES,
   OAuthScopeName,
   REFRESH_TOKEN_TTL_SECONDS,
@@ -118,6 +120,12 @@ export class OAuthService {
       throw new OAuthRegistrationError('invalid_client_metadata', `Unsupported token_endpoint_auth_method: ${authMethod}`);
     }
     const scopes = parseScopes(dto.scope) ?? [...OAUTH_SCOPES];
+    if (scopes.includes(APP_SCOPE) && !redirectUris.every(isAppRedirectUri)) {
+      throw new OAuthRegistrationError(
+        'invalid_client_metadata',
+        `The ${APP_SCOPE} scope is only for apps that return to ${APP_REDIRECT_SCHEME}//`,
+      );
+    }
 
     const count = await this.db
       .selectFrom('oauthClients')
@@ -470,7 +478,7 @@ export class OAuthService {
     }
     const requested = parseScopes(params.scope) ?? [...OAUTH_SCOPES];
     const allowed = asStringArray(client.scopes);
-    const scopes = requested.filter((s) => (OAUTH_SCOPES as readonly string[]).includes(s) && allowed.includes(s));
+    const scopes = requested.filter((s) => isKnownScope(s) && allowed.includes(s));
     if (scopes.length === 0) throw invalidScope('No usable scope requested');
     return { client, scopes };
   }
@@ -600,7 +608,19 @@ export function isAcceptableRedirectUri(uri: string): boolean {
 export function parseScopes(scope: string | undefined): OAuthScopeName[] | null {
   if (!scope?.trim()) return null;
   const list = [...new Set(scope.split(/[\s,]+/).filter(Boolean))];
-  return list.filter((s): s is OAuthScopeName => (OAUTH_SCOPES as readonly string[]).includes(s));
+  return list.filter((s): s is OAuthScopeName => isKnownScope(s));
+}
+
+function isKnownScope(scope: string): boolean {
+  return (OAUTH_SCOPES as readonly string[]).includes(scope) || scope === APP_SCOPE;
+}
+
+function isAppRedirectUri(uri: string): boolean {
+  try {
+    return new URL(uri).protocol === APP_REDIRECT_SCHEME;
+  } catch {
+    return false;
+  }
 }
 
 function asStringArray(value: unknown): string[] {

@@ -47,6 +47,7 @@ import { SiemModule } from './siem/siem.module';
 import { ScimModule } from './scim/scim.module';
 import { JiraModule } from './integration/providers/jira/jira.module';
 import { GoogleDriveModule } from './integration/providers/google-drive/google-drive.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { GoogleDriveModule } from './integration/providers/google-drive/google-d
     BaseModule,
     ClipperModule,
     AnalyticsModule,
+    SyncModule,
     WebhookModule,
     SiemModule,
     ScimModule,

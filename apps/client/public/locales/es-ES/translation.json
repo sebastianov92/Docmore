@@ -2400,5 +2400,7 @@
   "Work offline": "Trabajar sin conexión",
   "Go back online": "Volver a conectar",
   "You are working offline. Changes stay on this device and are sent when you go back online.": "Estás trabajando sin conexión. Los cambios se guardan en este dispositivo y se envían al volver a conectar.",
-  "The server cannot be reached. Changes stay on this device and are sent when it is back.": "No se puede alcanzar el servidor. Los cambios se guardan en este dispositivo y se envían cuando vuelva."
+  "The server cannot be reached. Changes stay on this device and are sent when it is back.": "No se puede alcanzar el servidor. Los cambios se guardan en este dispositivo y se envían cuando vuelva.",
+  "Full access to your account": "Acceso completo a tu cuenta",
+  "The app signs in as you and can do everything you can do here. Only allow this for the Docmore app on your own device.": "La app inicia sesión como tú y puede hacer todo lo que tú haces aquí. Permítelo solo para la app de Docmore en tu propio dispositivo."
 }

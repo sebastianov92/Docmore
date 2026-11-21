@@ -54,6 +54,14 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       REQUIRE_SESSION_AUTH_KEY,
       [ctx.getHandler(), ctx.getClass()],
     );
+    // Docmore's own apps sign in through OAuth with the app scope: for the
+    // API that token is the person, exactly like a browser session.
+    const isAppToken = (user.oauth?.scopes ?? []).includes('app');
+    if (isAppToken) {
+      this.setJoinedWorkspacesCookie(user, ctx);
+      return user;
+    }
+
     if (requiresSession && user.authType !== JwtType.ACCESS) {
       this.logger.debug(
         `session-only endpoint ${ctx.getClass()?.name}.${ctx.getHandler()?.name} refused authType ${user.authType}`,

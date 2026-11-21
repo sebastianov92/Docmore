@@ -97,7 +97,30 @@ export class PersistenceExtension implements Extension {
         tiptapExtensions,
       );
 
-      Y.encodeStateAsUpdate(ydoc);
+      // Stored right away: a state built again on the next load would be a
+      // different Yjs history of the same text, and a device holding the
+      // first one (IndexedDB, offline copy) would merge the page onto itself.
+      try {
+        const stored = await this.db
+          .updateTable('pages')
+          .set({
+            ydoc: Buffer.from(Y.encodeStateAsUpdate(ydoc)),
+            updatedAt: page.updatedAt,
+          })
+          .where('id', '=', pageId)
+          .where('ydoc', 'is', null)
+          .executeTakeFirst();
+        if (Number(stored.numUpdatedRows ?? 0) === 0) {
+          const fresh = await this.pageRepo.findById(pageId, { includeYdoc: true });
+          if (fresh?.ydoc) {
+            const doc = new Y.Doc();
+            Y.applyUpdate(doc, new Uint8Array(fresh.ydoc));
+            return doc;
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`could not store the first ydoc of ${pageId}: ${err?.['message']}`);
+      }
       return ydoc;
     }
 

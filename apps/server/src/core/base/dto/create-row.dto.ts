@@ -8,6 +8,11 @@ import {
 } from 'class-validator';
 
 export class CreateRowDto {
+  // Chosen by a device that created the row offline.
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @IsUUID()
   pageId: string;
 

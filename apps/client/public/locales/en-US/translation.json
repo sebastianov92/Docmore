@@ -2502,5 +2502,7 @@
   "Work offline": "Work offline",
   "Go back online": "Go back online",
   "You are working offline. Changes stay on this device and are sent when you go back online.": "You are working offline. Changes stay on this device and are sent when you go back online.",
-  "The server cannot be reached. Changes stay on this device and are sent when it is back.": "The server cannot be reached. Changes stay on this device and are sent when it is back."
+  "The server cannot be reached. Changes stay on this device and are sent when it is back.": "The server cannot be reached. Changes stay on this device and are sent when it is back.",
+  "Full access to your account": "Full access to your account",
+  "The app signs in as you and can do everything you can do here. Only allow this for the Docmore app on your own device.": "The app signs in as you and can do everything you can do here. Only allow this for the Docmore app on your own device."
 }

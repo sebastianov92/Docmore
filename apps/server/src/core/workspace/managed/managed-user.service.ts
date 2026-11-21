@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectKysely } from 'nestjs-kysely';
+import { sql } from 'kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { User, Workspace } from '@docmost/db/types/entity.types';
 import { UserRepo } from '@docmost/db/repos/user/user.repo';
@@ -62,9 +63,22 @@ export class ManagedUserService {
     return this.userRepo.findById(target.id, workspace.id);
   }
 
+  // Desktop apps hold an OAuth grant for the whole account, not a session.
+  private async revokeAppGrants(userId: string, workspaceId: string) {
+    await this.db
+      .updateTable('oauthGrants')
+      .set({ revokedAt: new Date() })
+      .where('userId', '=', userId)
+      .where('workspaceId', '=', workspaceId)
+      .where('revokedAt', 'is', null)
+      .where(sql<boolean>`scopes @> '["app"]'::jsonb`)
+      .execute();
+  }
+
   async signOut(auth: User, workspace: Workspace, userId: string) {
     const target = await this.target(auth, workspace, userId);
     await this.sessions.revokeByUserId(target.id, workspace.id);
+    await this.revokeAppGrants(target.id, workspace.id);
     this.ws.disconnectUser(target.id);
     this.audit.log({ event: AuditEvent.USER_SIGNED_OUT_BY_ADMIN, resourceType: AuditResource.USER, resourceId: target.id } as any);
     return { ok: true };
@@ -102,6 +116,7 @@ export class ManagedUserService {
     const hashed = await hashPassword(password);
     await this.userRepo.updateUser({ password: hashed, hasGeneratedPassword: true } as any, target.id, workspace.id);
     await this.sessions.revokeByUserId(target.id, workspace.id);
+    await this.revokeAppGrants(target.id, workspace.id);
     this.ws.disconnectUser(target.id);
     this.audit.log({ event: AuditEvent.USER_PASSWORD_CHANGED, resourceType: AuditResource.USER, resourceId: target.id, metadata: { byAdmin: true } } as any);
     return { ok: true };

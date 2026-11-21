@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Anchor, Box, Button, Center, Checkbox, Container, Divider, Group, Loader, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconAlertTriangle, IconEye, IconPencil } from "@tabler/icons-react";
+import { IconAlertTriangle, IconEye, IconPencil, IconDeviceDesktop } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
@@ -101,13 +101,28 @@ function ConsentCard({ info, currentUser, params }: { info: OAuthAuthorizeInfo; 
   const { t } = useTranslation();
   const location = useLocation();
   const [, setCurrentUser] = useAtom(currentUserAtom);
-  const [approved, setApproved] = useState<string[]>(info.scopes.filter((s) => s === "read" || s === "write"));
+  // Docmore's own desktop app asks for the whole account, nothing to pick.
+  const isAppRequest = info.scopes.includes("app");
+  const [approved, setApproved] = useState<string[]>(
+    isAppRequest ? ["app"] : info.scopes.filter((s) => s === "read" || s === "write"),
+  );
   const [busy, setBusy] = useState<"approve" | "deny" | null>(null);
 
-  const rows = [
-    { scope: "read", icon: <IconEye size={16} stroke={1.5} />, label: t("Read"), description: t("Search and read the pages you can see.") },
-    { scope: "write", icon: <IconPencil size={16} stroke={1.5} />, label: t("Write"), description: t("Create and change pages as you.") },
-  ];
+  const rows = isAppRequest
+    ? [
+        {
+          scope: "app",
+          icon: <IconDeviceDesktop size={16} stroke={1.5} />,
+          label: t("Full access to your account"),
+          description: t(
+            "The app signs in as you and can do everything you can do here. Only allow this for the Docmore app on your own device.",
+          ),
+        },
+      ]
+    : [
+        { scope: "read", icon: <IconEye size={16} stroke={1.5} />, label: t("Read"), description: t("Search and read the pages you can see.") },
+        { scope: "write", icon: <IconPencil size={16} stroke={1.5} />, label: t("Write"), description: t("Create and change pages as you.") },
+      ];
 
   const decide = async (yes: boolean) => {
     setBusy(yes ? "approve" : "deny");
@@ -163,7 +178,7 @@ function ConsentCard({ info, currentUser, params }: { info: OAuthAuthorizeInfo; 
               key={row.scope}
               size="sm"
               checked={approved.includes(row.scope)}
-              disabled={!requested || busy !== null}
+              disabled={!requested || isAppRequest || busy !== null}
               onChange={(e) =>
                 setApproved((prev) => (e.currentTarget.checked ? [...prev, row.scope] : prev.filter((s) => s !== row.scope)))
               }

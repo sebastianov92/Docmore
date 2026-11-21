@@ -89,6 +89,31 @@ export class CollaborationHandler {
           },
         );
       },
+      // A device that worked offline: apply what it wrote and answer with what
+      // it is missing, through the same document live editors share.
+      syncClientUpdate: async (
+        documentName: string,
+        payload: { update?: string; stateVector?: string; user: User },
+      ): Promise<{ update: string | null }> => {
+        let diff: string | null = null;
+        await this.withYdocConnection(
+          hocuspocus,
+          documentName,
+          { user: payload.user },
+          (doc) => {
+            if (payload.update) {
+              Y.applyUpdate(doc, new Uint8Array(Buffer.from(payload.update, 'base64')));
+            }
+            const stateVector = payload.stateVector
+              ? new Uint8Array(Buffer.from(payload.stateVector, 'base64'))
+              : undefined;
+            const missing = Y.encodeStateAsUpdate(doc, stateVector);
+            // two zero bytes: no structs, no deletions
+            diff = missing.length > 2 ? Buffer.from(missing).toString('base64') : null;
+          },
+        );
+        return { update: diff };
+      },
       updatePageContent: async (
         documentName: string,
         payload: {
