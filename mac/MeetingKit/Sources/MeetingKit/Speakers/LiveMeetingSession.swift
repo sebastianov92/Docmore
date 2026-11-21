@@ -14,6 +14,12 @@ public struct LiveMeetingOptions: Equatable, Sendable {
     /// moving. Why not shorter: under five minutes the models find voices
     /// that are not there (STATUS.md).
     public var speakerWindowSeconds: Double = 600
+    /// Once that window slides, its oldest stretch is still heard but no
+    /// longer relabelled: the end of a turn that is about to leave the
+    /// window, heard without the rest of that voice, is easily given to
+    /// somebody else. What is said there keeps the speaker it got while
+    /// the models still heard half a minute or more around it.
+    public var speakerGuardSeconds: Double = 30
     public var diarization = DiarizerOptions.meeting
     public var matching = SpeakerMatchingPolicy()
     public var attribution = SpeakerAttribution.Policy()
@@ -378,13 +384,15 @@ public final class LiveMeetingSession: @unchecked Sendable {
                     heard = EchoGate.suppress(microphone: heard, remote: tracks[1].recent).samples
                 }
                 let from = tracks[index].recentStart
+                // the window has started to slide: leave its oldest stretch as it is
+                let relabelFrom = from > 0 ? min(from + max(0, options.speakerGuardSeconds), window.endSeconds) : 0
                 do {
                     let diarization = try await diarizer.diarize(samples: heard, options: options.diarization).shifted(by: from)
                     lock.withLock {
                         var track = speakerState.tracks[index]
                         let side = track.side
                         let outcome = track.absorb(
-                            diarization, from: from, to: window.endSeconds,
+                            diarization, from: relabelFrom, to: window.endSeconds,
                             policy: options.matching, named: speakerState.namedIds, final: last
                         ) { speakerState.makeSpeaker(side: side) }
                         speakerState.tracks[index] = track

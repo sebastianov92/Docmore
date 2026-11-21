@@ -1,25 +1,36 @@
 # MeetingKit: status
 
-Last update: 2026-11-21. Machine: macOS 27.0.1, Xcode 27.2 (Swift 6.4.2),
-Apple Silicon. WhisperKit 1.1.1. Lab server at `http://localhost:3100`.
+Last update: 2026-11-21. Machine: MacBook Pro, Apple M3 Pro (12 cores),
+36 GB, macOS 27.0.1, Xcode 27.2 (Swift 6.4.2). WhisperKit package 1.1.1
+(products WhisperKit and SpeakerKit). Lab server at `http://localhost:3100`.
 
 All commands run from `mac/MeetingKit/`. `$WAV` is the 16.6 s English sample
 (`meeting.wav`, 16 kHz mono) that mentions a homepage, Maria and Tom.
 Everything the runs wrote is under `.build/scratch/` (models, logs, queues).
 
+This file has two parts: **meetings with speakers** (the second round of
+work: tracks, speakers, echo, the live session), then what was verified in
+the first round and still holds (transcription, queue, server round trip).
+
 ## Summary
 
 | Piece | State |
 | --- | --- |
-| Build, unit tests | Verified: 0 warnings, 91 tests green |
-| Transcription with WhisperKit (file, samples, live windows) | Verified with real models |
-| Model catalog, download, delete, size | Verified against the real repository |
-| Transcription with no network | Verified with networking denied to the process |
-| Queue, retry rules, no double send | Verified by unit tests and against the lab |
-| Docmore sender, status polling | Verified against the lab (notes written to real pages) |
-| Recording pipeline (resample, mix, WAV, callbacks, source failures) | Verified by unit tests with scripted sources |
+| Build, unit tests | Verified: 0 warnings, TEST_TOTAL tests green (UNIT_TOTAL without models, 4 with the real models) |
+| Transcription with WhisperKit (file, samples, live windows, word times) | Verified with real models |
+| Model catalog, download, delete, size (Whisper and speaker models) | Verified against the real repositories |
+| Transcription and speakers with no network | Verified with networking denied to the process |
+| Speaker models: never fetched except by `download`, refused while recording | Verified (unit test, and the no-network run) |
+| Telling voices apart (SpeakerKit) | Verified with real models on **synthetic voices only**; numbers below |
+| Recording in two aligned tracks, crash repair, old recordings | Verified by unit tests with scripted sources |
+| Final pass: sides, speakers, split by words, merge | Verified with real models on the test meeting and on an hour of synthetic speech |
+| Echo pass (text) and echo gate (audio for the speaker models) | Verified on a **synthetic echo only**: never tried with real loudspeakers |
+| Live session: updates, stable ids, a voice that comes back, hand-over to the final pass | Verified with real models, replayed from files, up to one hour |
+| Queue, retry rules, no double send; old job files | Verified by unit tests and (plain transcripts) against the lab |
+| Docmore sender: plain body unchanged; `meetingId`, `mode`, `speakers`, `speaker`/`side` | Body verified by unit tests against the contract. **Not sent to a server**: the routes were not deployed |
 | **Live capture: microphone (AVAudioEngine)** | **Not verified, needs a human click** |
 | **Live capture: system audio (Core Audio process tap)** | **Not verified, needs a human click** |
+| **Real voices, real rooms, real loudspeakers** | **Not verified: there was nobody to talk** |
 
 ## Verified
 

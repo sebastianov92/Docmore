@@ -11,9 +11,10 @@ final class LiveMeetingSessionTests: XCTestCase {
     ]
     private let voices: [(Double, Double, Int)] = [(1, 9, 0), (16, 26, 1), (31, 39, 0), (46, 54, 1)]
 
-    private func options(speakerWindow: Double = 600) -> LiveMeetingOptions {
+    private func options(speakerWindow: Double = 600, guardSeconds: Double = 30) -> LiveMeetingOptions {
         var options = LiveMeetingOptions()
         options.speakerWindowSeconds = speakerWindow
+        options.speakerGuardSeconds = guardSeconds
         options.usesEchoGate = false     // the audio here is made up: only its text and its turns mean anything
         return options
     }
@@ -141,6 +142,45 @@ final class LiveMeetingSessionTests: XCTestCase {
         }
         XCTAssertTrue(owners.values.allSatisfy { $0.count == 1 })
         XCTAssertEqual(list, transcript.segments)
+    }
+
+    func testTheEndOfATurnThatLeavesTheWindowKeepsItsSpeaker() async {
+        /// A diarizer that hears like the real one at the edge of its
+        /// window: the first seconds it is given, cut off from the rest of
+        /// their voice, go to whoever talks the most in what it hears.
+        final class EdgeBlind: SampleDiarizing, @unchecked Sendable {
+            let inner: ScriptedDiarizer
+            init(_ inner: ScriptedDiarizer) { self.inner = inner }
+            func diarize(samples: [Float], options: DiarizerOptions) async throws -> Diarization {
+                var result = try await inner.diarize(samples: samples, options: options)
+                let (_, start) = ScriptedAudio.read(samples)
+                guard start > 0, let loudest = result.speechSeconds.max(by: { $0.value < $1.value })?.key else { return result }
+                result.turns = result.turns.map { $0.start < 12 ? SpeakerTurn(start: $0.start, end: $0.end, cluster: loudest) : $0 }
+                return result
+            }
+        }
+        // two voices, ten seconds each in turn, for four minutes; the speaker models hear the last minute
+        var script: [TimedTranscript.Segment] = []
+        var turns: [(Double, Double, Int)] = []
+        for index in 0..<16 {
+            let start = 1 + Double(index) * 15
+            script.append(timed("turno número \(index) de la conversación", start, start + 10))
+            turns.append((start, start + 10, index % 2))
+        }
+        func run(guardSeconds: Double) async -> [String?] {
+            let session = LiveMeetingSession(mode: .inPerson, transcriber: ScriptedTranscriber([script]),
+                                             diarizer: EdgeBlind(ScriptedDiarizer([turns])),
+                                             options: options(speakerWindow: 60, guardSeconds: guardSeconds))
+            feed(session, room: ScriptedAudio.track(0, seconds: 245))
+            return await session.finish().segments.map(\.speaker)
+        }
+        let expected: [String?] = (0..<16).map { $0 % 2 == 0 ? "s1" : "s2" }
+        // with the guard every sentence keeps the speaker it got while it was well inside the window
+        let guarded = await run(guardSeconds: 30)
+        XCTAssertEqual(guarded, expected)
+        // without it the sentences that left the window were handed to the other voice on their way out
+        let unguarded = await run(guardSeconds: 0)
+        XCTAssertNotEqual(unguarded, expected)
     }
 
     func testANameTypedDuringTheMeetingIsOnTheSameVoiceInTheFinalTranscript() async throws {

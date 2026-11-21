@@ -503,6 +503,7 @@ Text, sides and speakers while the meeting runs.
 public struct LiveMeetingOptions: Equatable, Sendable {
     public var windowSeconds: Double = 15             // text arrives every window
     public var speakerWindowSeconds: Double = 600     // what the speaker models hear on every pass
+    public var speakerGuardSeconds: Double = 30       // the oldest stretch of that window is heard, not relabelled
     public var removesEcho = true
     // also: diarization, matching, attribution, echo (the policies; the defaults are the measured ones)
 }
@@ -586,7 +587,8 @@ let state = live.state                         // goes to the final pass
   after being silent for longer than the window, to the known speaker with
   the closest voice print. An id is never used for another voice, and a
   number is never given twice.
-- What is older than `speakerWindowSeconds` keeps the speaker it has.
+- What is older than `speakerWindowSeconds` (less `speakerGuardSeconds`)
+  keeps the speaker it has.
 - A new voice heard for less than eight seconds waits one window before it
   is shown as a speaker (its text is shown at once, with its side): when the
   models have heard little they often split one voice in two for a moment.

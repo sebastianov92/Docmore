@@ -156,8 +156,17 @@ public enum EchoFilter {
         let total = own.reduce(0) { $0 + $1.weight }
         guard total > 0, let first = own.first, let last = own.last else { return 0 }
         let reach = max(policy.tolerance, policy.looseTolerance)
-        let near = stream.filter { $0.time >= first.time - reach && $0.time <= last.time + reach }
-        guard !near.isEmpty else { return 0 }
+        // `stream` is ordered by time: the stretch around this segment, found by halving
+        var low = 0
+        var high = stream.count
+        while low < high {
+            let middle = (low + high) / 2
+            if stream[middle].time < first.time - reach { low = middle + 1 } else { high = middle }
+        }
+        var end = low
+        while end < stream.count, stream[end].time <= last.time + reach { end += 1 }
+        guard end > low else { return 0 }
+        let near = stream[low..<end]
         var best = [Double](repeating: 0, count: near.count + 1)
         for token in own {
             var row = best
