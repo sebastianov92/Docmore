@@ -85,6 +85,12 @@ export interface AiMeetingNotes {
   segments: Json | null;
   summary: string | null;
   error: string | null;
+  mode: string | null;
+  speakers: Generated<Json>;
+  items: Generated<Json>;
+  itemsRevision: Generated<number>;
+  liveCursor: Generated<number>;
+  notes: Json | null;
   createdAt: Generated<Timestamp>;
   updatedAt: Generated<Timestamp>;
 }

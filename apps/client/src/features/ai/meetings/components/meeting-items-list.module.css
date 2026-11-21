@@ -1,0 +1,52 @@
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.row:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: -2px;
+}
+
+.cancelled {
+  opacity: 0.6;
+}
+
+.cancelled .text {
+  text-decoration: line-through;
+}
+
+.text {
+  overflow-wrap: anywhere;
+}
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px dashed var(--mantine-color-default-border);
+  color: var(--mantine-color-dimmed);
+}
+
+.add:hover {
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+
+.form {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--mantine-color-default-border);
+}

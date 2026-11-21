@@ -32,12 +32,13 @@ import { AiTranscriptionService } from './meetings/ai-transcription.service';
 import { AiMeetingService } from './meetings/ai-meeting.service';
 import { AiMeetingController } from './meetings/ai-meeting.controller';
 import { NotificationModule } from '../notification/notification.module';
+import { CollaborationModule } from '../../collaboration/collaboration.module';
 
 // Built-in AI: provider credentials, model discovery, Ask AI in the editor,
 // page embeddings with AI Answers in search, and the chat with tools over
 // the workspace's pages.
 @Module({
-  imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule, NotificationModule],
+  imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule, NotificationModule, CollaborationModule],
   controllers: [AiController, AiChatController, AiBaseFillController, AiMcpController, AiSkillController, AiResearchController, AiMeetingController],
   providers: [
     AiBaseFillService,

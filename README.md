@@ -273,6 +273,18 @@ outside the `ee/` directories, so they are always on:
 - **Live meeting recorder**: "Record meeting" records the microphone with
   a live transcript every 45 seconds; stopping turns the recording into
   notes on the page.
+- **Meetings with a live list**: while a meeting runs the language model
+  keeps the list of agreements and tasks from what is said, changes an
+  entry when the meeting changes its mind (the earlier wording stays
+  visible) and calls off what was dropped; what you edit by hand is yours
+  and the model leaves it alone. When the meeting ends the model checks the
+  list against the whole transcript and writes the summary; tasks land on
+  the page as check boxes. Meetings are in person (one microphone) or
+  virtual (this side from the microphone, the other side from the call's
+  own audio; the Mac app records those), voices are told apart, and
+  "People in the meeting" in the page menu gives each voice a name that
+  replaces its label everywhere in that meeting's notes, or joins two
+  voices that were one person. Notes are written in your language.
 - **Managed users**: admins fix a member's name or email, sign them out
   everywhere, send or set a password, or restrict the account to single
   sign-on; the members table shows the last sign-in.

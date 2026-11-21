@@ -9,6 +9,35 @@ import { setYjsMark, updateYjsMarkAttribute, YjsSelection } from './yjs.util';
 import * as Y from 'yjs';
 import { User } from '@docmost/db/types/entity.types';
 
+// Replaces every match in the text under a node, keeping the formatting of
+// what it replaces. Embedded objects count as one character, as in Yjs.
+function replaceInYNode(node: unknown, pattern: RegExp, to: string): number {
+  if (node instanceof Y.XmlText) {
+    const delta = node.toDelta() as { insert: unknown; attributes?: Record<string, any> }[];
+    let text = '';
+    const runs: { from: number; to: number; attributes?: Record<string, any> }[] = [];
+    for (const d of delta) {
+      const piece = typeof d.insert === 'string' ? d.insert : '\uFFFC';
+      runs.push({ from: text.length, to: text.length + piece.length, attributes: d.attributes });
+      text += piece;
+    }
+    const matches = [...text.matchAll(pattern)];
+    for (const m of matches.reverse()) {
+      const at = m.index ?? 0;
+      const attributes = runs.find((r) => at >= r.from && at < r.to)?.attributes ?? {};
+      node.delete(at, m[0].length);
+      node.insert(at, to, attributes);
+    }
+    return matches.length;
+  }
+  if (node instanceof Y.XmlElement) {
+    let count = 0;
+    for (const child of node.toArray()) count += replaceInYNode(child, pattern, to);
+    return count;
+  }
+  return 0;
+}
+
 export type CollabEventHandlers = ReturnType<
   CollaborationHandler['getHandlers']
 >;
@@ -113,6 +142,47 @@ export class CollaborationHandler {
           },
         );
         return { update: diff };
+      },
+      // Rewrites whole labels in the text of a page (a meeting speaker got a
+      // name) through the document live editors share, so formatting and
+      // what others are typing stay. With block ids, only between those two
+      // blocks. Answers how many were rewritten.
+      replaceText: async (
+        documentName: string,
+        payload: {
+          pattern: string;
+          flags: string;
+          to: string;
+          fromBlockId?: string | null;
+          toBlockId?: string | null;
+          user: User;
+        },
+      ): Promise<{ replaced: number }> => {
+        let replaced = 0;
+        await this.withYdocConnection(
+          hocuspocus,
+          documentName,
+          { user: payload.user },
+          (doc) => {
+            const blocks = doc.getXmlFragment('default').toArray();
+            const indexOf = (id?: string | null) =>
+              id
+                ? blocks.findIndex(
+                    (b) => b instanceof Y.XmlElement && b.getAttribute('id') === id,
+                  )
+                : -1;
+            let first = indexOf(payload.fromBlockId);
+            let last = indexOf(payload.toBlockId);
+            // a marker block that was deleted: that side is left open
+            if (first < 0) first = 0;
+            if (last < first) last = blocks.length - 1;
+            const pattern = new RegExp(payload.pattern, payload.flags);
+            for (let i = first; i <= last; i += 1) {
+              replaced += replaceInYNode(blocks[i], pattern, payload.to);
+            }
+          },
+        );
+        return { replaced };
       },
       updatePageContent: async (
         documentName: string,

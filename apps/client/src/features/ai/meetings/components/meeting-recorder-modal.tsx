@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Badge, Button, Group, Modal, ScrollArea, Stack, Text } from "@mantine/core";
+import { Badge, Button, Group, Modal, ScrollArea, SimpleGrid, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconMicrophone, IconPlayerPause, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { nativeCall, nativeCan } from "@/lib/native/bridge.ts";
-import { MEETING_RECORDER_EVENT, transcribeLiveChunk, transcribeMeeting } from "../services";
+import {
+  IMeetingItem,
+  IMeetingSegment,
+  MEETING_RECORDER_EVENT,
+  MeetingItemOp,
+  discardLiveMeeting,
+  editMeetingItem,
+  startLiveMeeting,
+  transcribeLiveChunk,
+  transcribeMeeting,
+  updateLiveMeeting,
+} from "../services";
+import { MeetingItemsList, MeetingListState } from "./meeting-items-list";
 
 type Status = "idle" | "recording" | "paused" | "saving";
 type Line = { at: number; text: string };
@@ -29,9 +41,10 @@ function stamp(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-// Records the meeting from the microphone: one recorder keeps the whole
-// file, a second one restarts every 45 seconds so each piece is transcribed
-// as the meeting runs. Stop sends the full recording to become the notes.
+// Records an in-person meeting from the microphone: one recorder keeps the
+// whole file, a second one restarts every 45 seconds so each piece is
+// transcribed as the meeting runs; the server keeps the list of agreements
+// and tasks from that text. Stop sends the full recording to become the notes.
 export function MeetingRecorderModal() {
   const { t } = useTranslation();
   const [pageId, setPageId] = useState<string | null>(null);
@@ -50,6 +63,14 @@ export function MeetingRecorderModal() {
   const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingRef = useRef(0);
+  // the list of agreements and tasks the server keeps while the meeting runs
+  const [items, setItems] = useState<IMeetingItem[]>([]);
+  const [listState, setListState] = useState<MeetingListState>("none");
+  const meetingRef = useRef<string | null>(null);
+  const segmentsRef = useRef<IMeetingSegment[]>([]);
+  // the first segment the server does not have yet
+  const dirtyFromRef = useRef(0);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -82,6 +103,64 @@ export function MeetingRecorderModal() {
     liveRef.current = null;
   }, []);
 
+  // Sends the text the server has not got; one call at a time, and what
+  // arrives meanwhile goes with the next one.
+  const pushLive = useCallback(async () => {
+    const meetingId = meetingRef.current;
+    if (!meetingId || sendingRef.current) return;
+    sendingRef.current = true;
+    try {
+      while (meetingRef.current === meetingId && dirtyFromRef.current < segmentsRef.current.length) {
+        const from = dirtyFromRef.current;
+        const all = segmentsRef.current;
+        dirtyFromRef.current = all.length;
+        setListState((prev) => (prev === "unavailable" ? prev : "building"));
+        try {
+          const list = await updateLiveMeeting(meetingId, from, all.slice(from), now() / 1000);
+          if (meetingRef.current !== meetingId) return;
+          setItems(list.items);
+          setListState(list.aiAvailable ? "waiting" : "unavailable");
+        } catch {
+          // nothing is lost: the same text goes again with the next piece
+          dirtyFromRef.current = Math.min(dirtyFromRef.current, from);
+          setListState("unavailable");
+          return;
+        }
+      }
+    } finally {
+      sendingRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addSegment = useCallback(
+    (at: number, text: string) => {
+      const segment = { start: at / 1000, end: (at + CHUNK_MS) / 1000, text };
+      // pieces can come back out of order
+      const list = segmentsRef.current;
+      let index = list.length;
+      while (index > 0 && list[index - 1].start > segment.start) index -= 1;
+      list.splice(index, 0, segment);
+      dirtyFromRef.current = Math.min(dirtyFromRef.current, index);
+      void pushLive();
+    },
+    [pushLive],
+  );
+
+  const editItem = useCallback(
+    async (op: MeetingItemOp) => {
+      const meetingId = meetingRef.current;
+      if (!meetingId) return;
+      try {
+        const list = await editMeetingItem(meetingId, op);
+        if (meetingRef.current === meetingId) setItems(list.items);
+      } catch (err) {
+        setError(getApiErrorMessage(err, t("Could not change the list")));
+      }
+    },
+    [t],
+  );
+
   // one live recorder per piece: each blob stands on its own
   const startLivePiece = useCallback(() => {
     const stream = streamRef.current;
@@ -93,7 +172,10 @@ export function MeetingRecorderModal() {
       pendingRef.current += 1;
       try {
         const r = await transcribeLiveChunk(ev.data, `live.${extOf(mimeRef.current)}`);
-        if (r.text.trim()) setLines((prev) => [...prev, { at, text: r.text.trim() }]);
+        if (r.text.trim()) {
+          setLines((prev) => [...prev, { at, text: r.text.trim() }].sort((a, b) => a.at - b.at));
+          addSegment(at, r.text.trim());
+        }
       } catch (err) {
         setError(getApiErrorMessage(err, t("Live transcription failed")));
       } finally {
@@ -102,7 +184,7 @@ export function MeetingRecorderModal() {
     };
     rec.start();
     liveRef.current = rec;
-  }, [t]);
+  }, [t, addSegment]);
 
   const rotateLive = useCallback(() => {
     const rec = liveRef.current;
@@ -127,7 +209,26 @@ export function MeetingRecorderModal() {
       pausedTotalRef.current = 0;
       setElapsed(0);
       setLines([]);
+      setItems([]);
+      segmentsRef.current = [];
+      dirtyFromRef.current = 0;
+      meetingRef.current = null;
+      setListState("none");
       setStatus("recording");
+      // the list is a bonus: the recording goes on without it
+      if (pageId) {
+        startLiveMeeting({ pageId, mode: "in_person" })
+          .then((meeting) => {
+            if (!streamRef.current) {
+              void discardLiveMeeting(meeting.id).catch(() => undefined);
+              return;
+            }
+            meetingRef.current = meeting.id;
+            setListState(meeting.aiAvailable ? "waiting" : "unavailable");
+            void pushLive();
+          })
+          .catch(() => setListState("none"));
+      }
       startLivePiece();
       liveTimerRef.current = setInterval(rotateLive, CHUNK_MS);
       tickRef.current = setInterval(() => setElapsed(now()), 1000);
@@ -136,7 +237,7 @@ export function MeetingRecorderModal() {
       cleanup();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startLivePiece, rotateLive, cleanup, t]);
+  }, [startLivePiece, rotateLive, cleanup, t, pageId, pushLive]);
 
   const pause = () => {
     fullRef.current?.pause();
@@ -168,11 +269,14 @@ export function MeetingRecorderModal() {
     try {
       if (!pageId) throw new Error("No page");
       const file = new File([blob], `meeting-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.${extOf(mimeRef.current)}`, { type: blob.type });
-      await transcribeMeeting(file, { pageId });
+      await transcribeMeeting(file, { pageId, meetingId: meetingRef.current ?? undefined, mode: "in_person" });
       notifications.show({ message: t("Recording sent. The notes will be added to this page when ready; you will be told.") });
+      meetingRef.current = null;
       setPageId(null);
       setStatus("idle");
       setLines([]);
+      setItems([]);
+      setListState("none");
     } catch (err) {
       setError(getApiErrorMessage(err, t("Could not send the recording")));
       setStatus("idle");
@@ -185,8 +289,12 @@ export function MeetingRecorderModal() {
     fullRef.current?.state !== "inactive" && fullRef.current?.stop();
     liveRef.current?.state !== "inactive" && liveRef.current?.stop();
     cleanup();
+    if (meetingRef.current) void discardLiveMeeting(meetingRef.current).catch(() => undefined);
+    meetingRef.current = null;
     setStatus("idle");
     setLines([]);
+    setItems([]);
+    setListState("none");
     setPageId(null);
   };
 
@@ -194,10 +302,10 @@ export function MeetingRecorderModal() {
 
   const open = Boolean(pageId);
   return (
-    <Modal opened={open} onClose={status === "idle" ? () => setPageId(null) : discard} title={t("Record meeting")} size="lg" closeOnClickOutside={false} data-testid="meeting-recorder">
+    <Modal opened={open} onClose={status === "idle" ? () => setPageId(null) : discard} title={t("Record meeting")} size="xl" closeOnClickOutside={false} data-testid="meeting-recorder">
       <Stack gap="sm">
         <Text size="sm" c="dimmed">
-          {t("The microphone is recorded in the browser. Every 45 seconds a piece is transcribed and shown here; when you stop, the whole recording becomes notes on this page.")}
+          {t("In-person meeting: the microphone is recorded in the browser. Every 45 seconds a piece is transcribed and the agreements and tasks are kept up to date; when you stop, the whole recording becomes notes on this page. For a call, the Docmore app for Mac records the other side from the call's own audio.")}
         </Text>
         <Group gap="sm" align="center">
           {status === "idle" && (
@@ -237,24 +345,41 @@ export function MeetingRecorderModal() {
             {error}
           </Text>
         )}
-        <ScrollArea h={260} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, padding: 8 }}>
-          {lines.length === 0 ? (
-            <Text size="sm" c="dimmed">
-              {status === "idle" ? t("Nothing recorded yet.") : t("Listening… the first text shows after about a minute.")}
+        <SimpleGrid cols={{ base: 1, sm: listState === "none" ? 1 : 2 }} spacing="sm">
+          <Stack gap={4}>
+            <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+              {t("Transcript")}
             </Text>
-          ) : (
-            <Stack gap={6}>
-              {lines.map((l, i) => (
-                <Text key={i} size="sm">
-                  <Text span c="dimmed" size="xs" mr={6}>
-                    [{stamp(l.at)}]
-                  </Text>
-                  {l.text}
+            <ScrollArea h={300} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, padding: 8 }}>
+              {lines.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  {status === "idle" ? t("Nothing recorded yet.") : t("Listening… the first text shows after about a minute.")}
                 </Text>
-              ))}
+              ) : (
+                <Stack gap={6}>
+                  {lines.map((l, i) => (
+                    <Text key={i} size="sm">
+                      <Text span c="dimmed" size="xs" mr={6}>
+                        [{stamp(l.at)}]
+                      </Text>
+                      {l.text}
+                    </Text>
+                  ))}
+                </Stack>
+              )}
+            </ScrollArea>
+          </Stack>
+          {listState !== "none" && (
+            <Stack gap={4}>
+              <Text size="xs" fw={600} c="dimmed" tt="uppercase">
+                {t("Agreements and tasks")}
+              </Text>
+              <ScrollArea h={300} style={{ border: "1px solid var(--mantine-color-default-border)", borderRadius: 8, padding: 4 }}>
+                <MeetingItemsList items={items} state={listState} onOp={status === "saving" ? undefined : editItem} />
+              </ScrollArea>
             </Stack>
           )}
-        </ScrollArea>
+        </SimpleGrid>
         {status !== "idle" && status !== "saving" && (
           <Group justify="flex-end">
             <Button size="xs" variant="subtle" color="gray" onClick={discard}>

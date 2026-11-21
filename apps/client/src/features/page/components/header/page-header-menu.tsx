@@ -31,6 +31,7 @@ import {
   IconTypography,
   IconTextSize,
   IconChartBar,
+  IconUsers,
 } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import type { Content } from "@tiptap/react";
@@ -64,7 +65,8 @@ import { SuggestionsModal } from "@/features/page-suggestion/components/suggesti
 import { MeetingRecorderModal } from "@/features/ai/meetings/components/meeting-recorder-modal";
 import { useShortcuts } from "@/features/home/hooks/use-shortcuts";
 import { IconPinned, IconPinnedOff } from "@tabler/icons-react";
-import { MEETING_RECORDER_EVENT } from "@/features/ai/meetings/services";
+import { MEETING_RECORDER_EVENT, MEETING_SPEAKERS_EVENT } from "@/features/ai/meetings/services";
+import { MeetingSpeakersModal, useMeetingsOfPage } from "@/features/ai/meetings/components/meeting-speakers-modal";
 import { IconMicrophone } from "@tabler/icons-react";
 import { suggestEditorOpenAtom, suggestionsModalOpenAtom } from "@/features/page-suggestion/services";
 import { IconListCheck, IconPencilQuestion } from "@tabler/icons-react";
@@ -201,6 +203,19 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
   const { openDeleteModal } = useDeletePageModal();
   const { handleDelete } = useTreeMutation(page?.spaceId ?? "");
   const [analyticsOpened, { open: openAnalytics, close: closeAnalytics }] = useDisclosure(false);
+  // the meetings on this page are only asked for once the menu is opened
+  const [menuSeen, setMenuSeen] = useState(false);
+  const [speakersOpened, { open: openSpeakers, close: closeSpeakers }] = useDisclosure(false);
+  const { data: pageMeetings } = useMeetingsOfPage(page?.id, (menuSeen || speakersOpened) && !page?.isBase);
+  const hasSpeakers = (pageMeetings ?? []).some((m) => m.speakers.length > 0);
+  useEffect(() => {
+    const onSpeakers = (e: Event) => {
+      const id = (e as CustomEvent).detail?.pageId;
+      if (!id || id === page?.id) openSpeakers();
+    };
+    window.addEventListener(MEETING_SPEAKERS_EVENT, onSpeakers);
+    return () => window.removeEventListener(MEETING_SPEAKERS_EVENT, onSpeakers);
+  }, [page?.id, openSpeakers]);
   const [exportOpened, { open: openExportModal, close: closeExportModal }] =
     useDisclosure(false);
   const [
@@ -294,6 +309,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
         width={230}
         withArrow
         arrowPosition="center"
+        onOpen={() => setMenuSeen(true)}
       >
         <Menu.Target>
           <ActionIcon
@@ -421,6 +437,11 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
           {!page?.isBase && !readOnly && (
             <Menu.Item leftSection={<IconMicrophone size={16} />} onClick={() => window.dispatchEvent(new CustomEvent(MEETING_RECORDER_EVENT, { detail: { pageId: page?.id } }))}>
               {t("Record meeting")}
+            </Menu.Item>
+          )}
+          {!page?.isBase && hasSpeakers && (
+            <Menu.Item leftSection={<IconUsers size={16} />} onClick={openSpeakers} data-testid="page-meeting-speakers">
+              {t("People in the meeting")}
             </Menu.Item>
           )}
 
@@ -586,6 +607,7 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
       <SuggestEditorModal page={page} />
       <SuggestionsModal page={page} />
       <MeetingRecorderModal />
+      <MeetingSpeakersModal pageId={page.id} opened={speakersOpened} onClose={closeSpeakers} />
     </>
   );
 }
