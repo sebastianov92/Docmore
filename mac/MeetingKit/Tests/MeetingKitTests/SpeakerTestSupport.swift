@@ -144,7 +144,7 @@ final class ScriptedDiarizer: SampleDiarizing, @unchecked Sendable {
         lock.withLock { calls }
     }
 
-    func diarize(samples: [Float], options: DiarizationOptions) async throws -> Diarization {
+    func diarize(samples: [Float], options: DiarizerOptions) async throws -> Diarization {
         let (track, start) = ScriptedAudio.read(samples)
         let seconds = Double(samples.count) / 16_000
         let number: Int = lock.withLock {

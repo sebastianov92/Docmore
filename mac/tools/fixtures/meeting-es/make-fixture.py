@@ -7,9 +7,12 @@ two on the other side of a call (the system audio track). A delivery date is
 decided ("entregamos el viernes"), later changed ("mejor el lunes"), and a
 task is given to someone by name.
 
-    make-fixture.py                      # the meeting, into ./out next to this script
+    make-fixture.py                      # the meeting, spoken again with `say`, into ./out next to this script
     make-fixture.py --out DIR
+    make-fixture.py --from-recording meeting-es.virtual.flac --out DIR
+                                         # the same files from the recording kept in the repository: no voices needed
     make-fixture.py --long 60 --out DIR  # 60 minutes of turn-taking for benchmarks
+    make-fixture.py --long 60 --virtual  # the same, also as a call with two sides
 
 Only the Python standard library, `say` and `afconvert` (both part of macOS).
 The voices must be installed: System Settings > Accessibility > Spoken
@@ -19,7 +22,9 @@ Shelley).
 
 What it writes for the meeting (16 kHz, 16-bit):
 
-    meeting-es.json               who says what and when (the ground truth)
+    meeting-es.json               who says what and when (the ground truth; not with --from-recording,
+                                  which goes with the meeting-es.json kept next to the recording)
+    meeting-es.virtual.flac       the two tracks, lossless: the one audio file kept in the repository
     meeting-es.room.wav           mono: the microphone track (Ana and Luis)
     meeting-es.remote.wav         mono: the system audio track (Marta and Carlos)
     meeting-es.virtual.wav        two channels: 0 = room, 1 = remote (what the recorder writes in virtual mode)
@@ -29,7 +34,9 @@ What it writes for the meeting (16 kHz, 16-bit):
     meeting-es.virtual-echo.wav   two channels: 0 = room with echo, 1 = remote
 
 `say` does not promise the same samples on every macOS version: times in
-the JSON are measured from what was really generated.
+the JSON are measured from what was really generated. That is why one
+recording is kept in the repository (meeting-es.virtual.flac, with its
+meeting-es.json): tests that must agree with each other start from it.
 """
 
 import argparse
@@ -197,6 +204,37 @@ def write_wav(path, channels):
         writer.writeframes(frames.tobytes())
 
 
+def read_recording(path):
+    """The channels of a 16 kHz recording (WAV, FLAC, anything afconvert reads) as int16 arrays."""
+    with tempfile.TemporaryDirectory() as folder:
+        wav = os.path.join(folder, "recording.wav")
+        run(["afconvert", "-f", "WAVE", "-d", "LEI16@%d" % RATE, path, wav])
+        with open(wav, "rb") as reader:
+            data = reader.read()
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        sys.exit("not a WAV file after conversion: " + path)
+    # the chunks: afconvert writes the extensible form of the header, which the wave module refuses
+    offset, channels, body = 12, None, None
+    while offset + 8 <= len(data):
+        tag = data[offset:offset + 4]
+        size = int.from_bytes(data[offset + 4:offset + 8], "little")
+        if tag == b"fmt ":
+            channels = int.from_bytes(data[offset + 10:offset + 12], "little")
+            if int.from_bytes(data[offset + 12:offset + 16], "little") != RATE or int.from_bytes(data[offset + 22:offset + 24], "little") != 16:
+                sys.exit("unexpected format in " + path)
+        elif tag == b"data":
+            body = data[offset + 8:offset + 8 + size]
+            break
+        offset += 8 + size + (size & 1)
+    if not channels or body is None:
+        sys.exit("no audio in " + path)
+    frames = array.array("h")
+    frames.frombytes(body[:len(body) // (2 * channels) * 2 * channels])
+    if sys.byteorder == "big":
+        frames.byteswap()
+    return [frames[index::channels] for index in range(channels)]
+
+
 def clamp(value):
     return max(-32768, min(32767, int(round(value))))
 
@@ -219,6 +257,28 @@ def seconds(samples):
     return round(samples / RATE, 3)
 
 
+def write_tracks(out, room, remote):
+    """Every form of the meeting that follows from its two tracks."""
+    def target(name):
+        return os.path.join(out, "meeting-es." + name)
+
+    room_echo = mix(room, remote, gain=ECHO_GAIN, delay=int(ECHO_DELAY * RATE))
+    write_wav(target("room.wav"), [room])
+    write_wav(target("remote.wav"), [remote])
+    write_wav(target("virtual.wav"), [room, remote])
+    write_wav(target("mixed.wav"), [mix(room, remote)])
+    write_wav(target("room-echo.wav"), [room_echo])
+    write_wav(target("virtual-echo.wav"), [room_echo, remote])
+
+
+def build_from_recording(out, path):
+    channels = read_recording(path)
+    if len(channels) != 2:
+        sys.exit("%s has %d channel(s): the recording of the meeting has two (room, remote)" % (path, len(channels)))
+    write_tracks(out, channels[0], channels[1])
+    print("%s: %.1f s, from %s" % (out, len(channels[0]) / RATE, path))
+
+
 def build_meeting(out, cache):
     spoken = []
     cursor = int(LEAD_IN * RATE)
@@ -232,18 +292,12 @@ def build_meeting(out, cache):
     remote = array.array("h", bytes(2 * total))
     for speaker, side, voice, text, start, samples in spoken:
         place(room if side == "room" else remote, samples, start)
-    mixed = mix(room, remote)
-    room_echo = mix(room, remote, gain=ECHO_GAIN, delay=int(ECHO_DELAY * RATE))
+    write_tracks(out, room, remote)
+    run(["afconvert", "-f", "flac", "-d", "flac", os.path.join(out, "meeting-es.virtual.wav"), os.path.join(out, "meeting-es.virtual.flac")])
 
     def target(name):
         return os.path.join(out, "meeting-es." + name)
 
-    write_wav(target("room.wav"), [room])
-    write_wav(target("remote.wav"), [remote])
-    write_wav(target("virtual.wav"), [room, remote])
-    write_wav(target("mixed.wav"), [mixed])
-    write_wav(target("room-echo.wav"), [room_echo])
-    write_wav(target("virtual-echo.wav"), [room_echo, remote])
     truth = {
         "language": "es",
         "durationSeconds": seconds(total),
@@ -274,16 +328,23 @@ LONG_VOICES = [
 ]
 
 
-def build_long(out, cache, minutes, voices, seed, name):
+def build_long(out, cache, minutes, voices, seed, name, virtual=False):
     """Turn-taking between `voices` for `minutes`, one mono track.
 
     With three voices or more, the last one only speaks in the first tenth
     and in the last sixth of the recording: a voice that comes back after a
     long silence.
+
+    `virtual`: also a call, with the first half of the voices in the room
+    and the rest on the remote side (<name>.virtual.wav, two channels), and
+    the same call heard through loudspeakers (<name>.virtual-echo.wav).
     """
     generator = random.Random(seed)
     total = int(minutes * 60 * RATE)
     track = array.array("h", bytes(2 * total))
+    room = array.array("h", bytes(2 * total)) if virtual else None
+    remote = array.array("h", bytes(2 * total)) if virtual else None
+    sides = {speaker: ("room" if index < (len(voices) + 1) // 2 else "remote") for index, (speaker, _) in enumerate(voices)}
     turns = []
     cursor = RATE
     previous = None
@@ -303,17 +364,25 @@ def build_long(out, cache, minutes, voices, seed, name):
             if cursor + len(samples) >= total:
                 break
             place(track, samples, cursor)
+            if virtual:
+                place(room if sides[speaker] == "room" else remote, samples, cursor)
             texts.append(text)
             cursor += len(samples) + int(generator.uniform(0.15, 0.35) * RATE)
         if not texts:
             break
-        turns.append({"speaker": speaker, "start": seconds(start), "end": seconds(cursor), "text": " ".join(texts)})
+        turn = {"speaker": speaker, "start": seconds(start), "end": seconds(cursor), "text": " ".join(texts)}
+        if virtual:
+            turn["side"] = sides[speaker]
+        turns.append(turn)
         cursor += int(generator.uniform(0.3, 1.2) * RATE)
     write_wav(os.path.join(out, name + ".wav"), [track])
+    if virtual:
+        write_wav(os.path.join(out, name + ".virtual.wav"), [room, remote])
+        write_wav(os.path.join(out, name + ".virtual-echo.wav"), [mix(room, remote, gain=ECHO_GAIN, delay=int(ECHO_DELAY * RATE)), remote])
     truth = {
         "language": "es",
         "durationSeconds": seconds(total),
-        "cast": [{"name": speaker, "voice": voice} for speaker, voice in voices],
+        "cast": [dict({"name": speaker, "voice": voice}, **({"side": sides[speaker]} if virtual else {})) for speaker, voice in voices],
         "turns": turns,
     }
     with open(os.path.join(out, name + ".json"), "w", encoding="utf-8") as writer:
@@ -326,14 +395,21 @@ def main():
     here = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser(description="Builds the Spanish test meeting (see the top of this file).")
     parser.add_argument("--out", default=os.path.join(here, "out"), help="where to write (default: ./out next to this script)")
+    parser.add_argument("--from-recording", default=None, metavar="FILE",
+                        help="do not speak: derive the files from this two-channel recording (meeting-es.virtual.flac)")
     parser.add_argument("--cache", default=None, help="keeps the spoken sentences between runs (default: a temporary folder)")
     parser.add_argument("--long", type=float, default=None, metavar="MINUTES", help="instead of the meeting: a long benchmark recording")
     parser.add_argument("--voices", type=int, default=4, help="voices in the long recording, 2 to 6 (default 4)")
     parser.add_argument("--cast", default=None, help="instead of --voices: names from %s, comma separated" % ", ".join(name for name, _ in LONG_VOICES))
+    parser.add_argument("--virtual", action="store_true", help="the long recording also as a call (two channels), with and without echo")
     parser.add_argument("--seed", type=int, default=7, help="order of the turns in the long recording")
     parser.add_argument("--name", default=None, help="file name of the long recording, without extension")
     arguments = parser.parse_args()
     os.makedirs(arguments.out, exist_ok=True)
+
+    if arguments.from_recording:
+        build_from_recording(arguments.out, arguments.from_recording)
+        return
 
     def build(cache):
         if arguments.long is None:
@@ -347,7 +423,7 @@ def main():
             else:
                 voices = LONG_VOICES[:max(2, min(6, arguments.voices))]
             name = arguments.name or ("long-%gmin-%dvoices" % (arguments.long, len(voices)))
-            build_long(arguments.out, cache, arguments.long, voices, arguments.seed, name)
+            build_long(arguments.out, cache, arguments.long, voices, arguments.seed, name, arguments.virtual)
 
     if arguments.cache:
         os.makedirs(arguments.cache, exist_ok=True)

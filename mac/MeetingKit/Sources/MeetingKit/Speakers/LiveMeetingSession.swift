@@ -14,7 +14,7 @@ public struct LiveMeetingOptions: Equatable, Sendable {
     /// moving. Why not shorter: under five minutes the models find voices
     /// that are not there (STATUS.md).
     public var speakerWindowSeconds: Double = 600
-    public var diarization = DiarizationOptions.meeting
+    public var diarization = DiarizerOptions.meeting
     public var matching = SpeakerMatchingPolicy()
     public var attribution = SpeakerAttribution.Policy()
     public var echo = EchoFilter.Policy()

@@ -52,7 +52,7 @@ public struct MeetingTracks: Sendable {
 }
 
 public struct MeetingProcessingOptions: Equatable, Sendable {
-    public var diarization = DiarizationOptions.meeting
+    public var diarization = DiarizerOptions.meeting
     public var matching = SpeakerMatchingPolicy()
     public var attribution = SpeakerAttribution.Policy()
     public var echo = EchoFilter.Policy()

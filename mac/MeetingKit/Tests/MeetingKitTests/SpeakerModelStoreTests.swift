@@ -115,7 +115,7 @@ final class SpeakerModelStoreTests: XCTestCase {
         XCTAssertEqual(moved.turns.map(\.end), [104, 109, 112])
         XCTAssertEqual(moved.voicePrints, value.voicePrints)
         XCTAssertEqual(Diarization.empty.clusters, [])
-        XCTAssertEqual(DiarizationOptions.meeting.clusterThreshold, 0.5)
-        XCTAssertNil(DiarizationOptions().clusterThreshold)
+        XCTAssertEqual(DiarizerOptions.meeting.clusterThreshold, 0.5)
+        XCTAssertNil(DiarizerOptions().clusterThreshold)
     }
 }

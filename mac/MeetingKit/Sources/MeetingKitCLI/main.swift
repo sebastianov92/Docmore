@@ -8,27 +8,57 @@ let usage = """
 meetingkit \(MeetingKitInfo.version)
 
   meetingkit models [--models-dir <dir>] [--check]
-      The catalog, what is downloaded, and with --check whether each
-      identifier resolves in the model repository (needs the network).
+      The catalog (Whisper models and the speaker models), what is
+      downloaded, and with --check whether each identifier resolves in the
+      model repository (needs the network).
   meetingkit download <model> --models-dir <dir> [--endpoint <url>]
   meetingkit delete <model> --models-dir <dir>
   meetingkit transcribe <audio> --model <id> --models-dir <dir> [--language en] [--json] [--progress]
+                        [--words] [--channel <n>]
+      --words: the time of every word. --channel: one channel of the file.
+
+  meetingkit process <audio> [--system <audio>] [--mode in_person|virtual] --model <id> --models-dir <dir>
+                     [--language es] [--state <file>] [--state-out <file>] [--no-speakers] [--no-echo-pass]
+                     [--json] [--progress]
+      The final pass over a finished recording: text, sides and speakers.
+      <audio> is the recording (two channels: microphone, system audio), or
+      the microphone alone with the system audio in --system. Without --mode:
+      virtual when there are two tracks. --state takes the speakers a live
+      session left (ids, numbers, names); --state-out writes them.
+      --json prints { transcript, echoes, notes, seconds, ... }.
+  meetingkit live-meeting <audio> [--system <audio>] [--mode in_person|virtual] --model <id> --models-dir <dir>
+                          [--language es] [--window 15] [--speaker-window 600] [--speed <n>] [--seconds <n>]
+                          [--name s2=Ana,s3=Luis] [--state-out <file>] [--transcript-out <file>]
+                          [--no-speakers] [--no-echo-pass] [--json] [--quiet]
+      Replays a recording through the live session, a tenth of a second at
+      a time, and prints every update. As fast as the Mac goes, or --speed
+      times faster than the meeting ran (1 is real time). --name types a
+      name the moment that speaker shows up. --json prints one JSON object
+      per update: {"update": {revision, fromIndex, segments, segmentCount,
+      speakers, durationSeconds, isFinal, at}}.
+  meetingkit diarize <audio> --models-dir <dir> [--channel <n>] [--from <s>] [--seconds <s>]
+                     [--threshold 0.5] [--speakers <n>] [--json] [--prints]
+      Who speaks when, by the speaker models alone, with the time it took.
+
   meetingkit live <wav> --model <id> --models-dir <dir> [--language en] [--window 30]
-      Feeds a 16 kHz WAV through the live transcriber, window by window.
+      Feeds a 16 kHz WAV through the plain live transcriber, window by window.
   meetingkit enqueue <audio> --queue-dir <dir> (--page <id> | --space <id>) [--title <text>]
                      --model <id> --models-dir <dir> [--language en]
+                     [--mode in_person|virtual] [--system <audio>] [--state <file>] [--meeting <id>]
       Transcribes and stores the transcript in the queue. Sends nothing.
+      With --mode: the final pass with sides and speakers (as `process`);
+      --meeting is the id of the live meeting on the server it finishes.
   meetingkit queue --queue-dir <dir>
   meetingkit flush --queue-dir <dir> --server <url> (--token <bearer> | --token-file <file>) [--json]
   meetingkit status <meetingId> --server <url> (--token <bearer> | --token-file <file>) [--wait <seconds>]
-  meetingkit record --seconds 10 --out <dir> [--no-system-audio] [--no-microphone]
+  meetingkit record --seconds 10 --out <dir> [--mode in_person|virtual] [--no-system-audio] [--no-microphone]
       For a person at the keyboard: macOS asks for the permissions.
   meetingkit permissions
       Microphone and system audio permission, without asking.
 
 <model> is a WhisperKit identifier (openai_whisper-base) or a short name:
-tiny, base, small, turbo, turbo-full. The token can also come from the
-MEETINGKIT_TOKEN environment variable.
+tiny, base, small, turbo, turbo-full; or "speakers" for the speaker models.
+The token can also come from the MEETINGKIT_TOKEN environment variable.
 """
 
 struct Arguments {
@@ -243,7 +273,7 @@ func run(_ command: String, _ arguments: Arguments) async throws {
         if let limit = arguments.options["seconds"].flatMap({ Double($0) }) {
             samples = Array(samples.prefix(Int(limit * MeetingAudioFormat.sampleRate)))
         }
-        let options = DiarizationOptions(
+        let options = DiarizerOptions(
             clusterThreshold: arguments.options["threshold"].flatMap { Float($0) },
             speakerCount: arguments.options["speakers"].flatMap { Int($0) }
         )
@@ -524,12 +554,30 @@ func run(_ command: String, _ arguments: Arguments) async throws {
         let file = URL(fileURLWithPath: try arguments.first("audio file"))
         let target = MeetingTarget(pageId: arguments.options["page"], spaceId: arguments.options["space"], title: arguments.options["title"])
         guard target.pageId != nil || target.spaceId != nil else { throw CLIError("missing --page or --space") }
-        let transcript = try await transcriber(arguments).transcribe(fileURL: file)
+        let transcript: MeetingTranscript
+        if arguments.options["mode"] != nil || arguments.options["system"] != nil {
+            // the final pass: sides and, with the speaker models on disk, speakers
+            let tracks = try arguments.options["system"].map {
+                try MeetingTracks(microphone: file, systemAudio: URL(fileURLWithPath: $0))
+            } ?? MeetingTracks(contentsOf: file)
+            let store = ModelStore(directory: try arguments.directory("models-dir"))
+            var seed: MeetingSpeakerState?
+            if let path = arguments.options["state"] {
+                seed = try JSONDecoder().decode(MeetingSpeakerState.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+            }
+            let processor = MeetingProcessor(transcriber: try transcriber(arguments), diarizer: SpeakerDiarizer(modelStore: store))
+            let result = try await processor.process(tracks, mode: try meetingMode(arguments, tracks: tracks), state: seed)
+            for note in result.notes { printError("note: \(note)") }
+            transcript = result.transcript
+        } else {
+            transcript = try await transcriber(arguments).transcribe(fileURL: file)
+        }
         let queue = MeetingQueue(directory: try arguments.directory("queue-dir"), sender: ClosureMeetingSender { _ in
             throw MeetingSendError.invalid("enqueue does not send")
         })
-        let job = try queue.enqueue(transcript, target: target, userInfo: ["recording": file.path])
-        print("queued \(job.id): \(transcript.segments.count) segments, \(transcript.text.count) characters, language \(transcript.language ?? "?")")
+        let job = try queue.enqueue(transcript, target: target, userInfo: ["recording": file.path], meetingId: arguments.options["meeting"])
+        print("queued \(job.id): \(transcript.segments.count) segments, \(transcript.text.count) characters, language \(transcript.language ?? "?")"
+            + (transcript.mode.map { ", \($0.rawValue), \(transcript.speakers.count) speakers" } ?? ""))
         print("pending \(queue.pendingCount), failed \(queue.failedCount)")
 
     case "queue":
@@ -598,10 +646,18 @@ func run(_ command: String, _ arguments: Arguments) async throws {
 
     case "record":
         let seconds = Double(arguments.options["seconds"] ?? "") ?? 10
-        let options = RecordingOptions(
-            captureMicrophone: !arguments.flags.contains("no-microphone"),
-            captureSystemAudio: !arguments.flags.contains("no-system-audio")
-        )
+        let options: RecordingOptions
+        switch arguments.options["mode"]?.lowercased().replacingOccurrences(of: "-", with: "_") {
+        case "virtual": options = RecordingOptions(mode: .virtual)
+        case "in_person", "inperson": options = RecordingOptions(mode: .inPerson)
+        case nil:
+            // the mixed layout of the first version
+            options = RecordingOptions(
+                captureMicrophone: !arguments.flags.contains("no-microphone"),
+                captureSystemAudio: !arguments.flags.contains("no-system-audio")
+            )
+        default: throw CLIError("--mode is in_person or virtual")
+        }
         let recorder = MeetingRecorder(outputDirectory: try arguments.directory("out"), options: options)
         var lastPrint = Date.distantPast
         recorder.onLevel = { level in
@@ -617,8 +673,9 @@ func run(_ command: String, _ arguments: Arguments) async throws {
         try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
         let result = try await recorder.stop()
         for warning in result.warnings { printError("warning (\(warning.source.rawValue)): \(warning.error.localizedDescription)") }
-        print(String(format: "%@  %.1f s  sources: %@", result.fileURL.path, result.durationSeconds,
-                     result.sources.isEmpty ? "none" : result.sources.map(\.rawValue).joined(separator: ", ")))
+        print(String(format: "%@  %.1f s  sources: %@%@", result.fileURL.path, result.durationSeconds,
+                     result.sources.isEmpty ? "none" : result.sources.map(\.rawValue).joined(separator: ", "),
+                     result.mode.map { "  mode: \($0.rawValue), \(AudioTrackReader.channelCount(of: result.fileURL)) channel(s)" } ?? ""))
 
     case "permissions":
         print("microphone: \(MeetingRecorder.microphonePermission().rawValue)")
