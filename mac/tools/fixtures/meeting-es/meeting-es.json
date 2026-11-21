@@ -1,0 +1,208 @@
+{
+  "language": "es",
+  "durationSeconds": 123.506,
+  "sampleRate": 16000,
+  "echo": {
+    "delaySeconds": 0.18,
+    "gain": 0.35
+  },
+  "cast": [
+    {
+      "name": "Ana",
+      "voice": "Mónica",
+      "side": "room"
+    },
+    {
+      "name": "Luis",
+      "voice": "Eddy (Spanish (Spain))",
+      "side": "room"
+    },
+    {
+      "name": "Marta",
+      "voice": "Paulina",
+      "side": "remote"
+    },
+    {
+      "name": "Carlos",
+      "voice": "Rocko (Spanish (Mexico))",
+      "side": "remote"
+    }
+  ],
+  "turns": [
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 1.0,
+      "end": 5.211,
+      "text": "Buenos días a todos. Empezamos la reunión de seguimiento del portal de clientes."
+    },
+    {
+      "speaker": "Marta",
+      "side": "remote",
+      "start": 5.911,
+      "end": 13.073,
+      "text": "Buenos días. Por nuestra parte ya terminamos las pruebas de la pantalla de pagos y no encontramos errores graves."
+    },
+    {
+      "speaker": "Luis",
+      "side": "room",
+      "start": 13.673,
+      "end": 18.456,
+      "text": "Perfecto. Entonces solo falta revisar el informe de rendimiento antes de la entrega."
+    },
+    {
+      "speaker": "Carlos",
+      "side": "remote",
+      "start": 19.256,
+      "end": 23.202,
+      "text": "El informe está casi listo. Me faltan los datos de la última semana."
+    },
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 23.802,
+      "end": 25.428,
+      "text": "¿Cuándo crees que puedes tenerlos?"
+    },
+    {
+      "speaker": "Carlos",
+      "side": "remote",
+      "start": 25.928,
+      "end": 29.591,
+      "text": "Mañana por la tarde. El equipo de infraestructura me los envía hoy."
+    },
+    {
+      "speaker": "Luis",
+      "side": "room",
+      "start": 30.291,
+      "end": 33.798,
+      "text": "Bien, así puedo revisar el informe el miércoles por la mañana."
+    },
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 34.598,
+      "end": 38.111,
+      "text": "De acuerdo. Entonces queda decidido: entregamos el viernes."
+    },
+    {
+      "speaker": "Marta",
+      "side": "remote",
+      "start": 38.811,
+      "end": 43.074,
+      "text": "Me parece bien. El viernes por la mañana enviamos todo al cliente."
+    },
+    {
+      "speaker": "Luis",
+      "side": "room",
+      "start": 43.974,
+      "end": 48.004,
+      "text": "Otra cosa. Carlos, ¿puedes preparar la presentación para el cliente?"
+    },
+    {
+      "speaker": "Carlos",
+      "side": "remote",
+      "start": 48.604,
+      "end": 51.773,
+      "text": "Sí, yo preparo la presentación y la comparto el miércoles."
+    },
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 52.473,
+      "end": 56.396,
+      "text": "Hablemos del presupuesto. Marta, ¿cómo vamos con las horas del proyecto?"
+    },
+    {
+      "speaker": "Marta",
+      "side": "remote",
+      "start": 56.996,
+      "end": 62.193,
+      "text": "Hemos usado el ochenta por ciento de las horas. Nos quedan unas cuarenta para cerrar."
+    },
+    {
+      "speaker": "Luis",
+      "side": "room",
+      "start": 62.893,
+      "end": 66.079,
+      "text": "Con cuarenta horas alcanza, si no aparecen cambios nuevos."
+    },
+    {
+      "speaker": "Carlos",
+      "side": "remote",
+      "start": 66.679,
+      "end": 70.394,
+      "text": "Si hace falta, puedo dedicar unas horas de mi equipo la próxima semana."
+    },
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 71.194,
+      "end": 74.373,
+      "text": "Bien. Marta, ¿hay algún riesgo que debamos tener en cuenta?"
+    },
+    {
+      "speaker": "Marta",
+      "side": "remote",
+      "start": 74.973,
+      "end": 83.073,
+      "text": "Sí, hay uno. El servidor de pruebas estará en mantenimiento el jueves, así que no podremos hacer la última verificación."
+    },
+    {
+      "speaker": "Luis",
+      "side": "room",
+      "start": 83.873,
+      "end": 88.555,
+      "text": "Eso es un problema. Sin esa verificación no me siento cómodo entregando el viernes."
+    },
+    {
+      "speaker": "Carlos",
+      "side": "remote",
+      "start": 89.155,
+      "end": 92.586,
+      "text": "Estoy de acuerdo con Luis. Sería mejor tener un día más."
+    },
+    {
+      "speaker": "Marta",
+      "side": "remote",
+      "start": 93.286,
+      "end": 98.645,
+      "text": "Podemos hacer la verificación el viernes, cuando el servidor vuelva a estar disponible."
+    },
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 99.345,
+      "end": 104.532,
+      "text": "Tienen razón. Cambiamos la decisión: mejor el lunes. Entregamos el lunes y no el viernes."
+    },
+    {
+      "speaker": "Marta",
+      "side": "remote",
+      "start": 105.332,
+      "end": 109.577,
+      "text": "De acuerdo, el lunes. Yo aviso al cliente del cambio de fecha."
+    },
+    {
+      "speaker": "Luis",
+      "side": "room",
+      "start": 110.177,
+      "end": 112.812,
+      "text": "Y yo actualizo el calendario del proyecto hoy mismo."
+    },
+    {
+      "speaker": "Ana",
+      "side": "room",
+      "start": 113.512,
+      "end": 120.347,
+      "text": "Muy bien. Resumiendo: entregamos el lunes, Carlos prepara la presentación y Marta avisa al cliente. Gracias a todos."
+    },
+    {
+      "speaker": "Carlos",
+      "side": "remote",
+      "start": 120.947,
+      "end": 122.506,
+      "text": "Gracias. Hasta luego."
+    }
+  ]
+}

@@ -257,4 +257,134 @@ final class DocmoreMeetingSenderTests: XCTestCase {
         }
         XCTAssertEqual(requests.count, 0)
     }
+
+    // MARK: - Meetings with speakers
+
+    private let meetingId = "0195e5a4-1111-7000-8000-00000000abcd"
+
+    private func virtualTranscript() -> MeetingTranscript {
+        MeetingTranscript(
+            segments: [
+                .init(start: 1, end: 5.2, text: "Buenos días a todos.", speaker: "s1", side: .room),
+                .init(start: 5.9, end: 13.1, text: "Buenos días.", speaker: "s2", side: .remote),
+                .init(start: 13.7, end: 18.5, text: "Perfecto.", speaker: nil, side: .room),
+            ],
+            language: "es",
+            durationSeconds: 20,
+            mode: .virtual,
+            speakers: [
+                MeetingSpeaker(id: "s1", number: 1, side: .room, name: "Ana"),
+                MeetingSpeaker(id: "s2", number: 2, side: .remote, name: nil),
+            ]
+        )
+    }
+
+    func testAPlainTranscriptStillPostsExactlyTheOldBody() throws {
+        // byte for byte what the version before speakers sent for this job
+        let job = MeetingJob(id: "job-1", target: .page(pageId, title: "Weekly"), transcript: sampleTranscript())
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let body = String(decoding: try encoder.encode(DocmoreMeetingSender.payload(for: job)), as: UTF8.self)
+        XCTAssertEqual(body, #"{"durationSeconds":3,"language":"en","pageId":"0195e5a4-0000-7000-8000-000000000001","segments":[{"end":1.5,"start":0,"text":"Hello there."},{"end":3,"start":1.5,"text":"General Kenobi."}],"title":"Weekly","transcript":"Hello there. General Kenobi."}"#)
+        // also when the job carries empty new fields
+        var empty = job
+        empty.meetingId = ""
+        empty.transcript.speakers = []
+        empty.transcript.mode = nil
+        XCTAssertEqual(String(decoding: try encoder.encode(DocmoreMeetingSender.payload(for: empty)), as: UTF8.self), body)
+    }
+
+    func testSendsModeSpeakersSidesAndTheLiveMeetingTheWayTheContractSays() async throws {
+        respond(200, accepted)
+        let job = MeetingJob(target: .page(pageId, title: "Seguimiento"), transcript: virtualTranscript(), meetingId: meetingId)
+        _ = try await sender().send(job)
+
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(requests.first).body) as? [String: Any])
+        XCTAssertEqual(Set(body.keys), ["pageId", "title", "transcript", "language", "durationSeconds", "segments", "meetingId", "mode", "speakers"])
+        XCTAssertEqual(body["meetingId"] as? String, meetingId)
+        XCTAssertEqual(body["mode"] as? String, "virtual")
+        XCTAssertEqual(body["transcript"] as? String, "Buenos días a todos. Buenos días. Perfecto.", "the segments' text joined, as before")
+
+        let speakers = try XCTUnwrap(body["speakers"] as? [[String: Any]])
+        XCTAssertEqual(speakers.count, 2)
+        XCTAssertEqual(Set(speakers[0].keys), ["id", "number", "side", "name"])
+        XCTAssertEqual(speakers[0]["id"] as? String, "s1")
+        XCTAssertEqual(speakers[0]["number"] as? Int, 1)
+        XCTAssertEqual(speakers[0]["side"] as? String, "room")
+        XCTAssertEqual(speakers[0]["name"] as? String, "Ana")
+        XCTAssertEqual(Set(speakers[1].keys), ["id", "number", "side", "name"], "side and name are always there")
+        XCTAssertEqual(speakers[1]["side"] as? String, "remote")
+        XCTAssertTrue(speakers[1]["name"] is NSNull, "no name is null, not a missing key")
+
+        let segments = try XCTUnwrap(body["segments"] as? [[String: Any]])
+        XCTAssertEqual(Set(segments[0].keys), ["start", "end", "text", "speaker", "side"])
+        XCTAssertEqual(segments[0]["speaker"] as? String, "s1")
+        XCTAssertEqual(segments[0]["side"] as? String, "room")
+        XCTAssertEqual(segments[1]["speaker"] as? String, "s2")
+        XCTAssertEqual(segments[1]["side"] as? String, "remote")
+        XCTAssertEqual(Set(segments[2].keys), ["start", "end", "text", "side"], "no speaker: the key is left out")
+        XCTAssertEqual(segments[2]["side"] as? String, "room")
+    }
+
+    func testAnInPersonMeetingHasNoSides() throws {
+        var transcript = virtualTranscript()
+        transcript.mode = .inPerson
+        let payload = DocmoreMeetingSender.payload(for: MeetingJob(target: .page(pageId), transcript: transcript))
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any])
+        XCTAssertEqual(body["mode"] as? String, "in_person")
+        XCTAssertNil(body["meetingId"], "not followed live: no meetingId")
+        let speakers = try XCTUnwrap(body["speakers"] as? [[String: Any]])
+        XCTAssertTrue(speakers.allSatisfy { $0["side"] is NSNull })
+        let segments = try XCTUnwrap(body["segments"] as? [[String: Any]])
+        XCTAssertTrue(segments.allSatisfy { $0["side"] == nil })
+        XCTAssertEqual(segments[0]["speaker"] as? String, "s1")
+    }
+
+    func testOnlyWhatTheServerAcceptsIsSent() {
+        var transcript = virtualTranscript()
+        transcript.speakers = [
+            MeetingSpeaker(id: "s1", number: 1, side: .room, name: String(repeating: "x", count: 120)),
+            MeetingSpeaker(id: "Not Valid!", number: 2, side: .remote),      // not [a-z0-9_-]
+            MeetingSpeaker(id: "s1", number: 3, side: .room),                // the same id twice
+            MeetingSpeaker(id: "s4", number: 0, side: .room),                // numbers start at 1
+            MeetingSpeaker(id: "s5", number: 5, side: .remote, name: "   "),
+        ]
+        transcript.segments = [
+            .init(start: 0, end: 1, text: "a", speaker: "s1", side: .room),
+            .init(start: 1, end: 2, text: "b", speaker: "Not Valid!", side: .remote),
+            .init(start: 2, end: 3, text: "c", speaker: "s9", side: .remote),    // nobody by that id
+        ]
+        // a meeting id that is not a UUID would get the whole job refused
+        let payload = DocmoreMeetingSender.payload(for: MeetingJob(target: .page(pageId), transcript: transcript, meetingId: "meeting 7"))
+        XCTAssertNil(payload.meetingId)
+        XCTAssertEqual(payload.speakers?.map(\.id), ["s1", "s5"])
+        XCTAssertEqual(payload.speakers?[0].name?.count, 80, "names are cut to the server's 80 characters")
+        XCTAssertNil(payload.speakers?[1].name, "a blank name is no name")
+        XCTAssertEqual(payload.segments?.map(\.speaker), ["s1", nil, nil], "a segment never points at a speaker that is not sent")
+        XCTAssertEqual(payload.segments?.map(\.side), [.room, .remote, .remote])
+        XCTAssertTrue(DocmoreMeetingSender.isUUID("0195E5A4-1111-7000-8000-00000000ABCD"))
+        XCTAssertFalse(DocmoreMeetingSender.isUUID("0195e5a4-1111-7000-8000"))
+    }
+
+    func testJoiningTooManySegmentsKeepsTheSpeakerOnlyWhenBothHaveIt() {
+        var transcript = virtualTranscript()
+        // 20,002 segments: s1, s1, s2, s2, s1, s1, ... so pairs share a speaker; the last pair does not
+        var segments: [MeetingTranscript.Segment] = []
+        for index in 0..<20_000 {
+            let first = (index / 2) % 2 == 0
+            let start = Double(index)
+            segments.append(MeetingTranscript.Segment(
+                start: start, end: start + 1, text: "w\(index)", speaker: first ? "s1" : "s2", side: first ? MeetingSide.room : MeetingSide.remote
+            ))
+        }
+        segments.append(.init(start: 20_000, end: 20_001, text: "x", speaker: "s1", side: .room))
+        segments.append(.init(start: 20_001, end: 20_002, text: "y", speaker: "s2", side: .remote))
+        transcript.segments = segments
+        let payload = DocmoreMeetingSender.payload(for: MeetingJob(target: .page(pageId), transcript: transcript))
+        let joined = payload.segments ?? []
+        XCTAssertEqual(joined.count, 10_001)
+        XCTAssertEqual(joined[0], .init(start: 0, end: 2, text: "w0 w1", speaker: "s1", side: .room))
+        XCTAssertEqual(joined[1], .init(start: 2, end: 4, text: "w2 w3", speaker: "s2", side: .remote))
+        XCTAssertEqual(joined[10_000], .init(start: 20_000, end: 20_002, text: "x y", speaker: nil, side: nil), "two voices in one segment: no speaker")
+    }
 }

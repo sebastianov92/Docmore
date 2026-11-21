@@ -1,0 +1,196 @@
+{
+  "durationSeconds": 123.506125,
+  "language": "es",
+  "mode": "in_person",
+  "segments": [
+    {
+      "end": 5.1,
+      "speaker": "s1",
+      "start": 0.94,
+      "text": "Buenos días a todos. Empezamos la reunión de seguimiento del portal de clientes."
+    },
+    {
+      "end": 12.76,
+      "speaker": "s2",
+      "start": 5.88,
+      "text": "Buenos días. Por nuestra parte ya terminamos las pruebas de la pantalla de pagos y no encontramos errores graves."
+    },
+    {
+      "end": 18.4,
+      "speaker": "s3",
+      "start": 13.6,
+      "text": "Perfecto. Entonces solo falta revisar el informe de rendimiento antes de la entrega."
+    },
+    {
+      "end": 23.04,
+      "speaker": "s4",
+      "start": 19.02,
+      "text": "El informe está casi listo. Me faltan los datos de la última semana."
+    },
+    {
+      "end": 25.3,
+      "speaker": "s1",
+      "start": 23.66,
+      "text": "¿Cuándo crees que puedes tenerlos?"
+    },
+    {
+      "end": 29.54,
+      "speaker": "s4",
+      "start": 25.88,
+      "text": "Mañana por la tarde. El equipo de infraestructura me los envía hoy."
+    },
+    {
+      "end": 33.64,
+      "speaker": "s3",
+      "start": 30.26,
+      "text": "Bien, así puedo revisar el informe el miércoles por la mañana."
+    },
+    {
+      "end": 38,
+      "speaker": "s1",
+      "start": 34.42,
+      "text": "De acuerdo, entonces queda decidido, entregamos el viernes."
+    },
+    {
+      "end": 39.64,
+      "speaker": "s1",
+      "start": 38.74,
+      "text": "Me parece bien,"
+    },
+    {
+      "end": 43.02,
+      "speaker": "s2",
+      "start": 39.82,
+      "text": "el viernes por la mañana enviamos todo al cliente."
+    },
+    {
+      "end": 47.9,
+      "speaker": "s3",
+      "start": 43.9,
+      "text": "Otra cosa, Carlos, ¿puedes preparar la presentación para el cliente?"
+    },
+    {
+      "end": 51.6,
+      "speaker": "s4",
+      "start": 48.58,
+      "text": "Sí, yo preparo la presentación y la comparto el miércoles."
+    },
+    {
+      "end": 56.24,
+      "speaker": "s1",
+      "start": 52.42,
+      "text": "Hablemos del presupuesto, Marta, ¿cómo vamos con las horas del proyecto?"
+    },
+    {
+      "end": 62.06,
+      "speaker": "s2",
+      "start": 56.94,
+      "text": "Hemos usado el 80% de las horas, nos quedan unas 40 para cerrar."
+    },
+    {
+      "end": 65.84,
+      "speaker": "s3",
+      "start": 62.72,
+      "text": "Con 40 horas alcanza, si no aparecen cambios nuevos."
+    },
+    {
+      "end": 70.22,
+      "speaker": "s4",
+      "start": 66.62,
+      "text": "Si hace falta, puedo dedicar unas horas de mi equipo la próxima semana."
+    },
+    {
+      "end": 74.28,
+      "speaker": "s1",
+      "start": 71.16,
+      "text": "Bien, Marta, ¿hay algún riesgo que debamos tener en cuenta?"
+    },
+    {
+      "end": 75.7,
+      "speaker": "s1",
+      "start": 74.94,
+      "text": "Sí, hay"
+    },
+    {
+      "end": 82.7,
+      "speaker": "s2",
+      "start": 75.7,
+      "text": "uno. El servidor de pruebas estará en mantenimiento el jueves, así que no podremos hacer la última verificación."
+    },
+    {
+      "end": 88.44,
+      "speaker": "s3",
+      "start": 83.62,
+      "text": "Eso es un problema. Sin esa verificación no me siento cómodo entregando el viernes."
+    },
+    {
+      "end": 92.5,
+      "speaker": "s4",
+      "start": 89.1,
+      "text": "Estoy de acuerdo con Luis. Sería mejor tener un día más."
+    },
+    {
+      "end": 98.48,
+      "speaker": "s2",
+      "start": 93.24,
+      "text": "Podemos hacer la verificación el viernes, cuando el servidor vuelva a estar disponible."
+    },
+    {
+      "end": 104.34,
+      "speaker": "s1",
+      "start": 99.28,
+      "text": "Tienen razón. Cambiamos la decisión, mejor el lunes. Entregamos el lunes y no el viernes."
+    },
+    {
+      "end": 109.4,
+      "speaker": "s2",
+      "start": 105.26,
+      "text": "De acuerdo, el lunes. Yo aviso al cliente del cambio de fecha."
+    },
+    {
+      "end": 112.68,
+      "speaker": "s3",
+      "start": 110.1,
+      "text": "Yo actualizo el calendario del proyecto hoy mismo."
+    },
+    {
+      "end": 120.1,
+      "speaker": "s1",
+      "start": 113.52,
+      "text": "Muy bien. Resumiendo, entregamos el lunes, Carlos prepara la presentación y Marta avisa al cliente. Gracias a todos."
+    },
+    {
+      "end": 122.36,
+      "speaker": "s4",
+      "start": 120.66,
+      "text": "Gracias. Hasta luego."
+    }
+  ],
+  "speakers": [
+    {
+      "id": "s1",
+      "name": null,
+      "number": 1,
+      "side": null
+    },
+    {
+      "id": "s2",
+      "name": null,
+      "number": 2,
+      "side": null
+    },
+    {
+      "id": "s3",
+      "name": null,
+      "number": 3,
+      "side": null
+    },
+    {
+      "id": "s4",
+      "name": null,
+      "number": 4,
+      "side": null
+    }
+  ],
+  "text": "Buenos días a todos. Empezamos la reunión de seguimiento del portal de clientes. Buenos días. Por nuestra parte ya terminamos las pruebas de la pantalla de pagos y no encontramos errores graves. Perfecto. Entonces solo falta revisar el informe de rendimiento antes de la entrega. El informe está casi listo. Me faltan los datos de la última semana. ¿Cuándo crees que puedes tenerlos? Mañana por la tarde. El equipo de infraestructura me los envía hoy. Bien, así puedo revisar el informe el miércoles por la mañana. De acuerdo, entonces queda decidido, entregamos el viernes. Me parece bien, el viernes por la mañana enviamos todo al cliente. Otra cosa, Carlos, ¿puedes preparar la presentación para el cliente? Sí, yo preparo la presentación y la comparto el miércoles. Hablemos del presupuesto, Marta, ¿cómo vamos con las horas del proyecto? Hemos usado el 80% de las horas, nos quedan unas 40 para cerrar. Con 40 horas alcanza, si no aparecen cambios nuevos. Si hace falta, puedo dedicar unas horas de mi equipo la próxima semana. Bien, Marta, ¿hay algún riesgo que debamos tener en cuenta? Sí, hay uno. El servidor de pruebas estará en mantenimiento el jueves, así que no podremos hacer la última verificación. Eso es un problema. Sin esa verificación no me siento cómodo entregando el viernes. Estoy de acuerdo con Luis. Sería mejor tener un día más. Podemos hacer la verificación el viernes, cuando el servidor vuelva a estar disponible. Tienen razón. Cambiamos la decisión, mejor el lunes. Entregamos el lunes y no el viernes. De acuerdo, el lunes. Yo aviso al cliente del cambio de fecha. Yo actualizo el calendario del proyecto hoy mismo. Muy bien. Resumiendo, entregamos el lunes, Carlos prepara la presentación y Marta avisa al cliente. Gracias a todos. Gracias. Hasta luego."
+}

@@ -4,11 +4,14 @@ import WhisperKit
 public enum ModelStoreError: Error, LocalizedError, Equatable, Sendable {
     case downloadFailed(String)
     case deleteFailed(String)
+    /// The speaker models are not downloaded while a recording runs.
+    case recordingInProgress
 
     public var errorDescription: String? {
         switch self {
         case .downloadFailed(let detail): return "The model could not be downloaded: \(detail)"
         case .deleteFailed(let detail): return "The model could not be deleted: \(detail)"
+        case .recordingInProgress: return "The speaker models cannot be downloaded while a recording is running."
         }
     }
 }
