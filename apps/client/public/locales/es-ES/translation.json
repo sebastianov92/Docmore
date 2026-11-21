@@ -2465,5 +2465,9 @@
   "{{pages}} pages and {{files}} files on this device": "{{pages}} páginas y {{files}} archivos en este dispositivo",
   "{{count}} changes made offline were not sent yet. Signing out now discards them. Sign out anyway?": "{{count}} cambios hechos sin conexión todavía no se enviaron. Cerrar sesión ahora los descarta. ¿Cerrar sesión igual?",
   "This needs a connection to the server": "Esto necesita conexión con el servidor",
-  "You have a new notification": "Tienes una notificación nueva"
+  "You have a new notification": "Tienes una notificación nueva",
+  "Signed in as you": "Con tu sesión completa",
+  "The Docmore app on your devices, and AI assistants and tools you connected through the MCP server. Revoking one signs it out.": "La app de Docmore en tus dispositivos, y los asistentes de IA y herramientas que conectaste por el servidor MCP. Revocar uno le cierra la sesión.",
+  "Largest file to keep": "Archivo más grande a guardar",
+  "No limit": "Sin límite"
 }

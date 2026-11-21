@@ -15,13 +15,21 @@ export function offlineFilesSupported(): boolean {
   return isNativeApp() || cacheAvailable();
 }
 
-// Downloads the files that are not on the device yet.
-export async function ensureFiles(urls: string[]): Promise<{ ok: string[]; failed: string[] }> {
+// Downloads the files that are not on the device yet. Files over maxBytes
+// (0 = no limit) are left on the server.
+export async function ensureFiles(
+  urls: string[],
+  maxBytes = 0,
+): Promise<{ ok: string[]; failed: string[] }> {
   const unique = [...new Set(urls.filter(Boolean))];
   if (unique.length === 0) return { ok: [], failed: [] };
   if (isNativeApp()) {
     try {
-      return await nativeCall<{ ok: string[]; failed: string[] }>("files.ensure", { urls: unique }, 10 * 60 * 1000);
+      return await nativeCall<{ ok: string[]; failed: string[] }>(
+        "files.ensure",
+        { urls: unique, maxBytes },
+        10 * 60 * 1000,
+      );
     } catch {
       return { ok: [], failed: unique };
     }
@@ -37,7 +45,10 @@ export async function ensureFiles(urls: string[]): Promise<{ ok: string[]; faile
         continue;
       }
       const response = await fetch(url, { credentials: "include" });
-      if (!response.ok) {
+      const length = Number(response.headers.get("content-length") ?? 0);
+      if (!response.ok || (maxBytes > 0 && length > maxBytes)) {
+        // too big to keep: the body is not read
+        void response.body?.cancel().catch(() => {});
         failed.push(url);
         continue;
       }

@@ -1,3 +1,4 @@
+import { useConnectivity } from "@/lib/offline/connectivity.ts";
 import { useState } from "react";
 import { Button, Center, Indicator, Loader, Modal, Tabs } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -21,6 +22,7 @@ interface PageShareModalProps {
 // The Share button in the page header: who can open the page, and the public link.
 export function PageShareModal({ readOnly }: PageShareModalProps) {
   const { t } = useTranslation();
+  const { online } = useConnectivity();
   const { pageSlug, spaceSlug } = useParams();
   const [opened, { open, close }] = useDisclosure(false);
   const [tab, setTab] = useState<string | null>("access");
@@ -60,6 +62,9 @@ export function PageShareModal({ readOnly }: PageShareModalProps) {
             </Indicator>
           ) : null
         }
+        // sharing is decided on the server
+        disabled={!online}
+        title={online ? undefined : t("This needs a connection to the server")}
         onClick={() => {
           setTab(isPublic && !isRestricted ? "publish" : "access");
           open();

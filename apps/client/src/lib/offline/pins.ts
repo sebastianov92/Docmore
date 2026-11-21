@@ -12,6 +12,8 @@ export type OfflineSettings = {
   keepRecent: boolean;
   recentCount: number;
   includeVideos: boolean;
+  // files larger than this stay on the server; 0 = no limit
+  maxFileMb: number;
 };
 
 export type PageOfflineState =
@@ -28,7 +30,12 @@ const RECENTS_KEY = "recents";
 const DOWNLOADED_KEY = "downloaded";
 const DEVICE_KEY = "deviceId";
 
-const DEFAULT_SETTINGS: OfflineSettings = { keepRecent: true, recentCount: 50, includeVideos: false };
+const DEFAULT_SETTINGS: OfflineSettings = {
+  keepRecent: true,
+  recentCount: 50,
+  includeVideos: false,
+  maxFileMb: 25,
+};
 
 let pins: Pin[] = [];
 let settings: OfflineSettings = { ...DEFAULT_SETTINGS };

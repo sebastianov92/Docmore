@@ -7,6 +7,7 @@ import {
   reportServerAnswered,
 } from "@/lib/offline/connectivity.ts";
 import { offlineAdapter } from "@/lib/offline/adapter.ts";
+import { isNativeApp, nativeSend } from "@/lib/native/bridge.ts";
 
 const api: AxiosInstance = axios.create({
   baseURL: "/api",
@@ -126,6 +127,11 @@ api.interceptors.response.use(
 );
 
 function redirectToLogin() {
+  if (isNativeApp()) {
+    // the desktop shell renews the session or asks to sign in again
+    nativeSend("authRequired");
+    return;
+  }
   const exemptPaths = [
     APP_ROUTE.AUTH.LOGIN,
     APP_ROUTE.AUTH.SIGNUP,

@@ -411,6 +411,20 @@ export default function OfflineSettings() {
                 />
               </Group>
             )}
+            <Group gap="sm">
+              <Text size="sm">{t("Largest file to keep")}</Text>
+              <SegmentedControl
+                size="xs"
+                value={String(settings.maxFileMb)}
+                onChange={(value) => act("maxfile", () => setOfflineSettings({ maxFileMb: Number(value) }))}
+                data={[
+                  { value: "10", label: "10 MB" },
+                  { value: "25", label: "25 MB" },
+                  { value: "100", label: "100 MB" },
+                  { value: "0", label: t("No limit") },
+                ]}
+              />
+            </Group>
             <Switch
               checked={settings.includeVideos}
               onChange={(event) =>

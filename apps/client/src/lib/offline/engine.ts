@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import { nativeSend } from "@/lib/native/bridge.ts";
+import { nativeCan, nativeSend } from "@/lib/native/bridge.ts";
+import { buildPageUrl } from "@/features/page/page.utils.ts";
+import { contentText } from "./search.ts";
 import { disableOfflineAnswers, enableOfflineAnswers } from "./adapter.ts";
 import {
   getConnectivity,
@@ -203,7 +205,9 @@ export async function startOfflineEngine(client: QueryClient, me: Me): Promise<v
     }),
   ];
   interval = setInterval(() => {
-    if (isOnline() && document.visibilityState === "visible") void syncNow();
+    if (document.visibilityState !== "visible") return;
+    if (isOnline()) void syncNow();
+    else void refreshOutboxCounts().catch(() => {});
   }, PULL_INTERVAL_MS);
   if (isOnline()) void syncNow();
 }
@@ -224,6 +228,7 @@ export async function wipeOfflineData(): Promise<void> {
   }
   await Promise.all(pages.map((id) => deleteLocalDoc(id).catch(() => {})));
   await clearFiles().catch(() => {});
+  if (nativeCan("spotlight")) nativeSend("spotlight.clear");
   treeReset();
   resetPins();
   resetOutboxCounts();
@@ -267,6 +272,8 @@ async function withSyncLock(fn: () => Promise<void>): Promise<void> {
 }
 
 async function runOnce(): Promise<void> {
+  // another tab may have queued or sent things since
+  await refreshOutboxCounts().catch(() => {});
   setStatus({ syncing: true, lastError: null });
   let changedOnServer = false;
   try {
@@ -625,7 +632,7 @@ async function downloadPage(pageId: string): Promise<boolean> {
     if (isNoAnswer(error)) throw error;
   }
   const urls = fileUrlsInContent(skipVideos(info.content)).map(requestUrlForFile);
-  if (urls.length) await ensureFiles(urls);
+  if (urls.length) await ensureFiles(urls, getOfflineSettings().maxFileMb * 1024 * 1024);
   if (info.isBase) await downloadBase(info.id);
   return true;
 }
@@ -668,7 +675,11 @@ async function download(): Promise<void> {
   if (dropped.length) {
     unmarkDownloaded(dropped);
     await removePageInfo(dropped);
-    for (const id of dropped) await forgetPageLocally(id);
+    for (const id of dropped) {
+      await forgetPageLocally(id);
+      await deleteLocalDoc(id);
+    }
+    if (nativeCan("spotlight")) nativeSend("spotlight.remove", { ids: dropped });
   }
 
   const missing = [...wanted].filter((id) => !isPageDownloaded(id));
@@ -684,8 +695,12 @@ async function download(): Promise<void> {
     const ok = await downloadPage(id);
     staleBodies.delete(id);
     staleComments.delete(id);
-    if (ok && (bodies.has(id) || isDocOpen(id))) markDownloaded(id);
-    else if (!ok) unmarkDownloaded([id]);
+    if (ok && (bodies.has(id) || isDocOpen(id))) {
+      markDownloaded(id);
+      void indexForSystemSearch(id);
+    } else if (!ok) {
+      unmarkDownloaded([id]);
+    }
     done++;
     setStatus({ download: { done, total } });
   }
@@ -699,6 +714,28 @@ async function download(): Promise<void> {
     } catch (error) {
       if (isNoAnswer(error)) throw error;
     }
+  }
+}
+
+// In the desktop app the pages on the device show up in the system search.
+async function indexForSystemSearch(pageId: string): Promise<void> {
+  if (!nativeCan("spotlight")) return;
+  try {
+    const info = await getPageInfo(pageId);
+    const slug = info?.space?.slug;
+    if (!info || !slug) return;
+    nativeSend("spotlight.index", {
+      items: [
+        {
+          id: info.id,
+          title: info.title || "Untitled",
+          text: contentText(info.content).slice(0, 20_000),
+          path: buildPageUrl(slug, info.slugId, info.title),
+        },
+      ],
+    });
+  } catch {
+    // system search is a convenience
   }
 }
 

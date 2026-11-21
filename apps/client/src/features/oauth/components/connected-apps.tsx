@@ -50,7 +50,7 @@ export function ConnectedApps() {
         {t("Connected apps")}
       </Text>
       <Text size="sm" c="dimmed" mb="sm">
-        {t("AI assistants and tools you connected through the MCP server, acting as you.")}
+        {t("The Docmore app on your devices, and AI assistants and tools you connected through the MCP server. Revoking one signs it out.")}
       </Text>
       {isLoading ? (
         <Loader size="sm" />
@@ -81,9 +81,15 @@ export function ConnectedApps() {
                   </Text>
                 </Table.Td>
                 <Table.Td>
-                  <Badge size="sm" variant="light" color={grant.scopes.includes("write") ? "orange" : "blue"}>
-                    {grant.scopes.includes("write") ? t("Read and write") : t("Read")}
-                  </Badge>
+                  {grant.scopes.includes("app") ? (
+                    <Badge size="sm" variant="light" color="grape">
+                      {t("Signed in as you")}
+                    </Badge>
+                  ) : (
+                    <Badge size="sm" variant="light" color={grant.scopes.includes("write") ? "orange" : "blue"}>
+                      {grant.scopes.includes("write") ? t("Read and write") : t("Read")}
+                    </Badge>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm">{when(grant.createdAt)}</Text>

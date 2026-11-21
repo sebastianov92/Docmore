@@ -2567,5 +2567,9 @@
   "{{pages}} pages and {{files}} files on this device": "{{pages}} pages and {{files}} files on this device",
   "{{count}} changes made offline were not sent yet. Signing out now discards them. Sign out anyway?": "{{count}} changes made offline were not sent yet. Signing out now discards them. Sign out anyway?",
   "This needs a connection to the server": "This needs a connection to the server",
-  "You have a new notification": "You have a new notification"
+  "You have a new notification": "You have a new notification",
+  "Signed in as you": "Signed in as you",
+  "The Docmore app on your devices, and AI assistants and tools you connected through the MCP server. Revoking one signs it out.": "The Docmore app on your devices, and AI assistants and tools you connected through the MCP server. Revoking one signs it out.",
+  "Largest file to keep": "Largest file to keep",
+  "No limit": "No limit"
 }
