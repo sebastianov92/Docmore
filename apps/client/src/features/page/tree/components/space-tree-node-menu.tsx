@@ -1,3 +1,4 @@
+import { OfflinePinMenuItem } from "@/features/offline/components/offline-pin-menu-item.tsx";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
@@ -168,6 +169,8 @@ export function NodeMenu({ node, canEdit }: NodeMenuProps) {
           >
             {t("Copy link")}
           </Menu.Item>
+
+          <OfflinePinMenuItem type="page" id={node.id} />
 
           <Menu.Item
             leftSection={

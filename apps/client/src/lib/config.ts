@@ -2,6 +2,7 @@ import bytes from "bytes";
 import { castToBoolean } from "@/lib/utils.tsx";
 import { AvatarIconType } from "@/features/attachments/types/attachment.types.ts";
 import { sanitizeUrl } from "@docmost/editor-ext";
+import { nativeInfo } from "@/lib/native/bridge.ts";
 
 declare global {
   interface Window {
@@ -13,8 +14,32 @@ export function getAppName(): string {
   return "Docmore";
 }
 
+// Where the app is reachable for other people: links to share, callback
+// URLs. In the desktop app the page lives on docmore-app://, so this is the
+// server, not the window.
 export function getAppUrl(): string {
+  return nativeInfo()?.serverUrl ?? getWindowOrigin();
+}
+
+// Where this page was loaded from. API calls and files go here: in the
+// desktop app that is the shell, which adds the sign-in and keeps files for
+// offline use.
+export function getWindowOrigin(): string {
   return `${window.location.protocol}//${window.location.host}`;
+}
+
+// True for the host of this app's own links (pasted page links, internal
+// links): the window, and in the desktop app also the server behind it.
+export function isOwnHost(host: string | undefined | null): boolean {
+  if (!host) return false;
+  if (host === window.location.host) return true;
+  const serverUrl = nativeInfo()?.serverUrl;
+  if (!serverUrl) return false;
+  try {
+    return new URL(serverUrl).host === host;
+  } catch {
+    return false;
+  }
 }
 
 export function getServerAppUrl(): string {
@@ -22,12 +47,14 @@ export function getServerAppUrl(): string {
 }
 
 export function getBackendUrl(): string {
-  return getAppUrl() + "/api";
+  return getWindowOrigin() + "/api";
 }
 
 export function getCollaborationUrl(): string {
+  // sockets cannot go through the desktop shell, they talk to the server
   const baseUrl =
     getConfigValue("COLLAB_URL") ||
+    nativeInfo()?.serverUrl ||
     (import.meta.env.DEV ? process.env.APP_URL : getAppUrl());
 
   const collabUrl = new URL("/collab", baseUrl);

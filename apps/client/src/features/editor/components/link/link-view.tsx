@@ -1,3 +1,4 @@
+import { isOwnHost } from "@/lib/config.ts";
 import { MarkViewContent, MarkViewProps } from "@tiptap/react";
 import { getMarkRange } from "@tiptap/core";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
@@ -61,7 +62,7 @@ const parseInternalLink = (
     return { isInternal: false, slugId: null, label: href };
   }
 
-  const isExternal = match[2] && match[2] !== window.location.host;
+  const isExternal = match[2] && !isOwnHost(match[2]);
   const slug = match[5];
   const slugId = extractPageSlugId(slug);
   const namePart = slug.split("-").slice(0, -1).join("-");

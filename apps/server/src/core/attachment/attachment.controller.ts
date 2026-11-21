@@ -141,6 +141,13 @@ export class AttachmentController {
       throw new BadRequestException('Invalid attachment id');
     }
 
+    // A file added offline was given its id by the device (the page body
+    // already points at it).
+    const newAttachmentId = file.fields?.newAttachmentId?.value;
+    if (newAttachmentId && (!isValidUUID(newAttachmentId) || attachmentId)) {
+      throw new BadRequestException('Invalid attachment id');
+    }
+
     const type = file.fields?.type?.value;
     const isCover = type === AttachmentType.PageCover;
     const isFile = type === undefined || type === AttachmentType.File;
@@ -156,6 +163,7 @@ export class AttachmentController {
         userId: user.id,
         workspaceId: workspace.id,
         attachmentId: attachmentId,
+        newAttachmentId: isCover ? undefined : newAttachmentId,
         type: isCover ? AttachmentType.PageCover : AttachmentType.File,
       });
 

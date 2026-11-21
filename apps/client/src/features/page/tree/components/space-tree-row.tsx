@@ -33,6 +33,10 @@ import type { RenderRowProps } from "./doc-tree";
 import { NodeMenu } from "./space-tree-node-menu";
 import classes from "@/features/page/tree/styles/tree.module.css";
 import { updateTreeNodeIcon } from "@/features/page/tree/utils/utils.ts";
+import {
+  PageOfflineBadge,
+  usePageUnavailableOffline,
+} from "@/features/offline/components/page-offline-badge.tsx";
 
 type SpaceTreeRowProps = RenderRowProps<SpaceTreeNode> & {
   readOnly: boolean;
@@ -58,6 +62,7 @@ export function SpaceTreeRow({
   const toggleMobileSidebar = useToggleSidebar(mobileSidebarAtom);
 
   const canEdit = !readOnly && node.canEdit !== false;
+  const unavailableOffline = usePageUnavailableOffline(node.id);
   const pageUrl = buildPageUrl(spaceSlug, node.slugId, node.name);
 
   const prefetchPage = () => {
@@ -177,7 +182,13 @@ export function SpaceTreeRow({
         />
       </div>
 
-      <span className={classes.text}>{getPageTitle(node.name, node.isBase, t)}</span>
+      <span
+        className={classes.text}
+        style={unavailableOffline ? { opacity: 0.45 } : undefined}
+      >
+        {getPageTitle(node.name, node.isBase, t)}
+      </span>
+      <PageOfflineBadge pageId={node.id} />
 
       <div className={classes.actions}>
         <NodeMenu node={node} canEdit={canEdit} />

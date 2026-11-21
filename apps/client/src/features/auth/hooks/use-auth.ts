@@ -28,6 +28,9 @@ import { RESET } from "jotai/utils";
 import { useTranslation } from "react-i18next";
 import { isCloud } from "@/lib/config.ts";
 import { deleteLocalPageData } from "@/lib/local-page-data.ts";
+import { getOfflineStatus } from "@/lib/offline/engine.ts";
+import { nativeSend } from "@/lib/native/bridge.ts";
+import i18n from "@/i18n.ts";
 import { exchangeTokenRedirectUrl, getHostnameUrl } from "@/ee/utils.ts";
 
 export default function useAuth() {
@@ -165,9 +168,27 @@ export default function useAuth() {
   };
 
   const handleLogout = async () => {
+    // Changes made with no server only exist on this device.
+    const pending = getOfflineStatus().pending;
+    if (
+      pending > 0 &&
+      !window.confirm(
+        i18n.t(
+          "{{count}} changes made offline were not sent yet. Signing out now discards them. Sign out anyway?",
+          { count: pending },
+        ),
+      )
+    ) {
+      return;
+    }
     setCurrentUser(RESET);
     await deleteLocalPageData();
-    await logout();
+    try {
+      await logout();
+    } catch {
+      // no server: the session ends there when it is reachable again
+    }
+    nativeSend("signOut");
     window.location.replace(`${APP_ROUTE.AUTH.LOGIN}?logout=1`);
   };
 

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { onNativeEvent } from "@/lib/native/bridge.ts";
 
 // "Online" here means the Docmore server answers, not that the machine has a
 // network: a homelab behind a VPN can be unreachable while the wifi is fine.
@@ -195,6 +196,10 @@ if (typeof window !== "undefined") {
       void probeServer();
     }
   });
+  // the desktop shell watches the network itself and says when it changes
+  onNativeEvent<{ reachable?: boolean }>("net.changed", (payload) => {
+    reportNetworkChange(payload?.reachable !== false);
+  });
   // handy from the console and for automated checks
   (window as any).__docmoreConnectivity = {
     state: getConnectivity,
@@ -203,15 +208,29 @@ if (typeof window !== "undefined") {
   };
 }
 
+let offlineMessage = () => "This needs a connection to the server";
+
+// The app's translator, so the message reads in the person's language.
+export function setOfflineMessage(message: () => string) {
+  offlineMessage = message;
+}
+
+// What a request gets when there is no server and nothing local can answer.
+// It carries a response-shaped message because that is where the app's error
+// handlers look for the text to show.
 export class OfflineError extends Error {
   readonly isOffline = true;
   readonly code = "ERR_OFFLINE";
+  readonly status = 0;
   config: unknown;
+  response: { status: number; data: { message: string } };
 
   constructor(config?: unknown) {
-    super("The server cannot be reached");
+    const message = offlineMessage();
+    super(message);
     this.name = "OfflineError";
     this.config = config;
+    this.response = { status: 0, data: { message } };
   }
 }
 

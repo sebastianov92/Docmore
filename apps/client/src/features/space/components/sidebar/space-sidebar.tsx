@@ -1,3 +1,5 @@
+import { NEW_PAGE_COMMAND_EVENT } from "@/features/offline/components/native-commands.tsx";
+import { OfflinePinMenuItem } from "@/features/offline/components/offline-pin-menu-item.tsx";
 import {
   ActionIcon,
   Group,
@@ -27,7 +29,7 @@ import {
   useUnwatchSpaceMutation,
 } from "@/features/space/queries/space-watcher-query.ts";
 import classes from "./space-sidebar.module.css";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useAtom } from "jotai";
 import { useTreeMutation } from "@/features/page/tree/hooks/use-tree-mutation.ts";
 import { Link, useLocation, useParams } from "react-router-dom";
@@ -77,6 +79,12 @@ export function SpaceSidebar() {
   const spaceRules = space?.membership?.permissions;
   const spaceAbility = useSpaceAbility(spaceRules);
   const { handleCreate } = useTreeMutation(space?.id ?? "");
+  const createPageRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const onNewPage = () => createPageRef.current?.();
+    window.addEventListener(NEW_PAGE_COMMAND_EVENT, onNewPage);
+    return () => window.removeEventListener(NEW_PAGE_COMMAND_EVENT, onNewPage);
+  }, []);
 
   if (!space) {
     return <></>;
@@ -85,6 +93,8 @@ export function SpaceSidebar() {
   function handleCreatePage() {
     handleCreate(null);
   }
+  // File > New Page in the desktop app
+  createPageRef.current = space ? handleCreatePage : null;
 
   return (
     <>
@@ -332,6 +342,8 @@ function SpaceMenu({
           >
             {isWatching ? t("Stop watching space") : t("Watch space")}
           </Menu.Item>
+
+          <OfflinePinMenuItem type="space" id={spaceId} />
 
           {canManagePages && (
             <>

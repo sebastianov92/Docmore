@@ -24,6 +24,7 @@ import {
   IconServer,
   IconUsersPlus,
   IconPlugConnected,
+  IconCloudDown,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "react-router-dom";
 import classes from "./settings.module.css";
@@ -116,6 +117,7 @@ const groupedData: DataGroup[] = [
       { label: "Web clipper", icon: IconScissors, path: "/settings/account/clipper" },
       { label: "My skills", icon: IconSparkles, path: "/settings/account/ai-skills" },
       { label: "My MCP servers", icon: IconPlugConnected, path: "/settings/account/mcp-servers" },
+      { label: "Offline", icon: IconCloudDown, path: "/settings/account/offline" },
     ],
   },
   {

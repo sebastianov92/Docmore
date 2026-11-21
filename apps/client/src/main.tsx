@@ -25,6 +25,10 @@ import {
 import { installChunkLoadRecovery } from "@/lib/chunk-load-recovery.ts";
 import { AppErrorBoundary } from "@/components/ui/app-error-boundary.tsx";
 import posthog from "posthog-js";
+import { bootOfflineAnswers } from "@/lib/offline/engine.ts";
+import { setOfflineMessage } from "@/lib/offline/connectivity.ts";
+import { registerServiceWorker } from "@/lib/offline/service-worker.ts";
+import i18n from "@/i18n.ts";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,21 +55,34 @@ installChunkLoadRecovery();
 const container = document.getElementById("root") as HTMLElement;
 const root = (container as any).__reactRoot ??= ReactDOM.createRoot(container);
 
-root.render(
-  <BrowserRouter>
-    <MantineProvider theme={theme} cssVariablesResolver={mantineCssResolver}>
-      <ModalsProvider>
-        <QueryClientProvider client={queryClient}>
-          <Notifications position="bottom-center" limit={3} zIndex={10000} />
-          <HelmetProvider>
-            <PostHogProvider client={posthog}>
-              <AppErrorBoundary>
-                <App />
-              </AppErrorBoundary>
-            </PostHogProvider>
-          </HelmetProvider>
-        </QueryClientProvider>
-      </ModalsProvider>
-    </MantineProvider>
-  </BrowserRouter>,
-);
+// Data already on this device must be answering before the first request, so
+// the app opens the same with or without a server.
+const BOOT_TIMEOUT_MS = 1500;
+setOfflineMessage(() => i18n.t("This needs a connection to the server"));
+void registerServiceWorker();
+
+void (async () => {
+  await Promise.race([
+    bootOfflineAnswers(),
+    new Promise((resolve) => setTimeout(resolve, BOOT_TIMEOUT_MS)),
+  ]);
+
+  root.render(
+    <BrowserRouter>
+      <MantineProvider theme={theme} cssVariablesResolver={mantineCssResolver}>
+        <ModalsProvider>
+          <QueryClientProvider client={queryClient}>
+            <Notifications position="bottom-center" limit={3} zIndex={10000} />
+            <HelmetProvider>
+              <PostHogProvider client={posthog}>
+                <AppErrorBoundary>
+                  <App />
+                </AppErrorBoundary>
+              </PostHogProvider>
+            </HelmetProvider>
+          </QueryClientProvider>
+        </ModalsProvider>
+      </MantineProvider>
+    </BrowserRouter>,
+  );
+})();

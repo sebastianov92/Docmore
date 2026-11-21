@@ -286,6 +286,28 @@ render. Their endpoints are not in this repository, so they fail on use,
 and the enterprise client code is licensed for development and testing
 only. Never set it on a real instance.
 
+- **Offline**: mark a page (with everything under it) or a whole space as
+  "Available offline" from its menu; the pages you opened lately stay too.
+  With no server the app opens from the device: the whole page tree,
+  the downloaded pages with their files and comments, bases as last listed
+  and a local search. Page text edited offline merges on return (Yjs, no
+  conflicts to resolve); new pages, renames, moves, trash, comments, base
+  rows, favorites and uploads wait in a queue and go up in order. Whatever
+  the server refuses (a page trashed meanwhile, access lost) waits under
+  Settings > Offline with the choice to restore and send, keep as a new
+  page, retry or discard: nothing is dropped silently. "Offline" means the
+  server does not answer, not that the machine has no network, so it also
+  covers a homelab behind a VPN, and there is a Work offline switch. In a
+  browser a service worker keeps the app shell; signing out wipes the
+  device.
+- **Sync API**: `/api/sync/snapshot`, `/sync/space-pages` and `/sync/pull`
+  (what changed after a cursor, one entry per page, body, comment thread or
+  base, filtered by the same rules as the sidebar), `/sync/docs` (Yjs in
+  batches for pages that are not open), `/sync/pins`, and
+  `/sync/client-bundle` (the served web client file by file). Writes accept
+  an `Idempotency-Key` header, and pages, base rows, comments and uploads
+  accept an id chosen by the device.
+
 ## Run with Docker Compose
 
 ```bash

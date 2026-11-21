@@ -99,6 +99,7 @@ import {
   releaseCollabSocket,
 } from "@/features/editor/collab-socket";
 import { isOnline, useConnectivity } from "@/lib/offline/connectivity.ts";
+import { touchRecent } from "@/lib/offline/pins.ts";
 import {
   markPageDocServerSynced,
   pageDocHasLocalCopy,
@@ -107,6 +108,8 @@ import {
 // Stands in for the collab token while there is no server to ask for one. The
 // socket stays closed offline, so the server never sees it.
 const OFFLINE_COLLAB_TOKEN = "offline";
+const MAX_ROOM_AUTH_RETRIES = 5;
+const ROOM_AUTH_RETRY_MS = 3000;
 import { BookmarkPasteMenu } from "@/features/editor/components/bookmark/bookmark-paste-menu.tsx";
 
 interface PageEditorProps {
@@ -131,6 +134,17 @@ export default function PageEditor({
   const [showStatic, setShowStatic] = useState(true);
   const localDoc = usePageYdoc(pageId);
   const { online } = useConnectivity();
+  // bumping it rebuilds the room, which signs in again
+  const [roomEpoch, setRoomEpoch] = useState(0);
+  const authRetriesRef = useRef(0);
+  const authRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    authRetriesRef.current = 0;
+    return () => {
+      if (authRetryTimerRef.current) clearTimeout(authRetryTimerRef.current);
+    };
+  }, [pageId]);
   // No server and a real local copy: open the room on the local document. The
   // room syncs by itself when the token and the socket come back.
   const roomToken =
@@ -142,6 +156,10 @@ export default function PageEditor({
     acquireCollabSocket();
     return () => releaseCollabSocket();
   }, [hasCollabToken]);
+
+  useEffect(() => {
+    void touchRecent(pageId);
+  }, [pageId]);
 
   useEffect(() => {
     // came back with no token yet: the query gave up retrying while offline
@@ -202,6 +220,17 @@ export default function PageEditor({
     const isTokenExpired = now >= payload.exp;
     if (isTokenExpired) {
       refetchCollabToken();
+      return;
+    }
+    // A page made offline is refused until its queued create reaches the
+    // server: knock again a few times instead of staying outside for good.
+    if (isOnline() && authRetriesRef.current < MAX_ROOM_AUTH_RETRIES) {
+      authRetriesRef.current += 1;
+      if (authRetryTimerRef.current) clearTimeout(authRetryTimerRef.current);
+      authRetryTimerRef.current = setTimeout(
+        () => setRoomEpoch((epoch) => epoch + 1),
+        ROOM_AUTH_RETRY_MS,
+      );
     }
   };
 
@@ -213,6 +242,7 @@ export default function PageEditor({
       {roomToken && localDoc && (
         <HocuspocusProviderWebsocketComponent websocketProvider={socket}>
           <HocuspocusRoom
+            key={roomEpoch}
             name={`page.${pageId}`}
             document={localDoc}
             token={roomToken}
@@ -286,7 +316,7 @@ function CollabPageEditor({
 
   useHocuspocusEvent("synced", ({ state }) => {
     setIsRemoteSynced(state);
-    if (state) markPageDocServerSynced(provider.document);
+    if (state) markPageDocServerSynced(provider.document, pageId);
   });
   useHocuspocusEvent("status", ({ status }) => setYjsConnectionStatus(status));
 

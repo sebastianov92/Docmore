@@ -4,6 +4,7 @@ import {
 } from "@hocuspocus/provider";
 import { getCollaborationUrl } from "@/lib/config.ts";
 import { isOnline, subscribeConnectivity } from "@/lib/offline/connectivity.ts";
+import { whenOutboxSent } from "@/lib/offline/outbox.ts";
 
 const RELEASE_GRACE_MS = 5000;
 
@@ -21,6 +22,10 @@ export function getCollabSocket(): HocuspocusProviderWebsocket {
   return socket;
 }
 
+export function isCollabSocketConnected(): boolean {
+  return socket?.status === WebSocketStatus.Connected;
+}
+
 export function acquireCollabSocket(): void {
   editorCount++;
   if (releaseTimer) {
@@ -32,11 +37,15 @@ export function acquireCollabSocket(): void {
 
 function connectIfAllowed(): void {
   if (editorCount === 0 || !isOnline()) return;
-  const collabSocket = getCollabSocket();
-  collabSocket.shouldConnect = true;
-  if (collabSocket.status === WebSocketStatus.Disconnected) {
-    collabSocket.connect();
-  }
+  // writes queued offline go first: the page being opened may be one of them
+  void whenOutboxSent().then(() => {
+    if (editorCount === 0 || !isOnline()) return;
+    const collabSocket = getCollabSocket();
+    collabSocket.shouldConnect = true;
+    if (collabSocket.status === WebSocketStatus.Disconnected) {
+      collabSocket.connect();
+    }
+  });
 }
 
 // Offline the socket stays closed (no retry storm against a dead server); the

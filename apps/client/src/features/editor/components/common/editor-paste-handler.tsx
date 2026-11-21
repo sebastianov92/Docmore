@@ -1,3 +1,4 @@
+import { isOwnHost } from "@/lib/config.ts";
 import { uploadImageAction } from "@/features/editor/components/image/upload-image-action.tsx";
 import { uploadVideoAction } from "@/features/editor/components/video/upload-video-action.tsx";
 import { uploadAttachmentAction } from "../attachment/upload-attachment-action";
@@ -161,7 +162,7 @@ export const handlePaste = (
     const match = INTERNAL_LINK_REGEX.exec(url);
 
     // pasted link must be from the same workspace/domain and must not be on a selection
-    if (!empty || match[2] !== window.location.host) {
+    if (!empty || !isOwnHost(match[2])) {
       // allow the default link extension to handle this
       return false;
     }

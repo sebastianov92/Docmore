@@ -4,12 +4,36 @@
   height: 28px;
   padding: 0 10px;
   border-radius: 14px;
-  color: light-dark(var(--mantine-color-orange-9), var(--mantine-color-orange-2));
-  background: light-dark(var(--mantine-color-orange-1), rgba(253, 126, 20, 0.18));
-  border: 1px solid light-dark(var(--mantine-color-orange-3), rgba(253, 126, 20, 0.35));
   white-space: nowrap;
+  border: 1px solid transparent;
 }
 
-.pill:hover {
+.offline {
+  color: light-dark(var(--mantine-color-orange-9), var(--mantine-color-orange-2));
+  background: light-dark(var(--mantine-color-orange-1), rgba(253, 126, 20, 0.18));
+  border-color: light-dark(var(--mantine-color-orange-3), rgba(253, 126, 20, 0.35));
+}
+
+.offline:hover {
   background: light-dark(var(--mantine-color-orange-2), rgba(253, 126, 20, 0.26));
+}
+
+.busy {
+  color: light-dark(var(--mantine-color-blue-8), var(--mantine-color-blue-2));
+  background: light-dark(var(--mantine-color-blue-0), rgba(34, 139, 230, 0.16));
+  border-color: light-dark(var(--mantine-color-blue-2), rgba(34, 139, 230, 0.32));
+}
+
+.busy:hover {
+  background: light-dark(var(--mantine-color-blue-1), rgba(34, 139, 230, 0.24));
+}
+
+.review {
+  color: light-dark(var(--mantine-color-red-8), var(--mantine-color-red-2));
+  background: light-dark(var(--mantine-color-red-0), rgba(250, 82, 82, 0.16));
+  border-color: light-dark(var(--mantine-color-red-2), rgba(250, 82, 82, 0.32));
+}
+
+.review:hover {
+  background: light-dark(var(--mantine-color-red-1), rgba(250, 82, 82, 0.24));
 }

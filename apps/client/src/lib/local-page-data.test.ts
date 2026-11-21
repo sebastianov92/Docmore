@@ -19,12 +19,17 @@ describe("deleteLocalPageData", () => {
     vi.unstubAllGlobals();
   });
 
-  it("deletes only the page databases", async () => {
+  it("deletes the page databases and the offline store, nothing else", async () => {
     const deleteDatabase = stubIndexedDB(["page.a", "page.b", "other-db"]);
 
     await deleteLocalPageData();
 
-    expect(deleteDatabase.mock.calls).toEqual([["page.a"], ["page.b"]]);
+    const deleted = (deleteDatabase.mock.calls as unknown as string[][]).map((call) => call[0]);
+    expect(deleted).toContain("page.a");
+    expect(deleted).toContain("page.b");
+    // queued changes and downloaded pages of the person signing out
+    expect(deleted).toContain("docmore-offline");
+    expect(deleted).not.toContain("other-db");
   });
 
   it("does nothing when the browser cannot list databases", async () => {

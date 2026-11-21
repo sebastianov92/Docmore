@@ -4,6 +4,7 @@ import { Badge, Button, Group, Modal, ScrollArea, Stack, Text } from "@mantine/c
 import { notifications } from "@mantine/notifications";
 import { IconMicrophone, IconPlayerPause, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { nativeCall, nativeCan } from "@/lib/native/bridge.ts";
 import { MEETING_RECORDER_EVENT, transcribeLiveChunk, transcribeMeeting } from "../services";
 
 type Status = "idle" | "recording" | "paused" | "saving";
@@ -51,7 +52,19 @@ export function MeetingRecorderModal() {
   const pendingRef = useRef(0);
 
   useEffect(() => {
-    const onOpen = (e: Event) => setPageId(((e as CustomEvent).detail?.pageId as string) ?? null);
+    const onOpen = (e: Event) => {
+      const id = ((e as CustomEvent).detail?.pageId as string) ?? null;
+      // The desktop app records the microphone and the system audio itself
+      // and transcribes on the device.
+      if (nativeCan("meetings")) {
+        if (!id) return;
+        nativeCall("meeting.start", { pageId: id }).catch((err: Error) =>
+          notifications.show({ color: "red", message: err.message }),
+        );
+        return;
+      }
+      setPageId(id);
+    };
     window.addEventListener(MEETING_RECORDER_EVENT, onOpen);
     return () => window.removeEventListener(MEETING_RECORDER_EVENT, onOpen);
   }, []);

@@ -60,6 +60,8 @@ export class AttachmentService {
     spaceId: string;
     workspaceId: string;
     attachmentId?: string;
+    // id chosen by the device for a file it added offline
+    newAttachmentId?: string;
     type?: AttachmentType.File | AttachmentType.PageCover;
   }) {
     const { filePromise, pageId, spaceId, userId, workspaceId } = opts;
@@ -99,6 +101,21 @@ export class AttachmentService {
       }
       attachmentId = opts.attachmentId;
       isUpdate = true;
+    } else if (opts.newAttachmentId) {
+      const taken = await this.attachmentRepo.findById(opts.newAttachmentId);
+      if (taken) {
+        // the same offline upload sent twice is the same file
+        if (
+          taken.pageId !== pageId ||
+          taken.creatorId !== userId ||
+          taken.workspaceId !== workspaceId
+        ) {
+          throw new BadRequestException('File attachment does not match');
+        }
+        preparedFile.multiPartFile.file.resume();
+        return taken;
+      }
+      attachmentId = opts.newAttachmentId;
     } else {
       attachmentId = uuid7();
     }

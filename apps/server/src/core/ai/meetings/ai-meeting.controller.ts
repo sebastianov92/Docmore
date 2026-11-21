@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, HttpCode, HttpStatus, PayloadTooLargeException, Post, Req, UseGuards } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
-import { IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsNumber, IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from 'class-validator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { AuthUser } from '../../../common/decorators/auth-user.decorator';
 import { AuthWorkspace } from '../../../common/decorators/auth-workspace.decorator';
@@ -11,6 +12,53 @@ import { AiMeetingService, MAX_LIVE_CHUNK_BYTES, MAX_MEETING_FILE_BYTES } from '
 class MeetingIdDto {
   @IsUUID()
   meetingId: string;
+}
+
+class TranscriptSegmentDto {
+  @IsNumber()
+  start: number;
+
+  @IsNumber()
+  end: number;
+
+  @IsString()
+  @MaxLength(4000)
+  text: string;
+}
+
+class FromTranscriptDto {
+  @IsOptional()
+  @IsUUID()
+  pageId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  spaceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  title?: string;
+
+  @IsString()
+  @MaxLength(2_000_000)
+  transcript: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  language?: string;
+
+  @IsOptional()
+  @IsNumber()
+  durationSeconds?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20_000)
+  @ValidateNested({ each: true })
+  @Type(() => TranscriptSegmentDto)
+  segments?: TranscriptSegmentDto[];
 }
 
 // Meeting notes from a recording: upload, then poll.
@@ -45,6 +93,15 @@ export class AiMeetingController {
       return typeof q === 'string' && q ? q : undefined;
     };
     return this.meetings.start(user, workspace, Promise.resolve(file), { pageId: field('pageId'), spaceId: field('spaceId') });
+  }
+
+  // A transcript made on the device (the desktop app): only the notes are
+  // written here. Works without a transcription model.
+  @HttpCode(HttpStatus.OK)
+  @Post('from-transcript')
+  async fromTranscript(@Body() dto: FromTranscriptDto, @AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
+    await this.usage.assertAllowed(workspace, user);
+    return this.meetings.startFromTranscript(user, workspace, dto);
   }
 
   // multipart: "file", one piece of a running recording; answers its text.

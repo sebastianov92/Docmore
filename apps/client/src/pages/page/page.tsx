@@ -1,3 +1,5 @@
+import { isOfflineError } from "@/lib/offline/connectivity.ts";
+import { PageNotOffline } from "@/features/offline/components/page-not-offline.tsx";
 import { useParams } from "react-router-dom";
 import { usePageQuery } from "@/features/page/queries/page-query";
 import { FullEditor } from "@/features/editor/full-editor";
@@ -89,6 +91,9 @@ function PageContent({ pageSlug }: { pageSlug: string | undefined }) {
   }
 
   if (isError || !page) {
+    if (isOfflineError(error)) {
+      return <PageNotOffline />;
+    }
     if ([401, 403, 404].includes(error?.["status"])) {
       return (
         <EmptyState

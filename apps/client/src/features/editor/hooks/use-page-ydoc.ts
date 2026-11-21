@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
+import { isOnline } from "@/lib/offline/connectivity.ts";
+import {
+  clearDocDirty,
+  markDocDirty,
+  registerOpenDoc,
+  rememberServerHas,
+} from "@/lib/offline/docs.ts";
+import { isCollabSocketConnected } from "@/features/editor/collab-socket.ts";
 
 const LOCAL_OPEN_TIMEOUT = 2000;
 const SERVER_SYNCED_KEY = "serverSynced";
@@ -25,10 +33,17 @@ export function pageDocHasLocalCopy(ydoc: Y.Doc | null | undefined): boolean {
   return ydoc.getXmlFragment("default").length > 0;
 }
 
-export function markPageDocServerSynced(ydoc: Y.Doc | null | undefined): void {
+export function markPageDocServerSynced(
+  ydoc: Y.Doc | null | undefined,
+  pageId?: string,
+): void {
   if (!ydoc) return;
   const copy = localCopies.get(ydoc);
-  if (!copy || copy.usable) return;
+  if (!copy) return;
+  // the room has everything this copy has: nothing waits to be sent
+  if (pageId) clearDocDirty(pageId);
+  void rememberServerHas(ydoc, copy.local);
+  if (copy.usable) return;
   copy.usable = true;
   try {
     void copy.local.set?.(SERVER_SYNCED_KEY, Date.now());
@@ -47,6 +62,14 @@ export function usePageYdoc(pageId: string): Y.Doc | null {
     const local = new IndexeddbPersistence(`page.${pageId}`, ydoc);
     const copy: LocalCopy = { local, usable: false };
     localCopies.set(ydoc, copy);
+    const releaseOpen = registerOpenDoc(pageId);
+    // Typed with no room to hear it: the sync engine sends it later if this
+    // editor is gone by then.
+    const onUpdate = (_update: Uint8Array, origin: unknown) => {
+      if (origin === local) return;
+      if (!isOnline() || !isCollabSocketConnected()) markDocDirty(pageId);
+    };
+    ydoc.on("update", onUpdate);
     let active = true;
     const release = () => {
       if (!active) return;
@@ -73,6 +96,8 @@ export function usePageYdoc(pageId: string): Y.Doc | null {
     return () => {
       active = false;
       clearTimeout(timeout);
+      ydoc.off("update", onUpdate);
+      releaseOpen();
       local.destroy().catch(() => {});
     };
   }, [pageId]);

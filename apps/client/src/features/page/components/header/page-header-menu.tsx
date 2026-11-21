@@ -1,3 +1,5 @@
+import { useConnectivity } from "@/lib/offline/connectivity.ts";
+import { OfflinePinMenuItem } from "@/features/offline/components/offline-pin-menu-item.tsx";
 import {
   ActionIcon,
   Group,
@@ -311,6 +313,8 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
             {t("Copy link")}
           </Menu.Item>
 
+          {page?.id && <OfflinePinMenuItem type="page" id={page.id} />}
+
           {!page?.isBase && (
             <Tooltip
               label={exportDisabledLabel}
@@ -589,6 +593,8 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
 function ConnectionWarning() {
   const { t } = useTranslation();
   const yjsConnectionStatus = useAtomValue(yjsConnectionStatusAtom);
+  // with no server the header already says Offline
+  const { online } = useConnectivity();
   const [showWarning, setShowWarning] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -619,7 +625,7 @@ function ConnectionWarning() {
     };
   }, []);
 
-  if (!showWarning) return null;
+  if (!showWarning || !online) return null;
 
   return (
     <Tooltip

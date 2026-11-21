@@ -3,15 +3,16 @@ import APP_ROUTE from "@/lib/app-route.ts";
 import { isCloud } from "@/lib/config.ts";
 import { currentShareId, getShareAccessToken } from "@/features/share/share-access";
 import {
-  OfflineError,
-  isOnline,
   reportNetworkFailure,
   reportServerAnswered,
 } from "@/lib/offline/connectivity.ts";
+import { offlineAdapter } from "@/lib/offline/adapter.ts";
 
 const api: AxiosInstance = axios.create({
   baseURL: "/api",
   withCredentials: true,
+  // answers from local data and queues writes while the server is out of reach
+  adapter: offlineAdapter,
 });
 
 // Pages opened through a password-protected share link send the token the
@@ -27,18 +28,10 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Offline: nothing leaves the browser. Requests are answered locally where the
-// offline engine can, and fail fast everywhere else.
-api.interceptors.request.use((config) => {
-  if (!isOnline()) {
-    return Promise.reject(new OfflineError(config));
-  }
-  return config;
-});
-
 api.interceptors.response.use(
   (response) => {
-    reportServerAnswered();
+    // answers made up on the device say nothing about the server
+    if (response.headers?.["x-docmore-offline"] !== "1") reportServerAnswered();
     // we need the response headers for these endpoints
     const exemptEndpoints = [
       "/api/pages/export",
@@ -58,6 +51,9 @@ api.interceptors.response.use(
     return response.data;
   },
   async (error) => {
+    // nothing was asked of the server
+    if (error?.isOffline) return Promise.reject(error);
+
     const data = error.response?.data;
     if (data instanceof Blob && data.type.includes("json")) {
       try {
@@ -74,7 +70,7 @@ api.interceptors.response.use(
       } else {
         reportServerAnswered();
       }
-    } else if (error.code !== "ERR_CANCELED" && !error.isOffline) {
+    } else if (error.code !== "ERR_CANCELED") {
       reportNetworkFailure();
     }
 

@@ -3,6 +3,13 @@ const PAGE_DATABASE_PREFIX = "page.";
 
 export async function deleteLocalPageData(): Promise<void> {
   try {
+    // queued changes, downloaded pages and files of the person signing out
+    const { wipeOfflineData } = await import("@/lib/offline/engine.ts");
+    await wipeOfflineData();
+  } catch {
+    // local cleanup must never block logout
+  }
+  try {
     const databases = (await indexedDB.databases?.()) ?? [];
     const pageDatabaseNames = databases
       .map((database) => database.name)

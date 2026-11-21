@@ -130,6 +130,62 @@ export class AiMeetingService {
     return view(row);
   }
 
+  // The desktop app records and transcribes on the device (also with no
+  // server); it sends the text and this only writes the notes. No audio and
+  // no transcription model are involved.
+  async startFromTranscript(
+    user: User,
+    workspace: Workspace,
+    input: {
+      pageId?: string;
+      spaceId?: string;
+      title?: string;
+      transcript: string;
+      language?: string;
+      durationSeconds?: number;
+      segments?: TranscriptSegment[];
+    },
+  ): Promise<MeetingNotesView> {
+    const text = input.transcript.trim();
+    if (!text) throw new BadRequestException('The transcript is empty');
+    let spaceId = input.spaceId ?? null;
+    let pageId = input.pageId ?? null;
+    if (pageId) {
+      const page = await this.pageRepo.findById(pageId);
+      if (!page || page.deletedAt || page.workspaceId !== workspace.id) throw new NotFoundException('Page not found');
+      await this.pageAccess.validateCanEdit(page, user);
+      spaceId = page.spaceId;
+      pageId = page.id;
+    } else {
+      if (!spaceId) throw new BadRequestException('Pick a page or a space for the notes');
+      const ability = await this.spaceAbility.createForUser(user, spaceId);
+      if (ability.cannot(SpaceCaslAction.Create, SpaceCaslSubject.Page)) throw new ForbiddenException('You cannot create pages in that space');
+    }
+    const segments = (input.segments ?? [])
+      .filter((s) => s && typeof s.text === 'string' && s.text.trim())
+      .slice(0, 20_000)
+      .map((s) => ({ start: Number(s.start) || 0, end: Number(s.end) || 0, text: s.text.trim() }));
+    const row = await this.db
+      .insertInto('aiMeetingNotes')
+      .values({
+        workspaceId: workspace.id,
+        userId: user.id,
+        pageId,
+        spaceId,
+        attachmentId: null,
+        fileName: (input.title ?? '').trim().slice(0, 200) || 'Meeting',
+        status: 'queued',
+        transcript: text,
+        segments: segments as any,
+        language: input.language?.slice(0, 20) ?? null,
+        durationSeconds: input.durationSeconds ? Math.round(input.durationSeconds) : null,
+      } as any)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await this.aiQueue.add(QueueJob.AI_MEETING_NOTES, { meetingId: row.id }, { removeOnComplete: true, removeOnFail: true, attempts: 1 });
+    return view(row);
+  }
+
   // Live mode: a piece of the recording (a minute or so) comes in while the
   // meeting runs and goes back as text; nothing is stored.
   private readonly liveRecent = new Map<string, number[]>();
@@ -183,22 +239,46 @@ export class AiMeetingService {
     const user = await this.userRepo.findById(row.userId, row.workspaceId);
     if (!user) return;
     try {
-      await this.set(row.id, { status: 'transcribing' });
-      const attachment = row.attachmentId ? await this.attachmentRepo.findById(row.attachmentId) : null;
-      if (!attachment) throw new Error('The recording is gone');
-      const audio = await this.storage.read(attachment.filePath);
-      const transcript = await this.transcription.transcribe(row.workspaceId, audio, attachment.fileName, attachment.mimeType ?? '');
-      if (!transcript.text.trim()) throw new Error('The recording had no speech to transcribe');
-      await this.set(row.id, {
-        status: 'summarizing',
-        transcript: transcript.text,
-        segments: transcript.segments as any,
-        language: transcript.language,
-        durationSeconds: transcript.durationSeconds,
-      });
+      // a transcript made on the device arrives with the row; otherwise the
+      // recording is transcribed here
+      const fromDevice = !row.attachmentId && Boolean(row.transcript?.trim());
+      let transcript: Transcript;
+      let attachment: Awaited<ReturnType<AttachmentRepo['findById']>> | null = null;
+      if (fromDevice) {
+        transcript = {
+          text: row.transcript,
+          segments: Array.isArray(row.segments) ? (row.segments as any) : [],
+          language: row.language,
+          durationSeconds: row.durationSeconds,
+        };
+        await this.set(row.id, { status: 'summarizing' });
+      } else {
+        await this.set(row.id, { status: 'transcribing' });
+        attachment = row.attachmentId ? await this.attachmentRepo.findById(row.attachmentId) : null;
+        if (!attachment) throw new Error('The recording is gone');
+        const audio = await this.storage.read(attachment.filePath);
+        transcript = await this.transcription.transcribe(row.workspaceId, audio, attachment.fileName, attachment.mimeType ?? '');
+        if (!transcript.text.trim()) throw new Error('The recording had no speech to transcribe');
+        await this.set(row.id, {
+          status: 'summarizing',
+          transcript: transcript.text,
+          segments: transcript.segments as any,
+          language: transcript.language,
+          durationSeconds: transcript.durationSeconds,
+        });
+      }
+      const label = attachment?.fileName ?? row.fileName ?? 'Meeting';
 
-      const notes = await this.summarize(row.workspaceId, transcript, attachment.fileName);
-      const markdown = renderNotes(notes, transcript, attachment.fileName);
+      let notes: MeetingSummary;
+      try {
+        notes = await this.summarize(row.workspaceId, transcript, label);
+      } catch (err: any) {
+        // with no model to write the summary, the device's transcript is still worth keeping
+        if (!fromDevice) throw err;
+        this.logger.warn(`meeting notes ${row.id}: no summary (${String(err?.message ?? err).slice(0, 200)})`);
+        notes = { title: '', summary: '', topics: [], decisions: [], actionItems: [] };
+      }
+      const markdown = renderNotes(notes, transcript, label);
 
       let pageId = row.pageId;
       if (pageId) {
@@ -208,12 +288,12 @@ export class AiMeetingService {
       } else {
         const page = await this.pageService.create(user.id, row.workspaceId, {
           spaceId: row.spaceId,
-          title: notes.title || `Meeting notes: ${attachment.fileName}`,
+          title: notes.title || `Meeting notes: ${label}`,
           content: markdown,
           format: 'markdown',
         } as any);
         pageId = page.id;
-        await this.attachmentRepo.updateAttachment({ pageId } as any, attachment.id).catch(() => undefined);
+        if (attachment) await this.attachmentRepo.updateAttachment({ pageId } as any, attachment.id).catch(() => undefined);
       }
       await this.set(row.id, { status: 'done', summary: notes.summary, pageId, error: null });
       await this.notifications.create({
@@ -223,7 +303,7 @@ export class AiMeetingService {
         actorId: null,
         pageId,
         spaceId: row.spaceId,
-        data: { fileName: attachment.fileName, meetingId: row.id },
+        data: { fileName: label, meetingId: row.id },
       } as any);
     } catch (err: any) {
       const message = String(err?.message ?? 'Transcription failed').slice(0, 500);
@@ -290,7 +370,7 @@ interface MeetingSummary {
 
 function renderNotes(notes: MeetingSummary, transcript: Transcript, fileName: string): string {
   const lines: string[] = [];
-  lines.push(`## Summary`, '', notes.summary, '');
+  if (notes.summary) lines.push(`## Summary`, '', notes.summary, '');
   if (notes.topics.length) lines.push(`**Topics:** ${notes.topics.join(' · ')}`, '');
   if (notes.decisions.length) {
     lines.push(`## Decisions`, '');
