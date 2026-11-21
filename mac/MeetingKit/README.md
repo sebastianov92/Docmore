@@ -294,6 +294,10 @@ public final class SpeakerDiarizer: SampleDiarizing, @unchecked Sendable {
   and to `MeetingProcessor`.
 - Cluster numbers mean something only inside one `Diarization`. What makes
   speakers stable from run to run is `TrackSpeakers` (below).
+- Before the models listen, a faint hiss (about -58 dBFS, always the
+  same) is added to their copy of the audio: on tracks with long stretches
+  of exact silence, which is what system audio is while nobody on the call
+  talks, they go badly wrong without it (STATUS.md).
 - The models load on first use (about 6 s the first time on a Mac, 0.05 s
   afterwards) and stay loaded. Calls are served one at a time. No call
   reaches the network. Errors: `SpeakerDiarizerError.modelNotDownloaded`,
@@ -522,7 +526,7 @@ public struct LiveMeetingUpdate: Equatable, Sendable {
 public final class LiveMeetingSession: @unchecked Sendable {
     public init(mode: MeetingMode, transcriber: WordTranscribing, diarizer: SampleDiarizing?,
                 options: LiveMeetingOptions = LiveMeetingOptions())
-    public var onUpdate: ((LiveMeetingUpdate) -> Void)?       // on a background thread
+    public var onUpdate: ((LiveMeetingUpdate) -> Void)?       // on a background queue, in order of revision
     public let updates: AsyncStream<LiveMeetingUpdate>
     public func append(_ chunk: MeetingAudioChunk)            // any thread
     public func append(microphone: [Float], systemAudio: [Float]? = nil)
@@ -576,6 +580,8 @@ let state = live.state                         // goes to the final pass
   each track is transcribed, the last `speakerWindowSeconds` of each track
   are diarized again, and one update goes out. A track with no sound in a
   window is not given to Whisper.
+- Updates arrive one at a time, in the order of their `revision`. Do not
+  call `finish()` from inside `onUpdate`.
 - An update says what changed: replace everything from `fromIndex` on with
   `segments`. Usually that is the new tail. It starts earlier when earlier
   segments changed: a sentence got its speaker, or changed speaker because
@@ -933,7 +939,7 @@ the name of the terminal application it runs in.
 swift test --build-path .build
 ```
 
-TEST_COUNT tests. UNIT_COUNT of them need no microphone, no model and no network
+178 tests. 174 of them need no microphone, no model and no network
 (one opens a connection to a closed local port to see a real connection
 failure): the recorder runs on scripted sources, the live session and the
 final pass on a scripted transcriber and a scripted diarizer.

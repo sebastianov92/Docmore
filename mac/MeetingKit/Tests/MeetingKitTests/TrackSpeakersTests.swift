@@ -121,6 +121,49 @@ final class TrackSpeakersTests: XCTestCase {
         XCTAssertEqual(track.voices.first { $0.id == "s1" }?.print, voicePrint(0))
     }
 
+    func testASpeakerMadeForAVoiceThatCameBackIsFoldedIntoTheOldOne() {
+        var track = TrackSpeakers()
+        let ids = Ids()
+        _ = track.absorb(
+            diarization([(0, 30, 0), (30, 60, 1)], prints: [0: voicePrint(0), 1: voicePrint(1)]),
+            from: 0, to: 60, makeSpeaker: ids.next
+        )
+        // the first voice comes back; its first twelve seconds give a print that sounds like nobody
+        var outcome = track.absorb(diarization([(600, 612, 4)], prints: [4: voicePrint(7)]), from: 600, to: 620, makeSpeaker: ids.next)
+        XCTAssertEqual(outcome.assignment, [4: "s3"], "taken for somebody new")
+        // with half a minute of it the print is the known one: s3 was s1 all along
+        outcome = track.absorb(diarization([(600, 612, 9), (615, 633, 9)], prints: [9: voicePrint(0, wobble: 0.03)]), from: 600, to: 640, makeSpeaker: ids.next)
+        XCTAssertEqual(outcome.assignment, [9: "s1"])
+        XCTAssertEqual(outcome.retired, ["s3"])
+        XCTAssertEqual(outcome.absorbedBy, ["s3": "s1"])
+        XCTAssertEqual(turns(track), ["0-30 s1", "30-60 s2", "600-612 s1", "615-633 s1"])
+        XCTAssertEqual(Set(track.voices.map(\.id)), ["s1", "s2"])
+
+        // had the person named the new one in the meantime, that is the id that stays
+        var named = TrackSpeakers()
+        let namedIds = Ids()
+        _ = named.absorb(diarization([(0, 30, 0)], prints: [0: voicePrint(0)]), from: 0, to: 60, makeSpeaker: namedIds.next)
+        _ = named.absorb(diarization([(600, 612, 4)], prints: [4: voicePrint(7)]), from: 600, to: 620, makeSpeaker: namedIds.next)
+        outcome = named.absorb(diarization([(600, 630, 9)], prints: [9: voicePrint(0)]), from: 600, to: 640, named: ["s2"], makeSpeaker: namedIds.next)
+        XCTAssertEqual(outcome.assignment, [9: "s2"])
+        XCTAssertEqual(outcome.absorbedBy, ["s1": "s2"])
+        XCTAssertEqual(turns(named), ["0-30 s2", "600-630 s2"])
+
+        // two voices that are both talking in the window are never folded, however alike they sound
+        var both = TrackSpeakers()
+        let bothIds = Ids()
+        outcome = both.absorb(
+            diarization([(0, 30, 0), (30, 60, 1)], prints: [0: voicePrint(0), 1: voicePrint(0, wobble: 0.01)]),
+            from: 0, to: 60, makeSpeaker: bothIds.next
+        )
+        outcome = both.absorb(
+            diarization([(0, 30, 0), (30, 60, 1), (60, 75, 1)], prints: [0: voicePrint(0), 1: voicePrint(0, wobble: 0.01)]),
+            from: 0, to: 75, makeSpeaker: bothIds.next
+        )
+        XCTAssertEqual(outcome.assignment, [0: "s1", 1: "s2"])
+        XCTAssertEqual(outcome.retired, [])
+    }
+
     func testTheVoicePrintDoesNotFadeAsTheWindowSlidesAway() {
         var track = TrackSpeakers()
         let ids = Ids()

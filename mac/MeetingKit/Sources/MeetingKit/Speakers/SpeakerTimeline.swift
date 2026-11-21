@@ -259,6 +259,38 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
             // without a speaker until a later run hears more of it.
         }
 
+        // 2b. A speaker that was made when a voice came back and its first
+        // seconds sounded like nobody known: now that more of it has been
+        // heard, it may sound like a known voice that is silent in this
+        // window. Then the two are one, and the older one stays (or the one
+        // the person named).
+        var folded: [String: String] = [:]
+        for cluster in clusters {
+            guard let id = outcome.assignment[cluster], !Self.isProvisional(id),
+                  let seconds = speech[cluster], seconds >= policy.reliablePrintSeconds,
+                  let print = diarization.voicePrints[cluster], !print.isEmpty else { continue }
+            var nearest: (index: Int, distance: Float)?
+            for (index, voice) in candidates.enumerated() where voice.id != id && !voice.isProvisional {
+                let distance = VoicePrint.distance(print, voice.print)
+                if nearest == nil || distance < nearest!.distance { nearest = (index, distance) }
+            }
+            guard let nearest, nearest.distance <= policy.sameVoiceDistance else { continue }
+            let other = candidates.remove(at: nearest.index).id
+            let ownAge = voices.firstIndex { $0.id == id } ?? Int.max
+            let otherAge = voices.firstIndex { $0.id == other } ?? Int.max
+            var keepsOther = otherAge < ownAge
+            if named.contains(id) != named.contains(other) { keepsOther = named.contains(other) }
+            let (stays, goes) = keepsOther ? (other, id) : (id, other)
+            for index in turns.indices where turns[index].speaker == goes {
+                turns[index].speaker = stays
+            }
+            voices.removeAll { $0.id == goes }
+            outcome.assignment[cluster] = stays
+            outcome.created.removeAll { $0 == goes }
+            used.insert(stays)
+            folded[goes] = stays
+        }
+
         // 3. The new turns of the window replace the old ones.
         var kept: [LabelledTurn] = []
         for turn in turns {
@@ -298,9 +330,11 @@ public struct TrackSpeakers: Codable, Equatable, Sendable {
 
         // 5. A voice with nothing left to its name is gone.
         let alive = Set(turns.map(\.speaker))
-        outcome.retired = voices.map(\.id).filter { !alive.contains($0) && !Self.isProvisional($0) }
+        let emptied = voices.map(\.id).filter { !alive.contains($0) && !Self.isProvisional($0) }
         voices.removeAll { !alive.contains($0.id) }
-        for id in outcome.retired {
+        outcome.retired = folded.keys.sorted() + emptied
+        outcome.absorbedBy = folded
+        for id in emptied {
             var heirs: [String: Double] = [:]
             for old in previous where old.speaker == id {
                 for turn in turns where turn.end > old.start && turn.start < old.end {

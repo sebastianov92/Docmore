@@ -16,7 +16,7 @@ the first round and still holds (transcription, queue, server round trip).
 
 | Piece | State |
 | --- | --- |
-| Build, unit tests | Verified: 0 warnings, TEST_TOTAL tests green (UNIT_TOTAL without models, 4 with the real models) |
+| Build, unit tests | Verified: 0 warnings, 178 tests green (174 without models, 4 with the real models) |
 | Transcription with WhisperKit (file, samples, live windows, word times) | Verified with real models |
 | Model catalog, download, delete, size (Whisper and speaker models) | Verified against the real repositories |
 | Transcription and speakers with no network | Verified with networking denied to the process |
@@ -41,7 +41,7 @@ again is said in each place.
 
 ```
 swift build --build-path .build --build-tests     # after removing the package's own intermediates
-# warnings: 0  errors: 0  -> Build complete!
+# warnings: 0  errors: 0  -> Build complete!          (run again after the work on speakers)
 xcodebuild -scheme MeetingKit-Package -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/xcode build
 # ** BUILD SUCCEEDED **  (how the app's Xcode project will build it)
 ```
@@ -50,13 +50,16 @@ xcodebuild -scheme MeetingKit-Package -destination 'platform=macOS,arch=arm64' -
 
 ```
 swift test --build-path .build
-# Executed @@TEST_TOTAL@@ tests, with 0 failures (0 unexpected) in @@TEST_SECONDS@@ seconds
+# Executed 178 tests, with 0 failures (0 unexpected) in 277.9 seconds
+swift test --build-path .build --skip RealModelTests
+# Executed 174 tests, with 0 failures (0 unexpected) in 8.7 seconds
 ```
 
-@@UNIT_TOTAL@@ of them need no model (run again after the work on speakers:
+174 of them need no model (run again after the work on speakers:
 the 91 of the first round are all still there and green). The four of
 `RealModelTests` run the real models over the test meeting and are skipped
-without them.
+without them; most of their 270 s was Core ML preparing the Whisper model
+for the test process, once.
 
 | Suite | Tests | What it covers |
 | --- | --- | --- |
@@ -73,7 +76,7 @@ without them.
 | DocmoreMeetingSenderTests | 17 | request path, headers and exact JSON keys; the same `Idempotency-Key` on every attempt of a job, none for an id the server would refuse as a key; envelope parsing; status and message for 400/401/403/404/429/502; real connection failure is a network error; token asked each time; no token -> needs sign-in, nothing sent; odd 2xx body does not cause a resend; `status`; limits (title, 20,000 segments, 2,000,000 characters). New: a plain transcript posts byte for byte the old body; `meetingId`, `mode`, `speakers` (with `side` and `name` as null when there is none) and `speaker`/`side` of segments exactly as the contract; no sides in person; invalid speaker ids, unknown references, a `meetingId` that is not a UUID and names over 80 characters never reach the server; joined segments keep a speaker only when both had it |
 | MeetingTranscriptTests | 10 | JSON shape `{text, language, durationSeconds, segments:[{start,end,text}]}`; decode; build from segments; join; sound labels; Whisper markers. New: the shape with mode, speakers and sides; speakers write `side` and `name` as null; the two tracks merge by time, the room first on a tie; join keeps mode and speakers |
 | ModelStoreTests | 5 | catalog identifiers and aliases; on-disk layout; `isDownloaded` needs model, tokenizer and marker; delete keeps a shared tokenizer; transcribing without the model says so |
-| SpeakerModelStoreTests | 6 | catalog and aliases; the layout SpeakerKit reads, next to the Whisper models; `isDownloaded` needs every part and the marker; delete removes the speaker models and nothing else; without the models the diarizer says so and starts no download; diarization values |
+| SpeakerModelStoreTests | 7 | catalog and aliases; the layout SpeakerKit reads, next to the Whisper models; `isDownloaded` needs every part and the marker; delete removes the speaker models and nothing else; without the models the diarizer says so and starts no download; the hiss under the speaker models is faint and always the same; diarization values |
 | TrackSpeakersTests | 14 | speakers in order of first appearance; ids stay when the diarizer renumbers its clusters; a voice heard little waits one pass; a voice that melts into another never uses a number; what lies before the window is untouched; a voice that comes back is recognised by its print; the print does not fade as the window slides away; too little speech to tell waits; two speakers that were one person become one (the named one stays); one that was two; the final pass gives every voice a speaker and keeps the ids of the live session; the state survives JSON; voice print distance |
 | SpeakerAttributionTests | 7 | the speaker who talks the most in a segment; a segment two voices share is split at the word; the edge of a turn does not split; without word times; the nearest turn; no speakers; a voice not confirmed yet labels nothing |
 | EchoFilterTests | 8 | a room segment that repeats the remote side is dropped; what only the room said is never dropped (other words, the same words at another time, talking over the call); the quieter copy heard slightly differently; short answers need to be right on time; a voice that is mostly echo needs less evidence; without word times; deterministic; word normalisation |
