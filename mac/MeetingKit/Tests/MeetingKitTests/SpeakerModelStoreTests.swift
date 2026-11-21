@@ -105,6 +105,22 @@ final class SpeakerModelStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path), "no download was started")
     }
 
+    func testTheHissUnderTheSpeakerModelsIsFaintAndAlwaysTheSame() {
+        let silence = [Float](repeating: 0, count: 48_000)
+        let hiss = SpeakerDiarizer.withNoiseFloor(silence)
+        XCTAssertEqual(hiss.count, silence.count)
+        XCTAssertEqual(hiss, SpeakerDiarizer.withNoiseFloor(silence), "the same on every run")
+        XCTAssertLessThanOrEqual(AudioMath.peak(hiss), 0.002)
+        XCTAssertGreaterThan(AudioMath.rms(hiss), 0.0008, "no exact silence is left")
+        XCTAssertFalse(hiss.contains(0))
+        XCTAssertEqual(hiss.reduce(0, +) / Float(hiss.count), 0, accuracy: 0.0001, "no offset")
+        // speech is left as it was, give or take the hiss
+        let tone = sine(frequency: 220, sampleRate: 16_000, seconds: 1, amplitude: 0.3)
+        let heard = SpeakerDiarizer.withNoiseFloor(tone)
+        XCTAssertEqual(AudioMath.rms(heard), AudioMath.rms(tone), accuracy: 0.001)
+        XCTAssertTrue(zip(heard, tone).allSatisfy { abs($0 - $1) <= 0.002 })
+    }
+
     func testDiarizationValues() {
         let value = diarization([(5, 9, 3), (0, 4, 7), (10, 12, 7)], prints: [3: [1], 7: [2]], duration: 12)
         XCTAssertEqual(value.turns.map(\.start), [0, 5, 10], "by start")

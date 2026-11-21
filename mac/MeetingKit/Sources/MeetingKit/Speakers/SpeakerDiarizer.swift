@@ -176,7 +176,7 @@ public final class SpeakerDiarizer: SampleDiarizing, @unchecked Sendable {
         let kit = try await loaded()
         let result: DiarizationResult
         do {
-            result = try await kit.diarize(audioArray: samples, options: PyannoteDiarizationOptions(
+            result = try await kit.diarize(audioArray: Self.withNoiseFloor(samples), options: PyannoteDiarizationOptions(
                 numberOfSpeakers: options.speakerCount,
                 clusterDistanceThreshold: options.clusterThreshold
             ))
@@ -231,6 +231,34 @@ public final class SpeakerDiarizer: SampleDiarizing, @unchecked Sendable {
         } catch {
             throw SpeakerDiarizerError.modelLoadFailed(error.localizedDescription)
         }
+    }
+
+    /// The level of the hiss added before the speaker models listen: about
+    /// -58 dBFS, under the noise of any microphone.
+    static let noiseFloor: Float = 0.002
+
+    /// The samples with a faint, always identical hiss on top.
+    ///
+    /// The speaker models go wrong on audio with long stretches of exact
+    /// silence, which is what the system audio track is while nobody on the
+    /// call talks (and the room track where the echo was silenced): on ten
+    /// minutes of two voices with digital silence between their turns they
+    /// found four voices and gave 57 % of the speech to the right one; with
+    /// this hiss, two voices and 97 % (STATUS.md). A real microphone never
+    /// gives exact silence, so nothing changes for it.
+    static func withNoiseFloor(_ samples: [Float]) -> [Float] {
+        var out = samples
+        var state: UInt32 = 0x9E37_79B9
+        out.withUnsafeMutableBufferPointer { buffer in
+            for index in buffer.indices {
+                // xorshift: the same hiss for the same position on every run
+                state ^= state << 13
+                state ^= state >> 17
+                state ^= state << 5
+                buffer[index] += noiseFloor * (Float(state >> 8) * (2.0 / 16_777_216.0) - 1)
+            }
+        }
+        return out
     }
 
     static func diarization(from result: DiarizationResult, duration: Double) -> Diarization {
