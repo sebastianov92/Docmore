@@ -3,6 +3,7 @@ import PackageDescription
 
 // MeetingKit: the meeting engine of the Docmore macOS app.
 // Record (microphone + system audio) -> transcribe on the device (WhisperKit)
+// and tell the voices apart (SpeakerKit, a product of the same package)
 // -> queue the transcript for the Docmore server.
 let package = Package(
     name: "MeetingKit",
@@ -23,6 +24,8 @@ let package = Package(
             dependencies: [
                 "MeetingKitObjC",
                 .product(name: "WhisperKit", package: "WhisperKit"),
+                // Speaker diarization. Ships in the WhisperKit package: no new dependency.
+                .product(name: "SpeakerKit", package: "WhisperKit"),
             ],
             path: "Sources/MeetingKit"
         ),

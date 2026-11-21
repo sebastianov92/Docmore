@@ -36,7 +36,7 @@ struct Arguments {
     var options: [String: String] = [:]
     var flags: Set<String> = []
 
-    static let flagNames: Set<String> = ["json", "check", "progress", "no-system-audio", "no-microphone", "help"]
+    static let flagNames: Set<String> = ["json", "check", "progress", "no-system-audio", "no-microphone", "help", "prints"]
 
     init(_ raw: [String]) throws {
         var index = 0
@@ -157,25 +157,105 @@ func run(_ command: String, _ arguments: Arguments) async throws {
             }
             print(line)
         }
+        for info in SpeakerModelCatalog.all {
+            var line = "\(info.id)  \(info.displayName), about \(megabytes(info.approximateSizeBytes))"
+            if let store {
+                line += store.isDownloaded(info) ? "  [downloaded, \(megabytes(store.sizeOnDisk(info))) on disk]" : "  [not downloaded]"
+            }
+            if arguments.flags.contains("check") {
+                let checker = store ?? ModelStore(directory: FileManager.default.temporaryDirectory)
+                do {
+                    line += "  [resolves: \(try await checker.remoteFileCount(info)) files]"
+                } catch {
+                    line += "  [does not resolve: \(error.localizedDescription)]"
+                }
+            }
+            print(line)
+        }
 
     case "download":
-        let info = try model(arguments.first("model"))
+        let name = try arguments.first("model")
         let store = ModelStore(directory: try arguments.directory("models-dir"), endpoint: arguments.options["endpoint"])
         var lastShown = -1
-        try await store.download(info) { fraction in
+        let report: (Double) -> Void = { fraction in
             let percent = Int(fraction * 100)
             if percent / 10 != lastShown / 10 || percent == 100, percent != lastShown {
                 lastShown = percent
                 printError("download \(percent)%")
             }
         }
-        print("downloaded \(info.id): \(megabytes(store.sizeOnDisk(info))) in \(store.modelFolder(for: info).path)")
+        if let speakers = SpeakerModelCatalog.model(name) {
+            try await store.download(speakers, progress: report)
+            print("downloaded \(speakers.id): \(megabytes(store.sizeOnDisk(speakers))) in \(store.modelFolder(for: speakers).path)")
+        } else {
+            let info = try model(name)
+            try await store.download(info, progress: report)
+            print("downloaded \(info.id): \(megabytes(store.sizeOnDisk(info))) in \(store.modelFolder(for: info).path)")
+        }
 
     case "delete":
-        let info = try model(arguments.first("model"))
+        let name = try arguments.first("model")
         let store = ModelStore(directory: try arguments.directory("models-dir"))
-        try store.delete(info)
-        print("deleted \(info.id)")
+        if let speakers = SpeakerModelCatalog.model(name) {
+            try store.delete(speakers)
+            print("deleted \(speakers.id)")
+        } else {
+            let info = try model(name)
+            try store.delete(info)
+            print("deleted \(info.id)")
+        }
+
+    case "diarize":
+        let file = URL(fileURLWithPath: try arguments.first("audio file"))
+        let store = ModelStore(directory: try arguments.directory("models-dir"))
+        let diarizer = SpeakerDiarizer(modelStore: store)
+        let channel = arguments.options["channel"].flatMap { Int($0) }
+        var samples = try AudioTrackReader.samples(of: file, channel: channel)
+        if let from = arguments.options["from"].flatMap({ Double($0) }) {
+            samples = Array(samples.dropFirst(Int(from * MeetingAudioFormat.sampleRate)))
+        }
+        if let limit = arguments.options["seconds"].flatMap({ Double($0) }) {
+            samples = Array(samples.prefix(Int(limit * MeetingAudioFormat.sampleRate)))
+        }
+        let options = DiarizationOptions(
+            clusterThreshold: arguments.options["threshold"].flatMap { Float($0) },
+            speakerCount: arguments.options["speakers"].flatMap { Int($0) }
+        )
+        let loadStarted = Date()
+        try await diarizer.prepare()
+        let loadSeconds = Date().timeIntervalSince(loadStarted)
+        let started = Date()
+        let diarization = try await diarizer.diarize(samples: samples, options: options)
+        let seconds = Date().timeIntervalSince(started)
+        if arguments.flags.contains("json") {
+            struct Output: Encodable {
+                struct Turn: Encodable { var start: Double; var end: Double; var cluster: Int }
+                var durationSeconds: Double
+                var loadSeconds: Double
+                var diarizeSeconds: Double
+                var clusters: [Int]
+                var speechSeconds: [String: Double]
+                var turns: [Turn]
+                var voicePrints: [String: [Float]]?
+            }
+            print(try jsonString(Output(
+                durationSeconds: diarization.durationSeconds,
+                loadSeconds: loadSeconds,
+                diarizeSeconds: seconds,
+                clusters: diarization.clusters,
+                speechSeconds: Dictionary(uniqueKeysWithValues: diarization.speechSeconds.map { (String($0.key), ($0.value * 100).rounded() / 100) }),
+                turns: diarization.turns.map { .init(start: $0.start, end: $0.end, cluster: $0.cluster) },
+                voicePrints: arguments.flags.contains("prints")
+                    ? Dictionary(uniqueKeysWithValues: diarization.voicePrints.map { (String($0.key), $0.value) }) : nil
+            )))
+        } else {
+            for turn in diarization.turns {
+                print(String(format: "[%@ - %@] voice %d", timestamp(turn.start), timestamp(turn.end), turn.cluster))
+            }
+        }
+        printError(String(format: "%.1f s of audio, %d voices, %d turns, %.2f s to load the models, %.2f s to diarize (%.0fx real time)",
+                          diarization.durationSeconds, diarization.clusters.count, diarization.turns.count,
+                          loadSeconds, seconds, seconds > 0 ? diarization.durationSeconds / seconds : 0))
 
     case "transcribe":
         let file = URL(fileURLWithPath: try arguments.first("audio file"))

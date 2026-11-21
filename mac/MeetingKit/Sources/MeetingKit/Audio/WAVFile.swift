@@ -30,6 +30,17 @@ public struct WAVAudio: Equatable, Sendable {
     }
 }
 
+/// Decoded WAV audio with its channels kept apart.
+public struct WAVChannels: Equatable, Sendable {
+    /// One array per channel, all of the same length, samples in -1...1.
+    public var channels: [[Float]]
+    public var sampleRate: Double
+
+    public var durationSeconds: Double {
+        sampleRate > 0 ? Double(channels.first?.count ?? 0) / sampleRate : 0
+    }
+}
+
 /// Writes 16-bit PCM WAV incrementally.
 ///
 /// Samples go to disk as they arrive and the two size fields of the header
@@ -158,6 +169,41 @@ public enum WAVFile {
             }
         }
         return WAVAudio(samples: mono, sampleRate: Double(layout.sampleRate), channels: layout.channels)
+    }
+
+    /// Reads 16-bit PCM (and 32-bit float) WAV keeping every channel apart:
+    /// what a recording made in virtual mode needs (channel 0 the microphone,
+    /// channel 1 the system audio). Tolerates a stale header like `read`.
+    public static func readChannels(_ url: URL) throws -> WAVChannels {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url, options: .mappedIfSafe)
+        } catch {
+            throw WAVError.notAWAVFile(error.localizedDescription)
+        }
+        let layout = try parse(data)
+        let bytesPerSample = layout.bitsPerSample / 8
+        let frameBytes = bytesPerSample * layout.channels
+        let frames = layout.dataLength / frameBytes
+        var channels = Array(repeating: [Float](repeating: 0, count: frames), count: layout.channels)
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            let base = raw.baseAddress!.advanced(by: layout.dataOffset)
+            for channel in 0..<layout.channels {
+                channels[channel].withUnsafeMutableBufferPointer { out in
+                    for frame in 0..<frames {
+                        let offset = frame * frameBytes + channel * bytesPerSample
+                        if layout.isFloat {
+                            let bits = base.loadUnaligned(fromByteOffset: offset, as: UInt32.self)
+                            out[frame] = Float(bitPattern: UInt32(littleEndian: bits))
+                        } else {
+                            let value = base.loadUnaligned(fromByteOffset: offset, as: Int16.self)
+                            out[frame] = Float(Int16(littleEndian: value)) / 32768
+                        }
+                    }
+                }
+            }
+        }
+        return WAVChannels(channels: channels, sampleRate: Double(layout.sampleRate))
     }
 
     /// Rewrites the size fields of a WAV written by `WAVWriter` so they match

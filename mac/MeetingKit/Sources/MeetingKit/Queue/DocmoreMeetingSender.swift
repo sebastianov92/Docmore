@@ -5,7 +5,13 @@ import Foundation
 ///     POST <base>/api/ai/meetings/from-transcript
 ///     Authorization: Bearer <token>
 ///     { pageId?, spaceId?, title?, transcript, language?, durationSeconds?,
-///       segments?: [{ start, end, text }] }
+///       segments?: [{ start, end, text, speaker?, side? }],
+///       meetingId?, mode?, speakers?: [{ id, number, side, name }] }
+///
+/// The fields of meetings with speakers (`meetingId`, `mode`, `speakers`,
+/// and `speaker`/`side` inside a segment) are sent only when the job has
+/// something to put in them: a plain transcript posts the body it always
+/// did. (A server that does not know them yet ignores them.)
 ///
 /// The token comes from the `authorization` closure each time, so the app
 /// can hand out a fresh one. When the closure throws
@@ -26,6 +32,7 @@ public struct DocmoreMeetingSender: MeetingSender {
     static let maxSegments = 20_000
     static let maxSegmentText = 4_000
     static let maxLanguage = 20
+    static let maxSpeakerName = 80
 
     /// - Parameters:
     ///   - baseURL: the server's address ("https://docs.example.com"), with
@@ -77,14 +84,41 @@ public struct DocmoreMeetingSender: MeetingSender {
         var language: String?
         var durationSeconds: Double?
         var segments: [MeetingTranscript.Segment]?
+        // meetings with speakers: nil (left out of the JSON) unless there is something to say
+        var meetingId: String?
+        var mode: MeetingMode?
+        var speakers: [MeetingSpeaker]?
+
     }
 
     /// The request body for a job, cut to what the server's validation takes.
     static func payload(for job: MeetingJob) -> Payload {
         let transcript = job.transcript
         let title = job.target.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Speakers the server accepts: a valid id, once, a name of at most 80 characters.
+        var speakers: [MeetingSpeaker] = []
+        for speaker in transcript.speakers
+        where MeetingSpeaker.isValidId(speaker.id) && speaker.number >= 1 && !speakers.contains(where: { $0.id == speaker.id }) {
+            let name = speaker.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            speakers.append(MeetingSpeaker(
+                id: speaker.id,
+                number: speaker.number,
+                // sides exist only in a virtual meeting
+                side: transcript.mode == .virtual ? speaker.side : nil,
+                name: name.isEmpty ? nil : String(name.prefix(maxSpeakerName))
+            ))
+        }
+        let known = Set(speakers.map(\.id))
+
         var segments = transcript.segments.map {
-            MeetingTranscript.Segment(start: $0.start, end: $0.end, text: String($0.text.prefix(maxSegmentText)))
+            MeetingTranscript.Segment(
+                start: $0.start,
+                end: $0.end,
+                text: String($0.text.prefix(maxSegmentText)),
+                speaker: $0.speaker.flatMap { known.contains($0) ? $0 : nil },
+                side: transcript.mode == .virtual ? $0.side : nil
+            )
         }
         // Too many segments: join neighbours until they fit.
         while segments.count > maxSegments {
@@ -93,8 +127,17 @@ public struct DocmoreMeetingSender: MeetingSender {
             var index = 0
             while index < segments.count {
                 if index + 1 < segments.count {
-                    let text = segments[index].text + " " + segments[index + 1].text
-                    joined.append(.init(start: segments[index].start, end: segments[index + 1].end, text: String(text.prefix(maxSegmentText))))
+                    let first = segments[index]
+                    let second = segments[index + 1]
+                    let text = first.text + " " + second.text
+                    joined.append(.init(
+                        start: first.start,
+                        end: second.end,
+                        text: String(text.prefix(maxSegmentText)),
+                        // two voices in one segment: it no longer has one speaker
+                        speaker: first.speaker == second.speaker ? first.speaker : nil,
+                        side: first.side == second.side ? first.side : nil
+                    ))
                 } else {
                     joined.append(segments[index])
                 }
@@ -112,8 +155,17 @@ public struct DocmoreMeetingSender: MeetingSender {
             transcript: String(transcript.text.prefix(maxTranscript)),
             language: transcript.language.map { String($0.prefix(maxLanguage)) },
             durationSeconds: transcript.durationSeconds > 0 ? transcript.durationSeconds : nil,
-            segments: segments.isEmpty ? nil : segments
+            segments: segments.isEmpty ? nil : segments,
+            meetingId: job.meetingId.flatMap { isUUID($0) ? $0 : nil },
+            mode: transcript.mode,
+            speakers: speakers.isEmpty ? nil : speakers
         )
+    }
+
+    /// The server takes `meetingId` only as a UUID; anything else would get
+    /// a job that is otherwise fine refused.
+    static func isUUID(_ text: String) -> Bool {
+        text.range(of: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", options: .regularExpression) != nil
     }
 
     /// The job id, when the server accepts it as a key (up to 100 characters

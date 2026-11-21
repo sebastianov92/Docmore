@@ -45,6 +45,10 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
     /// Anything the app wants to find again later (the path of the
     /// recording, the account). MeetingKit does not read it.
     public var userInfo: [String: String]
+    /// The id of the live meeting on the server (`live/start`) that this
+    /// transcript finishes. Nil for a meeting that was not followed live.
+    /// Jobs written by older versions have no such field and read as nil.
+    public var meetingId: String?
 
     public init(
         id: String = UUID().uuidString.lowercased(),
@@ -54,7 +58,8 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
         attempts: Int = 0,
         lastAttemptAt: Date? = nil,
         lastError: String? = nil,
-        userInfo: [String: String] = [:]
+        userInfo: [String: String] = [:],
+        meetingId: String? = nil
     ) {
         self.id = id
         self.target = target
@@ -64,6 +69,7 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
         self.lastAttemptAt = lastAttemptAt
         self.lastError = lastError
         self.userInfo = userInfo
+        self.meetingId = meetingId
     }
 }
 
