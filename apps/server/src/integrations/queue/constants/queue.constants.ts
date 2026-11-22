@@ -115,4 +115,5 @@ export enum QueueJob {
   AI_RESEARCH = 'ai-research',
   AI_MEETING_NOTES = 'ai-meeting-notes',
   AI_AGENT_RUN = 'ai-agent-run',
+  NOTION_IMPORT = 'notion-import',
 }

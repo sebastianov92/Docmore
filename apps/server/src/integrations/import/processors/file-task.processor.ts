@@ -9,6 +9,7 @@ import { ModuleRef } from '@nestjs/core';
 import { InjectKysely } from 'nestjs-kysely';
 import { KyselyDB } from '@docmost/db/types/kysely.types';
 import { PdfExportService } from '../../export/pdf/pdf-export.service';
+import { NotionImportService } from '../notion/notion-import.service';
 
 @Processor(QueueName.FILE_TASK_QUEUE)
 export class FileTaskProcessor extends WorkerHost implements OnModuleDestroy {
@@ -19,6 +20,7 @@ export class FileTaskProcessor extends WorkerHost implements OnModuleDestroy {
     private readonly storageService: StorageService,
     private readonly moduleRef: ModuleRef,
     @InjectKysely() private readonly db: KyselyDB,
+    private readonly notionImports: NotionImportService,
   ) {
     super();
   }
@@ -34,6 +36,9 @@ export class FileTaskProcessor extends WorkerHost implements OnModuleDestroy {
           break;
         case QueueJob.PDF_EXPORT_CLEANUP:
           await this.processExportCleanup();
+          break;
+        case QueueJob.NOTION_IMPORT:
+          await this.notionImports.process(job.data);
           break;
       }
     } catch (err) {

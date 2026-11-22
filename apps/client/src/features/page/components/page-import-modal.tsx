@@ -27,6 +27,7 @@ import { useAtom } from "jotai";
 import { buildTree } from "@/features/page/tree/utils";
 import { IPage } from "@/features/page/types/page.types.ts";
 import React, { useEffect, useRef, useState } from "react";
+import { NotionConnectModal } from "@/features/page/components/notion-connect-modal";
 import { useTranslation } from "react-i18next";
 import { ConfluenceIcon } from "@/components/icons/confluence-icon.tsx";
 import { getFileImportSizeLimit } from "@/lib/config.ts";
@@ -51,8 +52,10 @@ export default function PageImportModal({
   onClose,
 }: PageImportModalProps) {
   const { t } = useTranslation();
+  const [notionOpen, setNotionOpen] = useState(false);
   return (
     <>
+      <NotionConnectModal spaceId={spaceId} opened={notionOpen} onClose={() => setNotionOpen(false)} />
       <Modal.Root
         opened={open}
         onClose={onClose}
@@ -70,7 +73,14 @@ export default function PageImportModal({
             <Modal.CloseButton aria-label={t("Close")} />
           </Modal.Header>
           <Modal.Body>
-            <ImportFormatSelection spaceId={spaceId} onClose={onClose} />
+            <ImportFormatSelection
+              spaceId={spaceId}
+              onClose={onClose}
+              onNotionConnect={() => {
+                onClose();
+                setNotionOpen(true);
+              }}
+            />
           </Modal.Body>
         </Modal.Content>
       </Modal.Root>
@@ -81,8 +91,9 @@ export default function PageImportModal({
 interface ImportFormatSelection {
   spaceId: string;
   onClose: () => void;
+  onNotionConnect: () => void;
 }
-function ImportFormatSelection({ spaceId, onClose }: ImportFormatSelection) {
+function ImportFormatSelection({ spaceId, onClose, onNotionConnect }: ImportFormatSelection) {
   const { t } = useTranslation();
   const [treeData, setTreeData] = useAtom(treeDataAtom);
   const [fileTaskId, setFileTaskId] = useState<string | null>(null);
@@ -443,10 +454,13 @@ function ImportFormatSelection({ spaceId, onClose }: ImportFormatSelection) {
               leftSection={<IconBrandNotion size={18} />}
               {...props}
             >
-              Notion
+              {t("Notion (.zip export)")}
             </Button>
           )}
         </FileButton>
+        <Button justify="start" variant="default" leftSection={<IconBrandNotion size={18} />} onClick={onNotionConnect} data-testid="import-notion-connect">
+          {t("Notion (connect: pages, databases, templates)")}
+        </Button>
         <FileButton
           onChange={(file) => handleZipUpload(file, "confluence")}
           accept="application/zip"

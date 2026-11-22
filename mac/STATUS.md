@@ -16,7 +16,7 @@ Latest full runs:
 
 ```
 xcodebuild test ...                # Executed 117 tests, with 0 failures
-mac/tools/e2e.sh                   # passed 239, failed 0, skipped 0   (2026-11-22 15:10, lab on Claude Haiku 5.5; includes the system search checks)
+mac/tools/e2e.sh                   # passed 239, failed 0, skipped 0   (2026-11-22 17:00, lab on Claude Haiku 5.5; includes the system search checks)
                                    # with the lab's language model healthy; the run of 2026-11-21 19:53 had
                                    # passed 218 and skipped 11, every skip for a model that was too slow
 (cd mac/MeetingKit && swift test --build-path .build --skip RealModelTests)   # Executed 177 tests, with 0 failures

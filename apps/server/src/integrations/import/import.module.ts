@@ -9,6 +9,9 @@ import { DocumentImportService } from './services/document-import.service';
 import { ConfluenceImportService } from './services/confluence-import.service';
 import { FileTaskController } from './file-task.controller';
 import { PageModule } from '../../core/page/page.module';
+import { BaseModule } from '../../core/base/base.module';
+import { NotionImportService } from './notion/notion-import.service';
+import { NotionImportController } from './notion/notion-import.controller';
 
 @Module({
   providers: [
@@ -18,9 +21,10 @@ import { PageModule } from '../../core/page/page.module';
     ImportAttachmentService,
     DocumentImportService,
     ConfluenceImportService,
+    NotionImportService,
   ],
   exports: [ImportService, ImportAttachmentService],
-  controllers: [ImportController, FileTaskController],
-  imports: [StorageModule, PageModule],
+  controllers: [ImportController, FileTaskController, NotionImportController],
+  imports: [StorageModule, PageModule, BaseModule],
 })
 export class ImportModule {}

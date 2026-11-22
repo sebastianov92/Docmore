@@ -14,6 +14,7 @@ import { PageSuggestions } from '@docmost/db/types/suggestion.types';
 import { IdempotencyKeys, OfflinePins, SyncChanges } from '@docmost/db/types/sync.types';
 import { BaseCalendarFeeds } from '@docmost/db/types/calendar-feed.types';
 import { AiAgentRuns, AiAgents } from '@docmost/db/types/ai-agents.types';
+import { NotionImports } from '@docmost/db/types/notion-import.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -40,4 +41,5 @@ export interface DbInterface extends DB {
   baseCalendarFeeds: BaseCalendarFeeds;
   aiAgents: AiAgents;
   aiAgentRuns: AiAgentRuns;
+  notionImports: NotionImports;
 }

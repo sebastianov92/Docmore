@@ -270,6 +270,43 @@ outside the `ee/` directories, so they are always on:
   (name, address, coordinates, map link), conditional form fields ("show
   when"), and connected properties (a link whose title, status and author
   the integrations fill in and refresh).
+- **The assistant proposes, people accept**: by default the chat and the
+  scheduled agents never change an existing page directly: they file a
+  suggestion (to append, to prepend or a new version) that someone who can
+  edit the page accepts or rejects in the same review screen as people's
+  suggestions. An addition lands on the page as it is when it is accepted.
+  Switch under Settings > AI; outside tools over MCP keep `update_page`
+  and get `suggest_page_edit` too.
+- **Scheduled agents** (`/ai/agents`): a task in words, a schedule (every
+  day, some days of the week, once a month, in a time zone) and a place
+  for the result: a notification, a new page each time, or a dated section
+  added to a page. An agent works alone with the tools of the chat and the
+  permissions of the person who made it, can be kept to one space, only
+  reads unless allowed to write, counts against the daily AI limit and is
+  paused after five failures in a row. Ready-made tasks: weekly summary of
+  changes, pages to verify, daily digest. Two tools came with it for chat,
+  agents and MCP: `list_changed_pages` and `list_pages_to_verify`.
+- **A model for meetings**: Settings > AI takes a model of its own for the
+  live list and the notes of meetings; empty means the writing model.
+- **Calendar subscription**: "Subscribe" on a base's calendar view gives a
+  private `.ics` link for Apple Calendar, Google Calendar or Outlook. It
+  shows what its owner may see, follows the view's filter and date, and
+  stops answering when it is turned off, replaced or its owner loses
+  access.
+- **Import from Notion through its API**: Import pages > "Notion
+  (connect)". With the secret of a connection made in Notion, the pages
+  shared with it come over with their sub-pages, and each database becomes
+  a base with its columns (select and status options with colors and
+  groups, dates with time and end, numbers with currency, relations
+  between imported databases), its rows, the text of each row as a page,
+  and its views (table, board, calendar, timeline, gallery, list). Files
+  Notion hosts are copied. The report says what did not come over as it
+  was (formulas and rollups as values, people as names, view filters,
+  forms and charts). This is also how a Notion template is brought in:
+  duplicate it into your Notion, share it with the connection, import.
+  The secret is used for the import and not stored. Written against the
+  API reference (version 2026-03-11) and tested with a stand-in server,
+  not yet against Notion itself.
 - **Live meeting recorder**: "Record meeting" records the microphone with
   a live transcript every 45 seconds; stopping turns the recording into
   notes on the page.
@@ -319,7 +356,8 @@ only. Never set it on a real instance.
   through the app, which signs in through the system browser (OAuth with
   PKCE, the token lives in the Keychain and never reaches the page).
   Several accounts, native tabs, windows and menus, notifications and Dock
-  badge, Spotlight for the pages on the device, a quick note from a global
+  badge, Spotlight for every page you can see (by title, and by text for
+  the pages on the device), a quick note from a global
   shortcut (queued when the server is away), an optional lock with Touch
   ID, and meetings: you pick in person (the microphone) or virtual (the
   microphone for your side, the call's own audio for the other side, kept
