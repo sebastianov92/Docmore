@@ -53,11 +53,14 @@ final class SettingsModel: ObservableObject {
     @Published var quickCaptureEnabled: Bool
     @Published var hotKey: HotKeyCombo
     @Published var recordingHotKey = false
-    @Published var meetingMicrophone: Bool
-    @Published var meetingSystemAudio: Bool
+    /// The kind of meeting the chooser preselects.
+    @Published var meetingMode: MeetingMode
     /// Model id -> download progress, while a download runs.
     @Published var modelDownloads: [String: Double] = [:]
     @Published var modelError: String?
+    /// Download progress of the model that tells voices apart.
+    @Published var speakerModelDownload: Double?
+    @Published var speakerModelError: String?
     /// Bumped to redraw the model list after a download or a delete.
     @Published var modelRevision = 0
 
@@ -69,8 +72,7 @@ final class SettingsModel: ObservableObject {
         meetingModel = settings.meetingModel
         meetingLanguage = settings.meetingLanguage
         meetingDetection = settings.meetingDetection
-        meetingMicrophone = settings.meetingMicrophone
-        meetingSystemAudio = settings.meetingSystemAudio
+        meetingMode = settings.meetingMode
         lockEnabled = settings.lockEnabled
         quickCaptureEnabled = settings.quickCaptureEnabled
         hotKey = settings.quickCaptureHotKey
@@ -85,6 +87,7 @@ final class SettingsModel: ObservableObject {
             selectedProfileId = AppCoordinator.shared.activeProfile?.id ?? profiles.first?.id ?? ""
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        meetingMode = services.settings.meetingMode
         modelRevision += 1
         measure()
     }
@@ -138,16 +141,51 @@ final class SettingsModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.measure() }
     }
 
+    #if DEBUG
+    /// Lets a scripted run look at Settings with an engine double.
+    var engineOverride: MeetingEngine? {
+        didSet { modelRevision += 1 }
+    }
+    var meetingEngine: MeetingEngine { engineOverride ?? MeetingController.shared.engine }
+    #else
     var meetingEngine: MeetingEngine { MeetingController.shared.engine }
+    #endif
 
     func applyMeetingSettings() {
         let settings = services.settings
         settings.meetingModel = meetingModel
         settings.meetingLanguage = meetingLanguage
         settings.meetingDetection = meetingDetection
-        settings.meetingMicrophone = meetingMicrophone
-        settings.meetingSystemAudio = meetingSystemAudio
+        settings.meetingMode = meetingMode
         MeetingDetector.shared.setEnabled(meetingDetection)
+    }
+
+    func downloadSpeakerModel() {
+        guard speakerModelDownload == nil else { return }
+        speakerModelDownload = 0
+        speakerModelError = nil
+        Task { @MainActor in
+            do {
+                try await meetingEngine.downloadSpeakerModel { fraction in
+                    Task { @MainActor in
+                        if self.speakerModelDownload != nil { self.speakerModelDownload = fraction }
+                    }
+                }
+            } catch {
+                speakerModelError = error.localizedDescription
+            }
+            speakerModelDownload = nil
+            modelRevision += 1
+        }
+    }
+
+    func deleteSpeakerModel() {
+        do {
+            try meetingEngine.deleteSpeakerModel()
+        } catch {
+            speakerModelError = error.localizedDescription
+        }
+        modelRevision += 1
     }
 
     func downloadModel(_ modelId: String) {
@@ -444,6 +482,17 @@ private struct MeetingSettings: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            Section(L("Kind of meeting")) {
+                ForEach(MeetingMode.allCases, id: \.self) { mode in
+                    MeetingKindRow(mode: mode, selected: model.meetingMode == mode) {
+                        model.meetingMode = mode
+                        model.applyMeetingSettings()
+                    }
+                }
+                Text(L("The kind a new recording proposes. Picking the other one when a recording starts changes it."))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Section(L("Transcription model, kept on this Mac")) {
                 ForEach(engine.models) { entry in
                     ModelRow(
@@ -471,11 +520,24 @@ private struct MeetingSettings: View {
                 }
                 .onChange(of: model.meetingLanguage) { _, _ in model.applyMeetingSettings() }
             }
-            Section(L("What is recorded")) {
-                Toggle(L("Microphone (your voice)"), isOn: $model.meetingMicrophone)
-                    .onChange(of: model.meetingMicrophone) { _, _ in model.applyMeetingSettings() }
-                Toggle(L("System audio (the other participants)"), isOn: $model.meetingSystemAudio)
-                    .onChange(of: model.meetingSystemAudio) { _, _ in model.applyMeetingSettings() }
+            if let speakerModel = engine.speakerModel {
+                Section(L("Speaker identification model, kept on this Mac")) {
+                    SpeakerModelRow(
+                        entry: speakerModel,
+                        downloaded: engine.isSpeakerModelDownloaded,
+                        sizeText: engine.isSpeakerModelDownloaded ? size(engine.speakerModelSizeOnDisk) : size(speakerModel.sizeBytes),
+                        progress: model.speakerModelDownload,
+                        download: { model.downloadSpeakerModel() },
+                        delete: { model.deleteSpeakerModel() }
+                    )
+                    .id(model.modelRevision)
+                    if let error = model.speakerModelError {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                    }
+                    Text(L("Tells the voices of a meeting apart, on this Mac. Without it the transcript has no speakers."))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
             Section {
                 Toggle(L("Offer to record when another app starts using the microphone"), isOn: $model.meetingDetection)
@@ -533,6 +595,75 @@ private struct ModelRow: View {
                 Button(L("Download"), action: download)
             }
         }
+    }
+}
+
+/// The model that tells voices apart: no choice to make, only whether it is
+/// on this Mac.
+private struct SpeakerModelRow: View {
+    let entry: MeetingModelChoice
+    let downloaded: Bool
+    let sizeText: String
+    let progress: Double?
+    let download: () -> Void
+    let delete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "person.wave.2")
+                .foregroundStyle(downloaded ? Color.accentColor : Color.secondary)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.name)
+                Text(downloaded ? L("On this Mac, %@", sizeText) : L("Download of about %@", sizeText))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if let progress {
+                ProgressView(value: progress)
+                    .frame(width: 90)
+                Text("\(Int(progress * 100))%")
+                    .font(.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, alignment: .trailing)
+            } else if downloaded {
+                Button(L("Delete"), action: delete)
+            } else {
+                Button(L("Download"), action: download)
+            }
+        }
+    }
+}
+
+/// One kind of meeting as the default: the whole row selects it.
+private struct MeetingKindRow: View {
+    let mode: MeetingMode
+    let selected: Bool
+    let select: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            HStack(spacing: 10) {
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(mode.title)
+                    Text(mode.explanation)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: mode.symbol)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 

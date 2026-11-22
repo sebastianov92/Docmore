@@ -49,6 +49,12 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
     /// transcript finishes. Nil for a meeting that was not followed live.
     /// Jobs written by older versions have no such field and read as nil.
     public var meetingId: String?
+    /// The language of the recorder's own interface ("es-ES", "en"): the
+    /// server writes default labels, owners and headings of the notes in
+    /// it. Kept with the job so a meeting recorded with no server at all
+    /// still gets it. Nil (and left out of the file and of the request)
+    /// when the app gave none, as in jobs written by older versions.
+    public var locale: String?
 
     public init(
         id: String = UUID().uuidString.lowercased(),
@@ -59,7 +65,8 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
         lastAttemptAt: Date? = nil,
         lastError: String? = nil,
         userInfo: [String: String] = [:],
-        meetingId: String? = nil
+        meetingId: String? = nil,
+        locale: String? = nil
     ) {
         self.id = id
         self.target = target
@@ -70,6 +77,7 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
         self.lastError = lastError
         self.userInfo = userInfo
         self.meetingId = meetingId
+        self.locale = locale
     }
 }
 

@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        MeetingController.shared.cancelChoice()
         if MeetingController.shared.isRecording {
             // keep what was recorded: stop cleanly, then quit
             Task { @MainActor in

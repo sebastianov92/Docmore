@@ -6,12 +6,13 @@ import Foundation
 ///     Authorization: Bearer <token>
 ///     { pageId?, spaceId?, title?, transcript, language?, durationSeconds?,
 ///       segments?: [{ start, end, text, speaker?, side? }],
-///       meetingId?, mode?, speakers?: [{ id, number, side, name }] }
+///       meetingId?, mode?, speakers?: [{ id, number, side, name }], locale? }
 ///
 /// The fields of meetings with speakers (`meetingId`, `mode`, `speakers`,
-/// and `speaker`/`side` inside a segment) are sent only when the job has
-/// something to put in them: a plain transcript posts the body it always
-/// did. (A server that does not know them yet ignores them.)
+/// and `speaker`/`side` inside a segment) and `locale` (the language of the
+/// recorder's interface) are sent only when the job has something to put in
+/// them: a plain transcript posts the body it always did. (A server that
+/// does not know them yet ignores them.)
 ///
 /// The token comes from the `authorization` closure each time, so the app
 /// can hand out a fresh one. When the closure throws
@@ -88,7 +89,8 @@ public struct DocmoreMeetingSender: MeetingSender {
         var meetingId: String?
         var mode: MeetingMode?
         var speakers: [MeetingSpeaker]?
-
+        // the language of the recorder's interface: nil (left out) unless the job has one
+        var locale: String?
     }
 
     /// The request body for a job, cut to what the server's validation takes.
@@ -158,8 +160,15 @@ public struct DocmoreMeetingSender: MeetingSender {
             segments: segments.isEmpty ? nil : segments,
             meetingId: job.meetingId.flatMap { isUUID($0) ? $0 : nil },
             mode: transcript.mode,
-            speakers: speakers.isEmpty ? nil : speakers
+            speakers: speakers.isEmpty ? nil : speakers,
+            locale: job.locale.flatMap { isLocale($0) ? $0 : nil }
         )
+    }
+
+    /// A language tag as the server takes it ("es", "es-ES", "pt_BR"); a
+    /// value that is not one is left out instead of getting the job refused.
+    static func isLocale(_ text: String) -> Bool {
+        text.range(of: "^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8}){0,3}$", options: .regularExpression) != nil
     }
 
     /// The server takes `meetingId` only as a UUID; anything else would get

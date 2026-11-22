@@ -16,7 +16,7 @@ the first round and still holds (transcription, queue, server round trip).
 
 | Piece | State |
 | --- | --- |
-| Build, unit tests | Verified: 0 warnings, 179 tests green (175 without models, 4 with the real models) |
+| Build, unit tests | Verified: 0 warnings, 181 tests green (177 without models, 4 with the real models) |
 | Transcription with WhisperKit (file, samples, live windows, word times) | Verified with real models |
 | Model catalog, download, delete, size (Whisper and speaker models) | Verified against the real repositories |
 | Transcription and speakers with no network | Verified with networking denied to the process |
@@ -366,7 +366,7 @@ What somebody following the updates would have seen:
 
 ### Tests
 
-179 tests, 175 of them without models: the table is in the first-round part below, which was brought up to date.
+181 tests, 177 of them without models: the table is in the first-round part below, which was brought up to date.
 
 ## Verified in the first round (still holds)
 
@@ -386,12 +386,13 @@ xcodebuild -scheme MeetingKit-Package -destination 'platform=macOS,arch=arm64' -
 
 ```
 swift test --build-path .build
-# Executed 179 tests, with 0 failures (0 unexpected) in 149.1 seconds
+# Executed 181 tests, with 0 failures (0 unexpected) in 266.5 seconds
 swift test --build-path .build --skip RealModelTests
-# Executed 175 tests, with 0 failures (0 unexpected) in 7.1 seconds
+# Executed 177 tests, with 0 failures (0 unexpected) in 7.2 seconds
 ```
 
-175 of them need no model (run again after the work on speakers:
+177 of them need no model (run again after the work on speakers, and
+again after `locale` was added to the job and the sender:
 the 91 of the first round are all still there and green). The four of
 `RealModelTests` run the real models over the test meeting and are skipped
 without them; the first time, most of their 270 s was Core ML preparing
@@ -408,8 +409,8 @@ the Whisper model for the test process.
 | SeparateTracksTests | 10 | the options of the two kinds of meeting; a virtual recording is two channels, the microphone alone in 0 and the system audio alone in 1 (pitch and level of each), same length, live chunks per track that add up to the file; a missing source is a silent channel, never the other source; in person records the microphone alone; the mixed layout of the first version unchanged and read as one track; a late source is padded; a two-channel recording cut by a crash is repaired; reading tracks from one file or two; the speaker models are refused while a recording runs and allowed again after stop and after cancel |
 | TrackWindowerTests | 3 | both tracks cut at the same samples, in a pause both have; one track behaves like `LiveChunker`; unequal blocks padded |
 | MeetingQueueTests | 16 | one JSON file per job; survives a new queue object; retry classification table; network failure keeps the job and a later flush sends it once; the job id is the same on every attempt; 401 keeps it and reports needs-sign-in; 400/403 move to `failed/` with the reason; 404 keeps and goes on; 8 concurrent flushes send each job once, never two at a time; a job stored during a flush is sent; a second queue on the directory gets `busy`; `onChange`; unreadable file moved aside; removed job does not come back |
-| MeetingJobCodingTests | 3 | a job file exactly as the first version wrote it decodes, encodes back to the same bytes and is sent with the old body; such a file left in the queue directory is flushed; a job with mode, speakers and `meetingId` survives the disk and another queue object |
-| DocmoreMeetingSenderTests | 17 | request path, headers and exact JSON keys; the same `Idempotency-Key` on every attempt of a job, none for an id the server would refuse as a key; envelope parsing; status and message for 400/401/403/404/429/502; real connection failure is a network error; token asked each time; no token -> needs sign-in, nothing sent; odd 2xx body does not cause a resend; `status`; limits (title, 20,000 segments, 2,000,000 characters). New: a plain transcript posts byte for byte the old body; `meetingId`, `mode`, `speakers` (with `side` and `name` as null when there is none) and `speaker`/`side` of segments exactly as the contract; no sides in person; invalid speaker ids, unknown references, a `meetingId` that is not a UUID and names over 80 characters never reach the server; joined segments keep a speaker only when both had it |
+| MeetingJobCodingTests | 4 | the `locale` of a job survives the disk and another queue object, and a job without one has no such key; a job file exactly as the first version wrote it decodes, encodes back to the same bytes and is sent with the old body; such a file left in the queue directory is flushed; a job with mode, speakers and `meetingId` survives the disk and another queue object |
+| DocmoreMeetingSenderTests | 18 | `locale` (the language of the recorder's interface) is posted only when the job has one that looks like a language tag, and a job without one posts the old body; request path, headers and exact JSON keys; the same `Idempotency-Key` on every attempt of a job, none for an id the server would refuse as a key; envelope parsing; status and message for 400/401/403/404/429/502; real connection failure is a network error; token asked each time; no token -> needs sign-in, nothing sent; odd 2xx body does not cause a resend; `status`; limits (title, 20,000 segments, 2,000,000 characters). New: a plain transcript posts byte for byte the old body; `meetingId`, `mode`, `speakers` (with `side` and `name` as null when there is none) and `speaker`/`side` of segments exactly as the contract; no sides in person; invalid speaker ids, unknown references, a `meetingId` that is not a UUID and names over 80 characters never reach the server; joined segments keep a speaker only when both had it |
 | MeetingTranscriptTests | 10 | JSON shape `{text, language, durationSeconds, segments:[{start,end,text}]}`; decode; build from segments; join; sound labels; Whisper markers. New: the shape with mode, speakers and sides; speakers write `side` and `name` as null; the two tracks merge by time, the room first on a tie; join keeps mode and speakers |
 | ModelStoreTests | 5 | catalog identifiers and aliases; on-disk layout; `isDownloaded` needs model, tokenizer and marker; delete keeps a shared tokenizer; transcribing without the model says so |
 | SpeakerModelStoreTests | 7 | catalog and aliases; the layout SpeakerKit reads, next to the Whisper models; `isDownloaded` needs every part and the marker; delete removes the speaker models and nothing else; without the models the diarizer says so and starts no download; the hiss under the speaker models is faint and always the same; diarization values |

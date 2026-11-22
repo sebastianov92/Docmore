@@ -79,6 +79,40 @@ final class MeetingJobCodingTests: XCTestCase {
         XCTAssertNil(sent.values.first?.meetingId)
     }
 
+    func testTheLocaleOfAJobSurvivesTheQueueAndIsAbsentWhenNotGiven() async throws {
+        let directory = makeTemporaryDirectory(self)
+        let transcript = MeetingTranscript(segments: [.init(start: 0, end: 2, text: "Entregamos el viernes.")], language: "es", durationSeconds: 2)
+        let sent = Box<MeetingJob>()
+        let queue = MeetingQueue(directory: directory, sender: ClosureMeetingSender { job in
+            sent.add(job)
+            return MeetingReceipt(id: "m-3", status: "queued")
+        })
+        let space = "0195e5a4-0000-7000-8000-000000000002"
+        let with = try queue.enqueue(transcript, target: .space(space), locale: "es-ES")
+        let without = try queue.enqueue(transcript, target: .space(space))
+        let empty = try queue.enqueue(transcript, target: .space(space), locale: "")
+        XCTAssertEqual(with.locale, "es-ES")
+        XCTAssertNil(without.locale)
+        XCTAssertNil(empty.locale)
+
+        func stored(_ job: MeetingJob) throws -> [String: Any] {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent("\(job.id).json"))) as? [String: Any])
+        }
+        XCTAssertEqual(try stored(with)["locale"] as? String, "es-ES")
+        XCTAssertNil(try stored(without)["locale"], "no locale: the file has no such key, as before")
+
+        // back through another queue object, as after a relaunch with no server in between
+        let reopened = MeetingQueue(directory: directory, sender: ClosureMeetingSender { job in
+            sent.add(job)
+            return MeetingReceipt(id: "m-3", status: "queued")
+        })
+        XCTAssertEqual(reopened.pendingJobs().map(\.locale), ["es-ES", nil, nil])
+        _ = queue
+        let report = await reopened.flush()
+        XCTAssertEqual(report.sent.count, 3)
+        XCTAssertEqual(sent.values.map(\.locale), ["es-ES", nil, nil])
+    }
+
     func testAJobWithSpeakersAndItsLiveMeetingSurvivesTheQueue() async throws {
         let directory = makeTemporaryDirectory(self)
         let transcript = MeetingTranscript(

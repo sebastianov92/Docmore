@@ -326,6 +326,40 @@ final class DocmoreMeetingSenderTests: XCTestCase {
         XCTAssertEqual(segments[2]["side"] as? String, "room")
     }
 
+    func testTheLanguageOfTheRecordersInterfaceIsSentOnlyWhenTheJobHasOne() async throws {
+        respond(200, accepted)
+        let job = MeetingJob(target: .page(pageId, title: "Seguimiento"), transcript: virtualTranscript(), meetingId: meetingId, locale: "es-ES")
+        _ = try await sender().send(job)
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(requests.first).body) as? [String: Any])
+        XCTAssertEqual(body["locale"] as? String, "es-ES")
+        XCTAssertEqual(Set(body.keys), ["pageId", "title", "transcript", "language", "durationSeconds", "segments", "meetingId", "mode", "speakers", "locale"])
+
+        // a plain transcript with a locale: the old body plus that one field
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let plain = MeetingJob(id: "job-1", target: .page(pageId, title: "Weekly"), transcript: sampleTranscript(), locale: "en")
+        XCTAssertEqual(
+            String(decoding: try encoder.encode(DocmoreMeetingSender.payload(for: plain)), as: UTF8.self),
+            #"{"durationSeconds":3,"language":"en","locale":"en","pageId":"0195e5a4-0000-7000-8000-000000000001","segments":[{"end":1.5,"start":0,"text":"Hello there."},{"end":3,"start":1.5,"text":"General Kenobi."}],"title":"Weekly","transcript":"Hello there. General Kenobi."}"#
+        )
+
+        // none, empty, or not a language tag: the key is left out and nothing else changes
+        var without = plain
+        without.locale = nil
+        let old = String(decoding: try encoder.encode(DocmoreMeetingSender.payload(for: without)), as: UTF8.self)
+        XCTAssertFalse(old.contains("locale"))
+        for bad in ["", "  ", "español de España", "e", "es-ES; DROP", String(repeating: "x", count: 40)] {
+            var odd = plain
+            odd.locale = bad
+            XCTAssertEqual(String(decoding: try encoder.encode(DocmoreMeetingSender.payload(for: odd)), as: UTF8.self), old, "\(bad)")
+        }
+        for good in ["es", "en", "es-ES", "pt_BR", "zh-Hans-CN"] {
+            var fine = plain
+            fine.locale = good
+            XCTAssertEqual(DocmoreMeetingSender.payload(for: fine).locale, good)
+        }
+    }
+
     func testAnInPersonMeetingHasNoSides() throws {
         var transcript = virtualTranscript()
         transcript.mode = .inPerson

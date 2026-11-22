@@ -122,13 +122,15 @@ public final class MeetingQueue: @unchecked Sendable {
 
     /// Stores a transcript for sending. Does not send: call `flush()`.
     /// `meetingId` is the live meeting on the server this transcript
-    /// finishes, when it was followed live.
+    /// finishes, when it was followed live. `locale` is the language of the
+    /// recorder's interface ("es-ES", "en"), for the labels of the notes.
     @discardableResult
     public func enqueue(
         _ transcript: MeetingTranscript,
         target: MeetingTarget,
         userInfo: [String: String] = [:],
-        meetingId: String? = nil
+        meetingId: String? = nil,
+        locale: String? = nil
     ) throws -> MeetingJob {
         guard target.isValid else { throw MeetingQueueError.invalidTarget }
         guard !transcript.isEmpty else { throw MeetingQueueError.emptyTranscript }
@@ -140,7 +142,8 @@ public final class MeetingQueue: @unchecked Sendable {
                 createdAt = newest.addingTimeInterval(0.001)
             }
             let job = MeetingJob(target: target, transcript: transcript, createdAt: createdAt, userInfo: userInfo,
-                                 meetingId: (meetingId ?? "").isEmpty ? nil : meetingId)
+                                 meetingId: (meetingId ?? "").isEmpty ? nil : meetingId,
+                                 locale: (locale ?? "").isEmpty ? nil : locale)
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 try Self.write(job, to: Self.file(for: job.id, in: directory))

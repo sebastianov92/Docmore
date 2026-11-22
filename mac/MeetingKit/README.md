@@ -713,6 +713,7 @@ public struct MeetingJob: Codable, Equatable, Identifiable, Sendable {
     public var lastError: String?
     public var userInfo: [String: String]   // the app's own data, e.g. the recording path
     public var meetingId: String?           // the live meeting on the server this transcript finishes
+    public var locale: String?              // the language of the recorder's interface ("es-ES", "en")
 }
 
 public struct MeetingReceipt: Codable, Equatable, Sendable {
@@ -739,7 +740,8 @@ public final class MeetingQueue: @unchecked Sendable {
     public func failedJobs() -> [MeetingJob]
     @discardableResult public func enqueue(_ transcript: MeetingTranscript, target: MeetingTarget,
                                            userInfo: [String: String] = [:],
-                                           meetingId: String? = nil) throws -> MeetingJob
+                                           meetingId: String? = nil,
+                                           locale: String? = nil) throws -> MeetingJob
     @discardableResult public func flush() async -> FlushReport
     @discardableResult public func retryFailed(id: String? = nil) throws -> Int
     public func remove(id: String) throws
@@ -815,7 +817,7 @@ public struct DocmoreMeetingSender: MeetingSender {
   ```
   { pageId?, spaceId?, title?, transcript, language?, durationSeconds?,
     segments?: [{ start, end, text, speaker?, side? }],
-    meetingId?, mode?, speakers?: [{ id, number, side, name }] }
+    meetingId?, mode?, speakers?: [{ id, number, side, name }], locale? }
   ```
 
   cut to the server's limits (title 200, transcript 2,000,000 characters,
@@ -823,6 +825,10 @@ public struct DocmoreMeetingSender: MeetingSender {
 - `meetingId`, `mode`, `speakers`, and `speaker`/`side` of a segment are
   sent only when the job has something to put in them. A plain transcript
   posts byte for byte the body the first version posted.
+- `locale` is `job.locale` (given to `enqueue`): the language of the app's
+  own interface, so the server writes default labels, owners and headings
+  of the notes in it, also for a meeting recorded with no server in reach.
+  Sent only when the job has one and it looks like a language tag.
 - `meetingId` is `job.meetingId`, when it is a UUID. `side` is sent only in
   a virtual meeting. In a speaker `side` and `name` are always there
   (`null` when there is none). A segment never points at a speaker that is
@@ -939,7 +945,7 @@ the name of the terminal application it runs in.
 swift test --build-path .build
 ```
 
-179 tests. 175 of them need no microphone, no model and no network
+181 tests. 177 of them need no microphone, no model and no network
 (one opens a connection to a closed local port to see a real connection
 failure): the recorder runs on scripted sources, the live session and the
 final pass on a scripted transcriber and a scripted diarizer.

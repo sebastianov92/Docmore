@@ -1,9 +1,13 @@
 # Docmore for Mac: status
 
-Last update: 2026-11-21 04:50. Stages A (shell), C (polish) and B (meetings,
-as the integration of the local package `mac/MeetingKit`) are built and
-verified as far as a scripted run can go. What needs a person at the Mac is
-listed per stage under "Not verified".
+Last update: 2026-11-21 20:30. Stages A (shell), C (polish) and B
+(meetings, as the integration of the local package `mac/MeetingKit`) are
+built and verified as far as a scripted run can go. Meetings v2 (kind of
+meeting, speakers, live list) is built, wired to the engine with tracks and
+speakers and verified with real audio from files, against the lab (see
+"Meetings v2" at the end; the lab's language model was sick at the time,
+which that section spells out). What needs a person at the Mac is listed
+per stage under "Not verified".
 
 Machine used: macOS 27.0.1, Xcode 27.2, ad-hoc signature, lab server at
 `http://localhost:3100`.
@@ -11,10 +15,14 @@ Machine used: macOS 27.0.1, Xcode 27.2, ad-hoc signature, lab server at
 Latest full runs:
 
 ```
-xcodebuild test ...                # Executed 62 tests, with 0 failures
-mac/tools/e2e.sh                   # passed 144, failed 0, skipped 0   (04:38, artifacts mac/build/e2e/20261121-043855)
-mac/tools/package.sh               # mac/dist/Docmore-0.1.0.zip (4.6 MB) and .dmg (5.0 MB), ad-hoc signed
-mac/tools/gen-strings.py --check   # 190 strings, all translated
+xcodebuild test ...                # Executed 117 tests, with 0 failures
+mac/tools/e2e.sh                   # passed 218, failed 0, skipped 11   (19:53, artifacts mac/build/e2e/20261121-195343)
+                                   # the 11 skips are checks that need an answer of the lab's language model,
+                                   # which was too slow; each says so in the output
+(cd mac/MeetingKit && swift test --build-path .build --skip RealModelTests)   # Executed 177 tests, with 0 failures
+(cd mac/MeetingKit && MEETINGKIT_MODELS_DIR=../build/e2e-models swift test --build-path .build)   # Executed 181 tests, with 0 failures
+mac/tools/gen-strings.py --check   # 243 strings, all translated
+mac/tools/package.sh               # mac/dist/Docmore-0.1.0.zip (6.0 MB) and .dmg (7.6 MB), ad-hoc signed (19:53)
 ```
 
 ## Stage A: the shell
@@ -87,11 +95,11 @@ refresh), refused refresh, file cache index, deep links, Spotlight ids, hot
 key storage.
 
 End to end against the lab, through the automation server
-(`mac/tools/e2e.sh`; the stage A part is 107 of its 144 checks):
+(`mac/tools/e2e.sh`; the stage A part is 107 of its 196 checks):
 
 ```
 mac/tools/e2e.sh
-# passed 144, failed 0, skipped 0
+# passed 196, failed 0, skipped 0
 ```
 
 The stage A checks:
@@ -293,11 +301,12 @@ its `README.md` is the contract, nothing inside it was edited from here).
   `Docmore/Meetings/MeetingKitEngine.swift` imports it, behind
   `#if canImport(MeetingKit)`: remove the two entries from `project.yml` and
   the app still builds, with meeting recording reported as unavailable.
-- `MeetingController`: `meeting.start { pageId?, spaceId?, title? }`,
-  `meeting.stop`, `meeting.state` answer `{ recording, elapsed, queued }`;
-  the event `meeting.state` goes to every page on start, stop, each second
-  of a recording and each queue change; `meeting.done { pageId }` goes out
-  when the server has written the notes.
+- `MeetingController`: `meeting.start { pageId?, spaceId?, title?, mode? }`,
+  `meeting.stop`, `meeting.state` answer `{ recording, elapsed, queued,
+  choosing, mode? }`; the event `meeting.state` goes to every page on start,
+  stop, each second of a recording and each queue change; `meeting.done
+  { pageId, meetingId }` goes out when the server has written the notes.
+  (The kind of meeting and the chooser are described under "Meetings v2".)
 - After Stop (and for a WAV pushed by automation): model download if it is
   not on disk (visible progress, four attempts), transcription on the Mac,
   one job in the account's `MeetingQueue`
@@ -314,13 +323,13 @@ its `README.md` is the contract, nothing inside it was edited from here).
   file next to the WAV saying where its notes go; it is repaired
   (`WAVFile.repairHeader`) and finished at the next launch or when a server
   becomes reachable. The WAV is removed once the server has the transcript.
-- Floating panel: elapsed time, level, live transcript (15 s windows, only
-  when the model is already on disk), notices about a source that could not
-  be recorded, Stop.
-- Settings > Meetings: the five models with their size, download with
-  progress, delete, the selected one (default Large v3 Turbo, 646 MB);
-  language (automatic or fixed); microphone and system audio switches; the
-  offer to record when another app takes the microphone.
+- Floating panel: see "Meetings v2". With the engine linked today the live
+  text is one line per 15 s window (only when the model is already on disk).
+- Settings > Meetings: the default kind of meeting; the five models with
+  their size, download with progress, delete, the selected one (default
+  Large v3 Turbo, 646 MB); language (automatic or fixed); the offer to
+  record when another app takes the microphone. The microphone and system
+  audio switches are gone: the kind of meeting decides what is recorded.
 - Account > Record Meeting sends the `record-meeting` command, so the page
   picks the destination (the open page, or its space); with no page up it
   records for the active account into its default space.
@@ -329,8 +338,8 @@ its `README.md` is the contract, nothing inside it was edited from here).
   file has `com.apple.security.device.audio-input` for a hardened build.
 - Automation: `POST /automation/transcribe-file { path, pageId?, spaceId?,
   title?, model? }`, `GET /automation/meetings`,
-  `POST /automation/meeting-preview { show }` (the panel with made-up
-  values, nothing recorded).
+  `POST /automation/meeting-preview` (the panel on a made-up meeting,
+  nothing recorded), `GET` and `POST /automation/meeting`.
 
 ### How it was verified
 
@@ -382,3 +391,283 @@ its `README.md` is the contract, nothing inside it was edited from here).
   minutes with the large model).
 - No "MeetingKit/STATUS.md" existed yet when this was written; the
   integration was done against its `README.md` and sources as of 04:20.
+
+## Meetings v2: kind of meeting, speakers, live list
+
+Built against the shared contract of the feature and the lab server, and
+wired to the engine with tracks and speakers (`mac/MeetingKit` as merged in
+f260cdd8). Nothing in `Docmore/Meetings/MeetingKitEngine.swift` is
+temporary any more.
+
+**What was run for real and what was not.** The whole path was run with
+real audio and the real models, from files: the Spanish test meeting
+(`mac/tools/fixtures/meeting-es`, four synthetic voices, two on each side)
+as a finished recording of both kinds, as a call on loudspeakers, and fed
+through the live session as if it were being captured, with the panel open
+and the lab on the other end. What was **not** run is capture itself: the
+microphone and the system audio need a person to answer the macOS
+permission dialogs. And the voices are text-to-speech: how well real
+people are told apart was not measured (MeetingKit's `STATUS.md` says the
+same of itself).
+
+**The lab's language model was sick while this was verified** (its GPU
+hung; about one token per second, at times no answer at all). What that
+did: most `live/update` calls got no answer within the 180 s the app waits
+(the server answers after its model), so the app kept the lines and sent
+them again from the first one not acknowledged, and the panel said "La
+lista se arma al terminar"; the edits made by hand went through all the
+same, on their own lane; the final notes were written after the server
+gave its model up, without a summary ("No summary: fetch failed"), and
+often later than a test run waits. So in this round the list coming back
+from the model during a meeting, "antes: ..." on an entry the model
+changed and the summary of the notes were **not seen with the real
+engine**, except one `live/update` of the test meeting that did come back,
+with one entry. They were seen in the round before (scripted meeting,
+healthy model: three entries, one of them changed, a summary). Everything
+that does not need the model's answer was checked and passes; the e2e
+reports the rest as skipped with that reason: it does not fail for it and
+does not pretend.
+
+### What works
+
+- Kind of meeting: `MeetingMode` (`in_person`, `virtual`). The panel opens on
+  the chooser (two cards, the whole card clicks, one click starts, the kind
+  picked last time marked, Return starts it, Escape cancels); a failure to
+  start is shown in the chooser. `meeting.start` and the automation server
+  take a `mode` and skip the chooser. The default kind is in Settings >
+  Meetings and is the same setting the chooser updates.
+- Recording by kind (`MeetingRecorder`, `RecordingOptions(mode:)`): in
+  person the microphone, one channel; virtual the microphone and the system
+  audio as the two channels of one WAV.
+- Panel while recording (`Docmore/Meetings/MeetingPanel.swift`): kind, clock
+  and level (two meters, room and remote, in a virtual meeting); the voices
+  that have text now; the transcript as turns, each with its speaker as a
+  coloured chip (colour by the speaker's number, stable) and its side in a
+  virtual meeting; a line the engine has not given a speaker yet shows its
+  side alone; a click on a chip names the voice on every line at once, an
+  empty name brings the default label back; the list "Acuerdos y tareas"
+  with kind (SF Symbols), text, owner, date, "antes: ..." on an entry the
+  model changed, cancelled entries struck through, a lock on entries edited
+  by hand; the form of an entry (text, who, when, the voices offered as
+  owners; cancel or restore, delete with a second click, add by hand); one
+  quiet status line: "Armando la lista", "Actualizada hace n s", "La lista se
+  arma al terminar". Both parts fold; the transcript follows the end, also
+  while earlier lines change speaker, unless the person scrolled up.
+  Resizable, 360 x 440 at least (in a panel that short the lines of the
+  transcript step aside while an entry is typed), place and size remembered.
+- Live text, sides and speakers: `LiveMeetingSession`, with the Whisper
+  model on disk; speakers when the speaker models are on disk too. Its
+  updates (replace from an index on, the speakers that have text) feed the
+  panel and the server as they are: speakers that come and go, numbers with
+  gaps, a tail of lines that changes speaker.
+- Names: typed in the panel, kept by the app, sent to the server, written
+  next to the audio, and handed to the engine (`setName`), which carries
+  them when two speakers turn out to be one and into the final transcript.
+- Calls during the meeting (`Docmore/Core/MeetingLiveSync.swift`):
+  `live/start` at the start, with the language of the app's interface
+  (`locale`), asked again later when the server did not answer and given up
+  for good when it refuses, as an older server would; `live/update` 10 s
+  after the start, then at least 30 s after the previous one started and
+  10 s after it was answered, never two at a time, with a 180 s timeout
+  because the server answers after its model; after a failure again from
+  the first segment not acknowledged (15, 30, 60 s apart); a relabelled
+  line is sent again with everything after it; the speakers with their
+  names go in every update and a typed name goes out early (12 s between
+  any two updates at least); a line that still points at a speaker that is
+  gone travels without it; `items` for each edit made by hand, on its own
+  lane so it does not wait behind the model, shown at once and kept on top
+  of the server's list until confirmed; `live/discard` when the recording
+  is thrown away or had no speech. `live/start`, every `items` edit and
+  `live/discard` carry an `Idempotency-Key` that is the same on a retry
+  (a new one for `live/start` after the server lost the meeting). A 404 on
+  an update opens a new live meeting and sends everything again. The
+  offline switch of the page ("Work Offline") and the automation's
+  forced-unreachable switch hold every call back. None of it can stop a
+  recording.
+- After Stop: the live session works on the last stretch and its speakers
+  are kept; the speaker models are downloaded now if they were missing;
+  `MeetingProcessor` makes the final transcript from the file, seeded with
+  those speakers, so ids, numbers and names are the ones the panel showed;
+  in a virtual meeting what the microphone heard of the call is left out
+  of the room's text; the edits of the list still waiting are pushed (20 s
+  at most); the transcript is queued with the live meeting's id, the kind,
+  the speakers with their names and the `locale`; `meeting.done` carries
+  `meetingId`. When the server's model did not answer, the server writes
+  the notes without a summary and says why: the app then says that in the
+  "notes are ready" notification.
+- Interrupted recordings: the file next to the audio
+  (`Docmore/Core/MeetingSidecar.swift`) keeps the kind, the live meeting and
+  the speakers with the names typed so far, and the engine's speakers are
+  kept in `<recording>.speakers.json`; the next launch repairs the WAV and
+  finishes the recording with both. Files written before this change still
+  read (as in-person meetings).
+- Settings > Meetings: default kind (two rows, the whole row selects); the
+  row of the speaker models (11 MB: size, download with progress, delete).
+- Engine seam (`Docmore/Meetings/MeetingEngine.swift`): unchanged in shape
+  since the first round, plus `setSpeakerName`, `recordedMode(of:)`, the
+  engine's notes and the count of echoes in the transcript, `locale` in
+  what travels with it, and `replay` in the recording request (below).
+- DEBUG only: `replay` (the real engine takes its audio from a file, a
+  tenth of a second at a time, at the speed asked, through the same live
+  session and into a recording written the way the recorder writes it);
+  the engine double `ScriptedMeetingEngine` (a scripted meeting, no model
+  needed); the panel on a made-up meeting. The Release binary has none of
+  the three.
+- In `mac/MeetingKit` (the one change made there): an optional `locale` in
+  `MeetingJob`, `MeetingQueue.enqueue` and the body `DocmoreMeetingSender`
+  posts, sent only when set and shaped like a language tag; a job without
+  one posts the body it always did. Two tests added.
+- A "Discard" button with a second click to confirm (not in the brief).
+- Spanish for every new string (243 in all).
+
+### How it was verified
+
+Unit tests of the app: 117, no failures (57 for this feature, no app
+launch, a scripted server that follows the contract and honours
+`Idempotency-Key`, a clock moved by hand). Beyond the first round: names the
+engine carries are shown unless the person decided otherwise, a name that
+moves to the voice that stays, a name taken away not coming back; a line
+of a speaker that is gone travels without it; an `items` edit and a
+`live/start` whose answer was lost are tried again with the same key and
+happen once; a new key after the server lost the meeting (this one caught
+a real mistake: with the old key the server would have handed back the
+meeting that was gone); a discard tried once more; `locale` in `live/start`.
+
+MeetingKit: `swift test --build-path .build`, 181 tests, no failures: the 177 that need no model (two of them new, for `locale`) and the four `RealModelTests`, run with the models the app's e2e keeps in `mac/build/e2e-models` (Whisper large-v3 turbo, and the speaker models as the app downloaded them).
+
+`mac/tools/e2e.sh`: passed 218, failed 0, skipped 11 (of them 77 passed and 10 skipped
+for this feature). Every skip is a check that needs an answer of the lab's
+language model and says so: the stream of `/api/ai/generate/stream`; a
+`live/update` answered within the app's 180 s (scripted meeting and test
+meeting), and with it the list made by the model; `meeting.done` after the
+notes; the notes of six meetings. In earlier runs of the same day, with
+the model answering, those same checks passed (`meeting.done`, the notes
+of the two plain transcripts, the stream), and once a `live/update` of the
+test meeting came back with an entry of the model's list. The checks of this feature:
+
+- chooser and panel on a made-up meeting, the bridge (`meeting.start` with
+  and without a kind, an unknown kind), a scripted in-person meeting
+  discarded, a scripted virtual meeting against the lab (relabel, name,
+  the file next to the audio, `live/update`, every `items` edit, forced
+  unreachable and back, Stop as the same meeting id), the app killed while
+  it records and the next launch finishing the same meeting: as in the
+  first round, now with what needs the server's model separated from what
+  does not
+- the speaker models downloaded through the path Settings uses (11 MB, with
+  progress), next to the Whisper models
+- the test meeting as finished recordings, final pass by the real engine
+  (Whisper large-v3 turbo, speaker models):
+  two channels: 25 segments, every line with its side, four speakers, two
+  on each side, each one person of the ground truth (purity 1.0), "viernes"
+  and "lunes" in the text, the name given in the app on its speaker on the
+  server; one channel: 27 segments, no sides, four speakers for the four
+  people; the call on loudspeakers: 12 echoes left out, no sentence of the
+  call twice, still two speakers per side
+- the test meeting fed to the real live session (three times real time),
+  the panel open: speakers appear on both sides, a name typed when the
+  first remote voice shows is still on it after the relabels and in the
+  engine's file next to the recording, `live/update` carries speakers and
+  sides, Stop sends the final pass as the same meeting, the name is on the
+  same speaker in the final transcript on the server
+- that replay killed (`kill -9`) half way: part of the audio, kind, meeting
+  id, name and the engine's speakers are on disk; the next launch finishes
+  it with the real engine as the same meeting, virtual, the name on the
+  same speaker; nothing left next to the recordings
+- notes: for each meeting, when the server finished it in time, the page
+  (labels with sides, the names, "viernes"), and the page opened in the
+  app's web view; otherwise a skip that says the model was too slow
+
+By hand through the automation server, with real captures of the panel's
+window (`screencapture -l`), Spanish:
+
+- the test meeting live as a virtual meeting: lines first with their side
+  alone ("Sala", "Remoto"), then chips as the engine tells the voices
+  apart; four speakers; "Marta" typed at 0:18 on the first remote voice and
+  still there at the end; the two meters moving with who talks
+- the same as an in-person meeting: no sides; a speaker that came and went
+  (numbers 1, 3, 4, 5); the transcript following the end while earlier
+  lines changed speaker (it did not at first: fixed)
+- the notes page of the two-channel recording in the app's web view:
+  "Notas de la reunión: ...", every line labelled "Persona 1 (sala)",
+  "Marta", "Persona 3 (sala)", "Persona 4 (remoto)" (the labels are Spanish
+  because the app sends its language), no summary (the model)
+- Settings > Meetings with the real row of the speaker models before,
+  during and after the download
+
+Found and fixed in this round: the key of `live/start` reused after a lost
+meeting; the transcript not following the end when earlier lines change
+speaker; the speaker models asked for while recording (the package refuses:
+now a notice during the meeting and the download after Stop).
+
+### Not verified, and why
+
+- Capture: the microphone prompt, the system audio prompt, what each kind
+  really records from real devices, the meters with real sound, notices of
+  a refused source. The recorder is covered by MeetingKit's unit tests with
+  scripted sources; the app hands it the kind and reads its track chunks.
+- Real voices, a real room, real loudspeakers. Every number above is from
+  four text-to-speech voices and a synthetic echo.
+- With the real engine and a healthy model: the live list, "antes: ...",
+  the summary. (Seen with the scripted meeting in the first round.)
+- Clicks and keys by hand in the panel: the automation calls the methods
+  the buttons call; hover, focus, Return on the preselected card, Escape,
+  scrolling up to read (which should stop the transcript from jumping to
+  the end) and dragging the corner were not done with a mouse and a
+  keyboard. VoiceOver was not tried.
+- "Work Offline" chosen in the page (unit tested as a closure; the e2e uses
+  the automation's switch).
+- A meeting longer than the two-minute test meeting, in the app. MeetingKit
+  measured an hour through its command line; the panel was not watched
+  with that much text.
+- The web client passing `mode` (it sends none, so it gets the chooser).
+
+### Known gaps and choices made
+
+- A name typed in the first seconds can end up on another voice. Seen with
+  the test meeting in person: "Ana" typed when one speaker was showing;
+  that speaker then turned out to be two voices and the id stayed with the
+  other one. The name follows the engine's id, which is what the engine
+  promises to keep; the person can type it again on the right chip, during
+  the meeting or afterwards on the page. In the virtual form it did not
+  happen (each side has fewer voices to confuse).
+- The owner the model writes for an unnamed speaker, and the labels of the
+  notes, are in the app's language now (`locale`); the engine's own notes
+  for the person ("The speaker models are not downloaded ...") and its
+  error texts are English.
+- An edit of the list that never reaches the server before the transcript
+  is queued (server away at the end, 20 s of trying) is lost: the contract
+  has no place for it in `from-transcript`.
+- When the server loses a live meeting (404), the new one gets the whole
+  transcript and the names, but the edits made by hand on the old one are
+  gone. Two reopenings at most.
+- The default kind is the last kind picked in the chooser (one setting, the
+  one Settings shows). A `mode` passed by a caller does not change it. On a
+  new install it is virtual.
+- `meeting.start` without `mode` answers before anything is recorded; the
+  `meeting.state` event says when it does.
+- The first time a Mac uses Whisper large-v3 turbo, macOS prepares it for
+  the chip: about three minutes here, once per place the model is kept.
+  After a Stop that shows as "Transcribiendo en este Mac" with no movement
+  for that long. The live text of that first meeting also starts late.
+- The server has no call to remove a meeting: a test meeting whose notes
+  the model writes after the e2e ended leaves its page on the lab until the
+  next run's clean-up (it finds them by "mac-e2e" in the title).
+
+### What is left
+
+- With a healthy language model on the lab, run `mac/tools/e2e.sh` once
+  more: the eleven checks it skipped are written and wait for that. Not
+  seen with the real engine yet for that reason: the list of the model
+  during a meeting shown in the panel (one answer with one entry reached
+  the app in one run, unwatched), "antes: ..." on a changed entry, a
+  summary in the notes.
+- A person at the Mac: a real recording of each kind (the two permission
+  dialogs), with real voices, and the mouse and keyboard in the panel.
+- The e2e waits up to six minutes on an unanswered `live/update` of the
+  test meeting before it gives up (two calls of 180 s); it could stop after
+  the first.
+- Test meetings the lab's model had not finished when the last run ended
+  (seven) will still get their notes pages; the next e2e run removes pages
+  with "mac-e2e" in the title. A manual probe titled "mac v2 cache probe"
+  may also appear and has to be removed by hand.
+

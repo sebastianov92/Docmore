@@ -128,11 +128,22 @@ enum Bridge {
             return ["ok": true]
 
         case "meeting.start":
+            // with "mode" ("in_person" or "virtual") the recording starts at
+            // once and the answer says so; without it the panel asks for the
+            // kind and the answer comes at once with `choosing: true`
+            var mode: MeetingMode?
+            if let text = payload["mode"] as? String {
+                guard let known = MeetingMode(rawValue: text) else {
+                    throw BridgeError(message: "meeting.start: mode is \"in_person\" or \"virtual\"")
+                }
+                mode = known
+            }
             try await MeetingController.shared.start(
                 profileId: session.profileId,
                 pageId: payload["pageId"] as? String,
                 spaceId: payload["spaceId"] as? String,
-                title: payload["title"] as? String
+                title: payload["title"] as? String,
+                mode: mode
             )
             return MeetingController.shared.statePayload
 

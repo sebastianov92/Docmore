@@ -38,9 +38,9 @@ final class AutomationRoutes {
         case ("POST", "/automation/transcribe-file"): return await AutomationExtras.transcribeFile(request)
         case ("GET", "/automation/meetings"): return await AutomationExtras.meetings(request)
         case ("POST", "/automation/quick-capture"): return await AutomationExtras.quickCapture(request)
-        case ("POST", "/automation/meeting-preview"):
-            MeetingController.shared.previewPanel(request.json["show"] as? Bool ?? true)
-            return .json(["ok": true, "panelVisible": MeetingController.shared.isPanelVisible])
+        case ("POST", "/automation/meeting-preview"): return AutomationMeetings.preview(request)
+        case ("POST", "/automation/meeting"): return await AutomationMeetings.act(request)
+        case ("GET", "/automation/meeting"): return .json(AutomationMeetings.state())
         case ("POST", "/automation/lock"): return AutomationExtras.lock(request)
         case ("POST", "/automation/mic-activity"): return AutomationExtras.microphoneActivity(request)
         default: return .error("no such endpoint: \(request.method) \(request.path)", status: 404)
@@ -382,6 +382,17 @@ final class AutomationRoutes {
             browser(request)?.window?.makeKeyAndOrderFront(nil)
         case "settings":
             coordinator.showSettings(tab: (request.json["tab"] as? String).flatMap(SettingsTab.init(rawValue:)))
+            // { scroll: 0...1 }: how far down the tab is scrolled, for a snapshot of its lower part
+            if let fraction = request.json["scroll"] as? Double, let content = coordinator.settingsWindowForAutomation?.contentView {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                Self.scrollViews(in: content).forEach { scroll in
+                    guard let document = scroll.documentView else { return }
+                    let distance = max(0, document.frame.height - scroll.contentView.bounds.height)
+                    let y = document.isFlipped ? distance * fraction : distance * (1 - fraction)
+                    scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
+                    scroll.reflectScrolledClipView(scroll.contentView)
+                }
+            }
         case "picker":
             coordinator.showPicker()
         case "switch":
@@ -392,6 +403,13 @@ final class AutomationRoutes {
             return .error("unknown window action")
         }
         return .json(["ok": true, "windows": coordinator.browsers.count])
+    }
+
+    private static func scrollViews(in view: NSView) -> [NSScrollView] {
+        var found: [NSScrollView] = []
+        if let scroll = view as? NSScrollView { found.append(scroll) }
+        for child in view.subviews { found.append(contentsOf: scrollViews(in: child)) }
+        return found
     }
 
     /// { type, payload }: dispatches a native event in the front page.
@@ -408,7 +426,7 @@ final class AutomationRoutes {
         return .json(["ok": opened])
     }
 
-    /// ?which=front|settings|picker|panel: a native window drawn into a PNG,
+    /// ?which=front|settings|picker|panel|meeting: a native window drawn into a PNG,
     /// chrome included, without touching the screen.
     private func nativeSnapshot(_ request: Request) -> Response {
         let which = request.query["which"] ?? "front"
@@ -417,6 +435,7 @@ final class AutomationRoutes {
         case "settings": window = coordinator.settingsWindowForAutomation
         case "picker": window = coordinator.pickerWindowForAutomation
         case "panel": window = NSApp.windows.first { $0 is NSPanel && $0.isVisible }
+        case "meeting": window = MeetingController.shared.isPanelVisible ? MeetingController.shared.panelForAutomation : nil
         default: window = browser(request)?.window
         }
         guard let window, let view = window.contentView?.superview ?? window.contentView else {
@@ -449,8 +468,10 @@ enum AutomationExtras {
     typealias Request = AutomationServer.Request
     typealias Response = AutomationServer.Response
 
-    /// { path, pageId?, spaceId?, title?, model?, profileId? }: a WAV through
-    /// transcription and the queue, the way a recording goes after Stop.
+    /// { path, pageId?, spaceId?, title?, model?, profileId?, mode?, names? }:
+    /// a recording through the final pass and the queue, the way one goes
+    /// after Stop. `mode` defaults to what the file tells (two channels are
+    /// a virtual meeting); `names` are names for its speakers by id.
     static func transcribeFile(_ request: Request) async -> Response {
         let body = request.json
         guard let path = body["path"] as? String else { return .error("transcribe-file needs path") }
@@ -463,8 +484,16 @@ enum AutomationExtras {
             spaceId: body["spaceId"] as? String ?? (pageId == nil ? profile.defaultSpaceId : nil),
             title: body["title"] as? String
         )
+        var mode: MeetingMode?
+        if let text = body["mode"] as? String {
+            guard let known = MeetingMode(rawValue: text) else { return .error("mode is in_person or virtual") }
+            mode = known
+        }
         do {
-            var answer = try await MeetingController.shared.processFile(path: path, target: target, model: body["model"] as? String)
+            var answer = try await MeetingController.shared.processFile(
+                path: path, target: target, model: body["model"] as? String,
+                mode: mode, names: body["names"] as? [String: String] ?? [:]
+            )
             answer["ok"] = true
             return .json(answer)
         } catch {
@@ -489,6 +518,14 @@ enum AutomationExtras {
             "state": controller.statePayload,
             "panelVisible": controller.isPanelVisible,
             "jobs": jobs.map(\.json),
+            // the transcripts the server took in this run: which meeting each job became
+            "delivered": controller.deliveries.map(\.json),
+            "speakerModel": [
+                "present": engine.speakerModel != nil,
+                "id": engine.speakerModel?.id ?? "",
+                "downloaded": engine.isSpeakerModelDownloaded,
+                "sizeOnDisk": engine.speakerModelSizeOnDisk,
+            ],
             "models": engine.models.map { ["id": $0.id, "name": $0.name, "sizeBytes": $0.sizeBytes, "downloaded": engine.isDownloaded($0.id)] },
             "selectedModel": Services.shared.settings.meetingModel,
         ])

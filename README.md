@@ -321,9 +321,13 @@ only. Never set it on a real instance.
   Several accounts, native tabs, windows and menus, notifications and Dock
   badge, Spotlight for the pages on the device, a quick note from a global
   shortcut (queued when the server is away), an optional lock with Touch
-  ID, and meetings: it records the microphone and the system audio,
-  transcribes on the Mac with WhisperKit (also offline, no audio leaves the
-  machine) and sends the text for the notes. Build and run notes, the
+  ID, and meetings: you pick in person (the microphone) or virtual (the
+  microphone for your side, the call's own audio for the other side, kept
+  as two tracks), it transcribes on the Mac with WhisperKit (also offline,
+  no audio leaves the machine), tells the voices apart on the Mac too, and
+  a floating panel shows the transcript by speaker and side, lets you name
+  a voice as you go and keeps the server's live list of agreements and
+  tasks, which you can edit by hand. Build and run notes, the
   automation used by its end-to-end script, and the signing and
   notarization steps are in `mac/README.md`; the meeting engine is the
   Swift package `mac/MeetingKit`.

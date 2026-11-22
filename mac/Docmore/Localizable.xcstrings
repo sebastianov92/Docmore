@@ -1,6 +1,38 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ (remote)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (remote)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (remoto)"
+          }
+        }
+      }
+    },
+    "%@ (room)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (room)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (sala)"
+          }
+        }
+      }
+    },
     "%@ answered %lld. Is it a Docmore server, and is it up to date?": {
       "localizations": {
         "en": {
@@ -129,6 +161,22 @@
         }
       }
     },
+    "About this recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About this recording"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobre esta grabación"
+          }
+        }
+      }
+    },
     "Account": {
       "localizations": {
         "en": {
@@ -177,6 +225,22 @@
         }
       }
     },
+    "Add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir"
+          }
+        }
+      }
+    },
     "Add Account...": {
       "localizations": {
         "en": {
@@ -193,6 +257,22 @@
         }
       }
     },
+    "Add an agreement or a task by hand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add an agreement or a task by hand"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir un acuerdo o una tarea a mano"
+          }
+        }
+      }
+    },
     "Add another server": {
       "localizations": {
         "en": {
@@ -205,6 +285,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Agregar otro servidor"
+          }
+        }
+      }
+    },
+    "Agreement": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agreement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acuerdo"
+          }
+        }
+      }
+    },
+    "Agreements and tasks": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agreements and tasks"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acuerdos y tareas"
+          }
+        }
+      }
+    },
+    "Agreements and tasks appear here while the meeting goes on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agreements and tasks appear here while the meeting goes on."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los acuerdos y las tareas aparecen aquí durante la reunión."
           }
         }
       }
@@ -273,6 +401,22 @@
         }
       }
     },
+    "Back to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volver a %@"
+          }
+        }
+      }
+    },
     "Bring All to Front": {
       "localizations": {
         "en": {
@@ -289,6 +433,22 @@
         }
       }
     },
+    "Building the list": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building the list"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Armando la lista"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "en": {
@@ -301,6 +461,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancelar"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelada"
           }
         }
       }
@@ -413,6 +589,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Al vaciar se quitan los archivos y páginas guardados para usar sin conexión. No se borra nada en el servidor."
+          }
+        }
+      }
+    },
+    "Click to name this voice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click to name this voice"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haz clic para ponerle nombre a esta voz"
           }
         }
       }
@@ -577,6 +769,22 @@
         }
       }
     },
+    "Delete for good": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete for good"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar del todo"
+          }
+        }
+      }
+    },
     "Detect automatically": {
       "localizations": {
         "en": {
@@ -589,6 +797,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Detectar automáticamente"
+          }
+        }
+      }
+    },
+    "Discard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar"
+          }
+        }
+      }
+    },
+    "Discard the recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard the recording"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar la grabación"
+          }
+        }
+      }
+    },
+    "Discarding the recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discarding the recording"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartando la grabación"
           }
         }
       }
@@ -705,6 +961,22 @@
         }
       }
     },
+    "Downloading the speaker identification model": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading the speaker identification model"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargando el modelo de identificación de voces"
+          }
+        }
+      }
+    },
     "Downloading the transcription model": {
       "localizations": {
         "en": {
@@ -737,6 +1009,22 @@
         }
       }
     },
+    "Edited by hand: the assistant leaves it as it is": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edited by hand: the assistant leaves it as it is"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editada a mano: el asistente la deja como está"
+          }
+        }
+      }
+    },
     "Enter Full Screen": {
       "localizations": {
         "en": {
@@ -749,6 +1037,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pantalla completa"
+          }
+        }
+      }
+    },
+    "Everybody is in the room. Only the microphone is recorded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everybody is in the room. Only the microphone is recorded."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos están en la sala. Solo se graba el micrófono."
           }
         }
       }
@@ -865,6 +1169,22 @@
         }
       }
     },
+    "Hide": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar"
+          }
+        }
+      }
+    },
     "Hide Docmore": {
       "localizations": {
         "en": {
@@ -913,6 +1233,22 @@
         }
       }
     },
+    "In person": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In person"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Presencial"
+          }
+        }
+      }
+    },
     "Is a meeting starting?": {
       "localizations": {
         "en": {
@@ -941,6 +1277,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se transcribirá y se enviará más tarde: %@"
+          }
+        }
+      }
+    },
+    "Keep": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservar"
+          }
+        }
+      }
+    },
+    "Keep recording": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep recording"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir grabando"
+          }
+        }
+      }
+    },
+    "Kind of meeting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kind of meeting"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipo de reunión"
           }
         }
       }
@@ -989,6 +1373,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bloquear Docmore"
+          }
+        }
+      }
+    },
+    "Mark cancelled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark cancelled"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anular"
           }
         }
       }
@@ -1073,18 +1473,18 @@
         }
       }
     },
-    "Microphone (your voice)": {
+    "Microphone": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Microphone (your voice)"
+            "value": "Microphone"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Micrófono (tu voz)"
+            "value": "Micrófono"
           }
         }
       }
@@ -1133,6 +1533,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mover pestaña a una ventana nueva"
+          }
+        }
+      }
+    },
+    "Name of %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name of %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre de %@"
           }
         }
       }
@@ -1325,6 +1741,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "En este Mac, %@"
+          }
+        }
+      }
+    },
+    "One click starts the recording.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One click starts the recording."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un clic empieza a grabar."
           }
         }
       }
@@ -1617,6 +2049,22 @@
         }
       }
     },
+    "Remote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remote"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remoto"
+          }
+        }
+      }
+    },
     "Require Touch ID or password to open Docmore": {
       "localizations": {
         "en": {
@@ -1629,6 +2077,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pedir Touch ID o contraseña para abrir Docmore"
+          }
+        }
+      }
+    },
+    "Restore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurar"
+          }
+        }
+      }
+    },
+    "Room": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Room"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sala"
           }
         }
       }
@@ -1821,6 +2301,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Atajo"
+          }
+        }
+      }
+    },
+    "Show": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar"
           }
         }
       }
@@ -2049,6 +2545,22 @@
         }
       }
     },
+    "Sound of the call": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound of the call"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sonido de la llamada"
+          }
+        }
+      }
+    },
     "Space used on this Mac": {
       "localizations": {
         "en": {
@@ -2061,6 +2573,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Espacio usado en este Mac"
+          }
+        }
+      }
+    },
+    "Speaker %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Persona %lld"
+          }
+        }
+      }
+    },
+    "Speaker identification": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker identification"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identificación de voces"
+          }
+        }
+      }
+    },
+    "Speaker identification model, kept on this Mac": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaker identification model, kept on this Mac"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modelo de identificación de voces, guardado en este Mac"
           }
         }
       }
@@ -2161,22 +2721,6 @@
         }
       }
     },
-    "System audio (the other participants)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "System audio (the other participants)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audio del sistema (los demás participantes)"
-          }
-        }
-      }
-    },
     "System audio access is off for Docmore. Turn it on in System Settings > Privacy & Security > Screen & System Audio Recording.": {
       "localizations": {
         "en": {
@@ -2205,6 +2749,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "El audio del sistema está en silencio: solo se está grabando tu micrófono."
+          }
+        }
+      }
+    },
+    "Task": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea"
+          }
+        }
+      }
+    },
+    "Tells the voices of a meeting apart, on this Mac. Without it the transcript has no speakers.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tells the voices of a meeting apart, on this Mac. Without it the transcript has no speakers."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Distingue las voces de una reunión, en este Mac. Sin él la transcripción no dice quién habla."
           }
         }
       }
@@ -2317,6 +2893,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "La primera línea es el título"
+          }
+        }
+      }
+    },
+    "The kind a new recording proposes. Picking the other one when a recording starts changes it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The kind a new recording proposes. Picking the other one when a recording starts changes it."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tipo que propone una grabación nueva. Si eliges el otro al empezar a grabar, cambia."
+          }
+        }
+      }
+    },
+    "The kind used last time: Return starts it": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The kind used last time: Return starts it"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El tipo de la última vez: Retorno lo empieza"
+          }
+        }
+      }
+    },
+    "The list is put together when the meeting ends": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The list is put together when the meeting ends"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lista se arma al terminar"
           }
         }
       }
@@ -2577,6 +3201,22 @@
         }
       }
     },
+    "The speaker model is not downloaded while a recording runs. It is downloaded when the recording ends.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The speaker model is not downloaded while a recording runs. It is downloaded when the recording ends."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El modelo de voces no se descarga mientras se graba. Se descarga al terminar la grabación."
+          }
+        }
+      }
+    },
     "The transcript appears when the recording ends: the model is still downloading.": {
       "localizations": {
         "en": {
@@ -2621,6 +3261,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esto pasa una sola vez. Después Docmore abre sin el servidor."
+          }
+        }
+      }
+    },
+    "Throw this recording away? Nothing of it is kept.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Throw this recording away? Nothing of it is kept."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Descartar esta grabación? No se guarda nada de ella."
           }
         }
       }
@@ -2673,6 +3329,22 @@
         }
       }
     },
+    "Transcript": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcript"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcripción"
+          }
+        }
+      }
+    },
     "Transcription model, kept on this Mac": {
       "localizations": {
         "en": {
@@ -2701,22 +3373,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reintentar"
-          }
-        }
-      }
-    },
-    "Turn on the microphone or the system audio in Settings > Meetings": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Turn on the microphone or the system audio in Settings > Meetings"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activa el micrófono o el audio del sistema en Ajustes > Reuniones"
           }
         }
       }
@@ -2817,6 +3473,54 @@
         }
       }
     },
+    "Updated %lld min ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated %lld min ago"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizada hace %lld min"
+          }
+        }
+      }
+    },
+    "Updated %lld s ago": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated %lld s ago"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizada hace %lld s"
+          }
+        }
+      }
+    },
+    "Updated just now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated just now"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizada ahora mismo"
+          }
+        }
+      }
+    },
     "View": {
       "localizations": {
         "en": {
@@ -2833,18 +3537,50 @@
         }
       }
     },
-    "What is recorded": {
+    "Virtual": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "What is recorded"
+            "value": "Virtual"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Qué se graba"
+            "value": "Virtual"
+          }
+        }
+      }
+    },
+    "Waiting for the server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for the server"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando al servidor"
+          }
+        }
+      }
+    },
+    "What has to be done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What has to be done"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué hay que hacer"
           }
         }
       }
@@ -2861,6 +3597,86 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lo que se dice aparece aquí."
+          }
+        }
+      }
+    },
+    "What kind of meeting is it?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What kind of meeting is it?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Qué tipo de reunión es?"
+          }
+        }
+      }
+    },
+    "What was agreed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What was agreed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué se acordó"
+          }
+        }
+      }
+    },
+    "When": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuándo"
+          }
+        }
+      }
+    },
+    "Who": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quién"
+          }
+        }
+      }
+    },
+    "Who said what appears when the recording ends: the speaker model is not on this Mac yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who said what appears when the recording ends: the speaker model is not on this Mac yet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quién dijo qué aparece al terminar la grabación: el modelo de voces todavía no está en este Mac."
           }
         }
       }
@@ -2909,6 +3725,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trabajando sin conexión"
+          }
+        }
+      }
+    },
+    "You and whoever sits with you through the microphone; the others through the sound of the call.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You and whoever sits with you through the microphone; the others through the sound of the call."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tú y quien esté contigo por el micrófono; los demás por el sonido de la llamada."
           }
         }
       }
@@ -3005,6 +3837,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alejar"
+          }
+        }
+      }
+    },
+    "before: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "before: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "antes: %@"
           }
         }
       }

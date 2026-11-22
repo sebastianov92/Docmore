@@ -282,8 +282,7 @@ final class AppSettings {
             Key.meetingModel: MeetingModels.defaultModel,
             Key.meetingLanguage: "auto",
             Key.meetingDetection: true,
-            Key.meetingMicrophone: true,
-            Key.meetingSystemAudio: true,
+            Key.meetingMode: MeetingMode.virtual.rawValue,
             Key.lockEnabled: false,
             Key.quickCaptureEnabled: true,
             Key.quickCaptureHotKey: HotKeyCombo.defaultQuickCapture.storageValue,
@@ -294,8 +293,8 @@ final class AppSettings {
         static let meetingModel = "meetings.model"
         static let meetingLanguage = "meetings.language"
         static let meetingDetection = "meetings.detect"
-        static let meetingMicrophone = "meetings.microphone"
-        static let meetingSystemAudio = "meetings.systemAudio"
+        static let meetingMode = "meetings.mode"
+        static let meetingPanelFrame = "meetings.panelFrame"
         static let lockEnabled = "security.lock"
         static let quickCaptureEnabled = "capture.enabled"
         static let quickCaptureHotKey = "capture.hotkey"
@@ -321,14 +320,19 @@ final class AppSettings {
         set { defaults.set(newValue, forKey: Key.meetingDetection) }
     }
 
-    var meetingMicrophone: Bool {
-        get { defaults.bool(forKey: Key.meetingMicrophone) }
-        set { defaults.set(newValue, forKey: Key.meetingMicrophone) }
+    /// The kind of meeting the chooser preselects: the default of Settings,
+    /// replaced by whatever the person picks when a recording starts. Until
+    /// they pick one it is the virtual kind, which records both sources (an
+    /// in-person meeting recorded that way loses nothing).
+    var meetingMode: MeetingMode {
+        get { defaults.string(forKey: Key.meetingMode).flatMap(MeetingMode.init(rawValue:)) ?? .virtual }
+        set { defaults.set(newValue.rawValue, forKey: Key.meetingMode) }
     }
 
-    var meetingSystemAudio: Bool {
-        get { defaults.bool(forKey: Key.meetingSystemAudio) }
-        set { defaults.set(newValue, forKey: Key.meetingSystemAudio) }
+    /// Where the person left the recording panel ("x y width height").
+    var meetingPanelFrame: String {
+        get { defaults.string(forKey: Key.meetingPanelFrame) ?? "" }
+        set { defaults.set(newValue, forKey: Key.meetingPanelFrame) }
     }
 
     var lockEnabled: Bool {

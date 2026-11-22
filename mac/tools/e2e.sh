@@ -38,14 +38,18 @@ TOKEN_FILE="$DATA-token.json"
 
 mkdir -p "$ART/downloads"
 
-# Meetings: a speech sample (16 kHz mono WAV that mentions a homepage) and a
-# place to keep the small transcription model between runs.
+# Meetings: a speech sample (16 kHz mono WAV that mentions a homepage), the
+# Spanish test meeting with four voices on two sides, and a place to keep
+# the models between runs. The data directory's models folder is a link to
+# that place: the path of a model then stays the same from run to run, and
+# macOS prepares a large Whisper model for the chip once (minutes) instead
+# of on every run.
 MEETING_WAV="${DOCMORE_E2E_MEETING_WAV:-$MAC/tools/fixtures/meeting.wav}"
+MEETING_ES="$MAC/tools/fixtures/meeting-es"
 MODEL_CACHE="$MAC/build/e2e-models"
-if [ -d "$MODEL_CACHE" ]; then
-  mkdir -p "$DATA/models"
-  cp -Rc "$MODEL_CACHE/." "$DATA/models/" 2>/dev/null || cp -R "$MODEL_CACHE/." "$DATA/models/"
-fi
+LARGE_MODEL="openai_whisper-large-v3-v20240930_turbo_632MB"
+mkdir -p "$MODEL_CACHE"
+ln -s "$MODEL_CACHE" "$DATA/models"
 
 if [ ! -x "$APP" ]; then
   echo "app not built: $APP" >&2
@@ -214,6 +218,7 @@ cleanup() {
     case "$DEFAULTS_SUITE" in com.dezik.docmore.test-*) rm -f "$HOME/Library/Preferences/$DEFAULTS_SUITE.plist" ;; esac
   fi
   rm -f "$TOKEN_FILE" "$TOKEN_FILE.2" "$DATA-member-token.json" 2>/dev/null
+  rm -rf "$DATA-fixture" 2>/dev/null
   if [ "${DOCMORE_E2E_KEEP:-0}" = "1" ]; then
     say "data directory kept: $DATA"
   else
@@ -416,17 +421,39 @@ return { status: r.status, generative: !!(j && j.data && j.data.generative) };
 JS
 )"
 if [ "$(jq_py "$AI" 'd["value"]["generative"]')" = "True" ]; then
-  SSE="$(ev_net 240 <<'JS'
+  # The stream comes from the server's language model, which can be slow or
+  # busy: one attempt, cut after two minutes. Chunks that arrived spread
+  # over time show the proxy streams; no chunk at all in two minutes says
+  # nothing about the proxy, and is reported as that.
+  wait_server
+  SSE="$(ev 200 <<'JS'
 const t0 = performance.now();
-const r = await fetch("/api/ai/generate/stream", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "text/event-stream" }, body: JSON.stringify({ action: "custom", content: "Count from one to twelve in words, one per line.", prompt: "Follow the instruction exactly." }) });
-const reader = r.body.getReader(); const decoder = new TextDecoder();
-const times = []; let text = "";
-while (true) { const { done, value } = await reader.read(); if (done) break; times.push(Math.round(performance.now() - t0)); text += decoder.decode(value, { stream: true }); }
-return { status: r.status, type: r.headers.get("content-type"), chunks: times.length, spreadMs: times.length ? times[times.length - 1] - times[0] : 0, events: (text.match(/^data:/gm) || []).length, done: text.includes("[DONE]") };
+const controller = new AbortController();
+let cut = false;
+const timer = setTimeout(() => { cut = true; controller.abort(); }, 120000);
+let status = 0, type = "", text = "";
+const times = [];
+try {
+  const r = await fetch("/api/ai/generate/stream", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json", "Accept": "text/event-stream" }, body: JSON.stringify({ action: "custom", content: "Count from one to twelve in words, one per line.", prompt: "Follow the instruction exactly." }) });
+  status = r.status; type = r.headers.get("content-type") || "";
+  const reader = r.body.getReader(); const decoder = new TextDecoder();
+  while (true) { const { done, value } = await reader.read(); if (done) break; times.push(Math.round(performance.now() - t0)); text += decoder.decode(value, { stream: true }); }
+} catch (error) {
+  if (!cut) throw error;
+}
+clearTimeout(timer);
+return { status, type, cut, chunks: times.length, spreadMs: times.length ? times[times.length - 1] - times[0] : 0, events: (text.match(/^data:/gm) || []).length, done: text.includes("[DONE]") };
 JS
 )"
-  expect "server-sent events stream incrementally (AI generate)" "$SSE" 'd["value"]["status"] == 200 and "text/event-stream" in d["value"]["type"] and d["value"]["chunks"] >= 4 and d["value"]["spreadMs"] >= 150 and d["value"]["done"]'
-  say "        $(jq_py "$SSE" '"%d chunks over %d ms, %d events" % (d["value"]["chunks"], d["value"]["spreadMs"], d["value"]["events"])')"
+  SSE_SEEN="$(jq_py "$SSE" '"%d chunks over %d ms, %d events" % (d["value"]["chunks"], d["value"]["spreadMs"], d["value"]["events"])')"
+  if [ "$(jq_py "$SSE" 'd["value"]["cut"]')" != "True" ]; then
+    expect "server-sent events stream incrementally (AI generate)" "$SSE" 'd["value"]["status"] == 200 and "text/event-stream" in d["value"]["type"] and d["value"]["chunks"] >= 4 and d["value"]["spreadMs"] >= 150 and d["value"]["done"]'
+    say "        $SSE_SEEN"
+  elif [ "$(jq_py "$SSE" 'd["value"]["status"] == 200 and "text/event-stream" in d["value"]["type"] and d["value"]["chunks"] >= 4 and d["value"]["spreadMs"] >= 150')" = "True" ]; then
+    pass "server-sent events stream incrementally (AI generate; cut after two minutes because the lab's model was slow: $SSE_SEEN)"
+  else
+    skip "server-sent events stream incrementally (AI generate)" "the lab's language model was too slow or busy: $SSE_SEEN in two minutes, which says nothing about the proxy"
+  fi
 else
   skip "server-sent events stream incrementally" "AI is not configured on this server"
 fi
@@ -1003,11 +1030,95 @@ for entry in json.load(sys.stdin)["entries"]:
         page = None
     print(page or "-")'
 }
+# the page id of the meeting.done event of one meeting ("-" when it has none), empty while there is no such event
+meeting_done_page() {
+  auto_get "/automation/bridge-log?type=meeting.done" | python3 -c 'import json,sys
+for entry in json.load(sys.stdin)["entries"]:
+    try:
+        p = json.loads(entry["payload"])["p"]
+    except Exception:
+        continue
+    if p.get("meetingId") == sys.argv[1]:
+        print(p.get("pageId") or "-")
+        break' "$1"
+}
+# The notes of a meeting are written by the server's language model, which
+# can be slow or down. Everything up to "the server has the transcript" is
+# checked at once; what needs the notes waits a bounded time (NOTES_WAIT
+# seconds per checkpoint, for all its meetings together) and then tells
+# three outcomes apart: the notes are there (checked in full), the server
+# still has the meeting with its model (a skip that says so: nothing is
+# wrong on this side), or the server failed the meeting (a failure).
+NOTES_WAIT="${DOCMORE_E2E_NOTES_WAIT:-150}"
+SLOW_NOTES=0
+# last_delivered : the id of the meeting the newest transcript the server took became
+last_delivered() {
+  auto_get /automation/meetings | python3 -c 'import json,sys
+d = json.load(sys.stdin).get("delivered", [])
+print(d[-1].get("meetingId", "") if d else "")'
+}
+# meeting_status ID : "status|pageId|error" as the server has it now
+meeting_status() {
+  server_api /api/ai/meetings/status "{\"meetingId\":\"$1\"}" | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin).get("data") or {}
+except Exception:
+    d = {}
+print("%s|%s|%s" % (d.get("status") or "unknown", d.get("pageId") or "", (d.get("error") or "").replace("|", "/")))'
+}
+# wait_notes ID... : waits, NOTES_WAIT seconds at most, until the server finished every one of them
+wait_notes() {
+  local deadline=$(( $(date +%s) + NOTES_WAIT )) id pending
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    pending=0
+    for id in "$@"; do
+      [ -n "$id" ] || continue
+      case "$(meeting_status "$id")" in done\|*|failed\|*) ;; *) pending=1 ;; esac
+    done
+    [ "$pending" = "0" ] && return 0
+    sleep 3
+  done
+  return 1
+}
+# notes_of NAME ID : true when the notes of that meeting are written, with
+# NOTES_PAGE set. Otherwise the check NAME is recorded as skipped (the model
+# was too slow) or failed (the server gave the meeting up, or never got it).
+notes_of() {
+  local name="$1" id="$2" answer status rest
+  NOTES_PAGE=""
+  NOTES_ERROR=""
+  if [ -z "$id" ]; then
+    fail "$name" "no meeting on the server to look at: the transcript was not delivered"
+    return 1
+  fi
+  answer="$(meeting_status "$id")"
+  status="${answer%%|*}"
+  rest="${answer#*|}"
+  NOTES_PAGE="${rest%%|*}"
+  NOTES_ERROR="${rest#*|}"
+  case "$status" in
+    done)
+      [ -n "$NOTES_ERROR" ] && say "        (the server wrote these notes without its model's part: $NOTES_ERROR)"
+      [ -n "$NOTES_PAGE" ] && CREATED_PAGES+=("$NOTES_PAGE")
+      [ -n "$NOTES_PAGE" ] && return 0
+      fail "$name" "the meeting is done and has no page"
+      return 1 ;;
+    failed)
+      fail "$name" "the server failed the meeting: $NOTES_ERROR"
+      return 1 ;;
+    *)
+      SLOW_NOTES=$((SLOW_NOTES + 1))
+      skip "$name" "the lab's language model was too slow: the server has the transcript and the meeting is still \"$status\" after waiting $NOTES_WAIT s; nothing on this side is waiting"
+      return 1 ;;
+  esac
+}
 PREVIEW="$(auto_post /automation/meeting-preview '{"show":true}')"
 expect "the recording panel opens (preview, nothing is recorded)" "$PREVIEW" 'd["panelVisible"]'
 sleep 0.6
 auto_get "/automation/native-snapshot?which=panel" "$ART/08-recording-panel.png"
 auto_post /automation/meeting-preview '{"show":false}' >/dev/null
+ONLINE_ID=""
+OFFLINE_ID=""
 if [ ! -f "$MEETING_WAV" ]; then
   skip "meetings" "no speech sample at $MEETING_WAV (set DOCMORE_E2E_MEETING_WAV)"
 else
@@ -1020,28 +1131,11 @@ else
     expect "a WAV is transcribed on this Mac (WhisperKit, tiny model): the text has \"homepage\"" "$ONLINE" 'd["ok"] and "homepage" in d["transcript"].lower() and d["language"] == "en" and d["segments"] >= 3 and 14 < d["durationSeconds"] < 20'
     say "        $(jq_py "$ONLINE" 'd.get("transcript", "")[:150]')"
     expect "the transcript was queued and sent at once" "$ONLINE" 'd.get("jobId") and d["jobs"] == []'
-    MODEL_FILES="$(find "$DATA/models" -type f 2>/dev/null | wc -l | tr -d ' ')"
-    [ "$MODEL_FILES" -gt 5 ] && pass "the model was downloaded into the data directory ($(du -sh "$DATA/models" | cut -f1 | tr -d ' '))" || fail "the model was downloaded into the data directory" "$MODEL_FILES files"
-    # keep the downloaded model for the next run (only a complete one)
-    if [ "$(jq_py "$ONLINE" 'd["ok"]')" = "True" ] && [ ! -d "$MODEL_CACHE" ]; then
-      cp -Rc "$DATA/models" "$MODEL_CACHE" 2>/dev/null || cp -R "$DATA/models" "$MODEL_CACHE"
-    fi
-    DONE_PAGE=""
-    for _ in $(seq 1 120); do
-      DONE_PAGE="$(meeting_done_pages | head -1)"
-      [ -n "$DONE_PAGE" ] && break
-      sleep 2
-    done
-    if [ -n "$DONE_PAGE" ] && [ "$DONE_PAGE" != "-" ]; then
-      pass "meeting.done { pageId } reaches the page once the server wrote the notes"
-      CREATED_PAGES+=("$DONE_PAGE")
-      NOTES="$(server_api /api/pages/info "{\"pageId\":\"$DONE_PAGE\",\"includeContent\":true}")"
-      expect "the page on the server has the notes (homepage, Maria, Tom)" "$NOTES" 'all(word in json.dumps(d["data"]) for word in ("homepage", "Maria", "Tom"))'
-      STATE="$(auto_get /automation/state)"
-      expect "a notification says the notes are ready and leads to the page" "$STATE" "any(n['kind'] == 'meeting-done' and n.get('path') == '/p/$DONE_PAGE' for n in d['notifications'])"
-    else
-      fail "meeting.done { pageId } reaches the page once the server wrote the notes" "events: $(meeting_done_pages | tr '\n' ' ')"
-    fi
+    MODEL_FILES="$(find -L "$DATA/models" -type f -path '*openai_whisper-tiny*' 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$MODEL_FILES" -gt 5 ] && pass "the model is in the models folder of the data directory ($MODEL_FILES files)" || fail "the model is in the models folder of the data directory" "$MODEL_FILES files"
+    ONLINE_ID="$(last_delivered)"
+    STATUS="$(server_api /api/ai/meetings/status "{\"meetingId\":\"$ONLINE_ID\"}")"
+    expect "the server has the transcript as a meeting of its own" "$STATUS" 'd["data"]["status"] in ("queued", "summarizing", "done")'
 
     auto_post /automation/network '{"reachable":false}' >/dev/null
     OFF="$(auto_post /automation/transcribe-file "$(request "mac-e2e meeting offline $STAMP")")"
@@ -1058,19 +1152,523 @@ else
       sleep 1
     done
     expect "reachable again: the queue sends it by itself" "$MEET" 'd["jobs"] == [] and d["state"]["queued"] == 0'
-    SECOND_PAGE=""
-    for _ in $(seq 1 120); do
-      SECOND_PAGE="$(meeting_done_pages | sed -n 2p)"
-      [ -n "$SECOND_PAGE" ] && break
-      sleep 2
-    done
-    if [ -n "$SECOND_PAGE" ] && [ "$SECOND_PAGE" != "-" ]; then
-      pass "and its notes land on a page too"
-      CREATED_PAGES+=("$SECOND_PAGE")
-    else
-      fail "and its notes land on a page too" "events: $(meeting_done_pages | tr '\n' ' ')"
-    fi
+    OFFLINE_ID="$(last_delivered)"
+    [ -n "$OFFLINE_ID" ] && [ "$OFFLINE_ID" != "$ONLINE_ID" ] && pass "and the server made a second meeting of it" || fail "and the server made a second meeting of it" "first $ONLINE_ID, second $OFFLINE_ID"
+    # what needs the notes of these two is checked further down, with the live meeting's
   fi
+fi
+
+# ---------------------------------------------------------------- meetings v2
+section "Meetings v2: kind of meeting, speakers, live list"
+meet() { auto_get /automation/meeting; }
+meet_do() { auto_post /automation/meeting "$1"; }
+# wait_meet 'boolean expression over d' [seconds] : polls the meeting; leaves its state in $MEET
+wait_meet() {
+  local cond="$1" seconds="${2:-30}"
+  for _ in $(seq 1 $((seconds * 2))); do
+    MEET="$(meet)"
+    if python3 -c 'import json,sys
+d=json.loads(sys.argv[1])
+sys.exit(0 if eval(sys.argv[2]) else 1)' "$MEET" "$cond" 2>/dev/null; then return 0; fi
+    sleep 0.5
+  done
+  return 1
+}
+# -- the chooser and the panel on a made-up meeting: nothing recorded, nothing sent
+auto_post /automation/meeting-preview '{"what":"chooser"}' >/dev/null
+MEET="$(meet)"
+expect "the chooser: the default kind (virtual) preselected, a small window of fixed size" "$MEET" 'd["phase"] == "choosing" and d["panelVisible"] and d["preselected"] == d["defaultMode"] == "virtual" and d["panel"]["resizable"] == False and d["panel"]["width"] == 460'
+sleep 0.5
+auto_get "/automation/native-snapshot?which=meeting" "$ART/09-meeting-chooser.png"
+auto_post /automation/meeting-preview '{"show":false}' >/dev/null
+
+auto_post /automation/meeting-preview '{"show":true,"mode":"virtual","language":"en"}' >/dev/null
+MEET="$(meet)"
+expect "the panel: every line has its speaker and, in a virtual meeting, its side" "$MEET" 'len(d["lines"]) == 7 and all(l["speaker"] and l["side"] in ("room", "remote") for l in d["lines"]) and len(d["speakers"]) == 4 and {s["side"] for s in d["speakers"]} == {"room", "remote"}'
+expect "a named speaker shows its name, an unnamed one its number and side" "$MEET" 'd["speakers"][0]["label"] == "Ana" and all(str(s["number"]) in s["label"] and s["label"].endswith(")") for s in d["speakers"] if s["name"] == "")'
+expect "the list: a changed entry says what it said before, a cancelled one stays, one edited by hand is locked" "$MEET" 'any(i["before"] for i in d["items"]) and any(i["status"] == "cancelled" for i in d["items"]) and any(i["locked"] and i["updatedBy"] == "user" for i in d["items"]) and d["listStatus"] == "updated"'
+MEET="$(meet_do '{"action":"rename","speakerId":"remote-1","name":"Marta"}')"
+expect "a name typed for a speaker replaces its label on every line at once" "$MEET" 'sum(1 for l in d["lines"] if l["speaker"] == "remote-1") >= 2 and all(l["label"] == "Marta" for l in d["lines"] if l["speaker"] == "remote-1")'
+MEET="$(meet_do '{"action":"rename","speakerId":"remote-1","name":"  "}')"
+expect "an empty name brings the default label back" "$MEET" 'all(l["label"] != "Marta" and l["label"].endswith(")") for l in d["lines"] if l["speaker"] == "remote-1")'
+MEET="$(meet_do '{"action":"item","op":"add","kind":"task","text":"Send the minutes","owner":"Ana","due":"today"}')"
+expect "an entry added by hand shows at once, locked" "$MEET" 'any(i["text"] == "Send the minutes" and i["kind"] == "task" and i["owner"] == "Ana" and i["due"] == "today" and i["locked"] for i in d["items"])'
+meet_do '{"action":"item","op":"cancel","id":"i2"}' >/dev/null
+meet_do '{"action":"item","op":"update","id":"i1","text":"Launch on Tuesday","owner":"Luis","due":""}' >/dev/null
+MEET="$(meet_do '{"action":"item","op":"remove","id":"i3"}')"
+expect "entries are edited, cancelled and deleted by hand" "$MEET" '{i["id"]: (i["text"], i["owner"], i["status"], i["locked"]) for i in d["items"]}.get("i1") == ("Launch on Tuesday", "Luis", "active", True) and [i["status"] for i in d["items"] if i["id"] == "i2"] == ["cancelled"] and not any(i["id"] == "i3" for i in d["items"])'
+MEET="$(meet_do '{"action":"item","op":"restore","id":"i2"}')"
+expect "a cancelled entry is restored" "$MEET" '[(i["status"], i["locked"]) for i in d["items"] if i["id"] == "i2"] == [("active", True)]'
+MEET="$(meet_do '{"action":"ui","width":200,"height":200,"editing":"i4"}')"
+expect "the panel is resizable and refuses less than its minimum (360 x 440)" "$MEET" 'd["panel"]["resizable"] and d["panel"]["width"] == 360 and d["panel"]["height"] == 440 and d["editing"]["item"] == "i4"'
+auto_get "/automation/native-snapshot?which=meeting" "$ART/10-meeting-panel-min-editing.png"
+MEET="$(meet_do '{"action":"ui","width":600,"height":700,"editing":""}')"
+expect "and grows when dragged" "$MEET" 'd["panel"]["width"] == 600 and d["panel"]["height"] == 700'
+auto_get "/automation/native-snapshot?which=meeting" "$ART/11-meeting-panel-virtual.png"
+meet_do '{"action":"ui","width":440,"height":640}' >/dev/null
+auto_post /automation/meeting-preview '{"show":false}' >/dev/null
+auto_post /automation/meeting-preview '{"show":true,"mode":"in_person","language":"en","long":true,"status":"atEnd"}' >/dev/null
+MEET="$(meet)"
+expect "an in-person meeting has speakers and no sides; with no live list nothing is editable" "$MEET" 'all(l["speaker"] and l["side"] == "" for l in d["lines"]) and all(s["side"] == "" and "(" not in s["label"] for s in d["speakers"]) and d["listStatus"] == "atEnd" and d["canEditList"] == False'
+sleep 0.4
+auto_get "/automation/native-snapshot?which=meeting" "$ART/12-meeting-panel-inperson-long.png"
+auto_post /automation/meeting-preview '{"show":false}' >/dev/null
+MEET="$(meet)"
+expect "the preview closes and nothing was recorded" "$MEET" 'd["phase"] == "idle" and not d["panelVisible"] and not d["recording"]'
+
+# -- Settings: the row of the speaker model, with an engine double that has one
+meet_do '{"action":"speaker-model","scripted":true,"do":"download"}' >/dev/null
+SPEAKER_PROGRESS=""
+for _ in $(seq 1 40); do
+  SPK="$(meet_do '{"action":"speaker-model"}')"
+  SPEAKER_PROGRESS="$SPEAKER_PROGRESS $(jq_py "$SPK" 'd["speakerModel"]["progress"]')"
+  [ "$(jq_py "$SPK" 'd["speakerModel"]["downloaded"]')" = "True" ] && break
+  sleep 0.3
+done
+expect "Settings > Meetings: the speaker model downloads" "$SPK" 'd["speakerModel"]["present"] and d["speakerModel"]["downloaded"]'
+python3 -c 'import sys
+seen = [float(v) for v in sys.argv[1].split() if v not in ("None", "")]
+sys.exit(0 if any(0 < v < 1 for v in seen) else 1)' "$SPEAKER_PROGRESS" && pass "with visible progress" || fail "with visible progress" "$SPEAKER_PROGRESS"
+SPK="$(meet_do '{"action":"speaker-model","do":"delete"}')"
+expect "and is deleted" "$SPK" 'd["speakerModel"]["downloaded"] == False'
+meet_do '{"action":"speaker-model","scripted":false}' >/dev/null
+
+# -- a scripted meeting against the server: the same code a recording runs, minus the microphone
+wait_server
+# the bridge call of the web client's "Record meeting" (no kind): the chooser
+bridge_start() {
+  ev 40 <<JS
+$E2E_HELPERS
+return await window.__e2eCall("meeting.start", $1);
+JS
+}
+meet_do '{"action":"script","script":{"language":"es","speed":20}}' >/dev/null
+STARTED="$(bridge_start "{ spaceId: \"$SPACE_ID\", title: \"mac-e2e in person $STAMP\" }")"
+expect "meeting.start without a kind answers at once and opens the chooser" "$STARTED" 'd["ok"] and d["value"]["choosing"] == True and d["value"]["recording"] == False'
+BAD_KIND="$(bridge_start "{ spaceId: \"$SPACE_ID\", mode: \"hybrid\" }")"
+expect "meeting.start refuses a kind it does not know" "$BAD_KIND" 'd["ok"] == False and "in_person" in d["error"]'
+MEET="$(meet_do '{"action":"cancel"}')"
+expect "Cancel closes the chooser; nothing is recorded" "$MEET" 'd["phase"] == "idle" and not d["panelVisible"] and not d["recording"]'
+
+meet_do '{"action":"script","script":{"language":"es","speed":20}}' >/dev/null
+bridge_start "{ spaceId: \"$SPACE_ID\", title: \"mac-e2e in person $STAMP\" }" >/dev/null
+MEET="$(meet_do '{"action":"choose","mode":"in_person"}')"
+expect "one click on a card starts the recording in that kind" "$MEET" 'd["phase"] == "recording" and d["mode"] == "in_person" and d["recording"] and d["panel"]["resizable"]'
+meet_do '{"action":"advance"}' >/dev/null
+wait_meet 'len(d["lines"]) == 11' 10
+expect "in person: every line has a speaker, none has a side" "$MEET" 'len(d["lines"]) == 11 and all(l["speaker"] and l["side"] == "" for l in d["lines"]) and len(d["speakers"]) == 4'
+wait_server
+if wait_meet 'd["meetingId"] != ""' 60; then
+  pass "live/start opened the meeting on the server"
+  IN_PERSON_ID="$(jq_py "$MEET" 'd["meetingId"]')"
+else
+  fail "live/start opened the meeting on the server" "$MEET"
+  IN_PERSON_ID=""
+fi
+MEET="$(meet_do '{"action":"discard"}')"
+expect "Discard closes the panel and queues nothing" "$MEET" 'd["phase"] == "idle" and not d["panelVisible"] and d["queued"] == 0'
+[ -z "$(ls "$DATA/meetings/audio" 2>/dev/null)" ] && pass "nothing of the recording is left on this Mac" || fail "nothing of the recording is left on this Mac" "$(ls "$DATA/meetings/audio" 2>&1)"
+if [ -n "$IN_PERSON_ID" ]; then
+  GONE="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$IN_PERSON_ID\"}")"
+  expect "and its live meeting is gone from the server (live/discard)" "$GONE" 'd.get("statusCode") == 404'
+fi
+
+meet_do '{"action":"script","script":{"language":"es","speed":4}}' >/dev/null
+bridge_start "{ spaceId: \"$SPACE_ID\", title: \"mac-e2e live $STAMP\" }" >/dev/null
+MEET="$(meet)"
+expect "the chooser preselects the kind picked last time" "$MEET" 'd["phase"] == "choosing" and d["preselected"] == "in_person" and d["defaultMode"] == "in_person"'
+MEET="$(meet_do '{"action":"choose","mode":"virtual"}')"
+STATE="$(auto_get /automation/state)"
+expect "a virtual meeting starts; meeting.state carries the kind" "$STATE" 'd["meeting"]["recording"] and d["meeting"]["mode"] == "virtual" and d["meeting"]["choosing"] == False'
+wait_meet 'd["script"]["played"] >= 4' 40
+expect "lines arrive with speaker and side; a voice not told apart yet passes for another" "$MEET" 'd["script"]["played"] < 9 and d["lines"][0]["side"] == "room" and d["lines"][3]["speaker"] == "remote-1" and d["lines"][3]["side"] == "remote" and len(d["speakers"]) == 3'
+meet_do '{"action":"advance"}' >/dev/null
+wait_meet 'len(d["lines"]) == 11' 10
+expect "once told apart, the earlier line of that voice changes speaker" "$MEET" 'd["lines"][3]["speaker"] == "remote-2" and d["lines"][8]["speaker"] == "remote-2" and [s["number"] for s in d["speakers"]] == [1, 2, 3, 4]'
+wait_server
+LIVE_ID=""
+if wait_meet 'd["meetingId"] != ""' 60; then LIVE_ID="$(jq_py "$MEET" 'd["meetingId"]')"; fi
+expect "the meeting is live on the server and its list can be edited" "$MEET" 'd["meetingId"] != "" and any(c["route"] == "live/start" and c["outcome"] == "ok" for c in d["calls"]) and d["canEditList"]'
+MEET="$(meet_do '{"action":"rename","speakerId":"remote-2","name":"Diego"}')"
+expect "naming a speaker while the meeting runs" "$MEET" 'd["lines"][3]["label"] == "Diego" and d["lines"][8]["label"] == "Diego" and d["lines"][1]["label"] != "Diego"'
+SIDECAR="$(python3 -c 'import glob,sys
+files = glob.glob(sys.argv[1] + "/meetings/audio/*.wav.json")
+print(open(files[0]).read() if len(files) == 1 else "{}")' "$DATA")"
+expect "the file next to the audio keeps the kind, the live meeting and the names typed" "$SIDECAR" "d.get('mode') == 'virtual' and d.get('meetingId') == '$LIVE_ID' and any(s['id'] == 'remote-2' and s['name'] == 'Diego' for s in d.get('speakers', []))"
+
+# The server answers a live/update only after its language model did (or
+# after giving the model up). The app waits 180 s for that answer. Here:
+# until the lines are acknowledged, or until the first call that ran into
+# that limit, which is the model being too slow and nothing else.
+say "        waiting for the server to answer live/update (it answers after its language model)"
+UPDATE_TIMED_OUT='any(c["route"] == "live/update" and c["outcome"] == "unreachable: network -1001" for c in d["calls"])'
+SYNC_DEADLINE=$(( $(date +%s) + 420 ))
+while [ "$(date +%s)" -lt "$SYNC_DEADLINE" ]; do
+  wait_server
+  MEET="$(meet_do '{"action":"sync"}')"
+  [ "$(jq_py "$MEET" 'd["acknowledged"]')" = "11" ] && break
+  [ "$(jq_py "$MEET" "$UPDATE_TIMED_OUT")" = "True" ] && break
+  sleep 3
+done
+say "        calls: $(jq_py "$MEET" '[(c["route"], c.get("fromIndex"), c.get("count"), c["outcome"]) for c in d["calls"]]')"
+if [ "$(jq_py "$MEET" 'd["acknowledged"]')" != "11" ] && [ "$(jq_py "$MEET" "$UPDATE_TIMED_OUT")" = "True" ] && [ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$SERVER/api/health/live")" = "200" ]; then
+  skip "live/update: every line reached the server, the first call from index 0, one call at a time" "the lab's language model was too slow: the server (up, and answering live/start) did not answer live/update within the app's 180 s, and it answers only after its model"
+  expect "a live/update with no answer acknowledges nothing: the lines are kept and the next call starts at index 0 again" "$MEET" 'd["acknowledged"] == 0 and d["segments"] == 11 and all(c["fromIndex"] == 0 for c in d["calls"] if c["route"] == "live/update") and d["listStatus"] == "atEnd"'
+else
+  expect "live/update: every line reached the server, the first call from index 0, one call at a time" "$MEET" 'd["acknowledged"] == 11 and d["stored"] == 11 and [c["fromIndex"] for c in d["calls"] if c["route"] == "live/update" and c["outcome"] == "ok"][0] == 0'
+fi
+if [ "$(jq_py "$MEET" 'bool(d["aiAvailable"]) and len(d["items"]) > 0')" = "True" ]; then
+  pass "the list the server's model made of it is shown ($(jq_py "$MEET" 'len(d["items"])') entries, status line: $(jq_py "$MEET" 'd["listStatusText"]'))"
+elif [ "$(jq_py "$MEET" 'd["acknowledged"]')" != "11" ]; then
+  skip "the list the server's model made of it is shown" "the lab's language model was too slow: no live/update was answered, so there is no list to show"
+elif [ "$(jq_py "$MEET" 'd["aiAvailable"] == False')" = "True" ]; then
+  skip "the list the server's model made of it is shown" "the lab's language model was too slow or down: live/update answered with aiAvailable false and no entries (status line: $(jq_py "$MEET" 'd["listStatusText"]')); the calls themselves went through"
+  expect "with no model answering, the status line says the list is made at the end" "$MEET" 'd["listStatus"] == "atEnd"'
+else
+  skip "the list the server's model made of it is shown" "the lab's model answered with no entries for this meeting"
+fi
+
+meet_do '{"action":"item","op":"add","kind":"task","text":"mac-e2e enviar el acta","owner":"Ana","due":"hoy"}' >/dev/null
+wait_meet 'd["pendingEdits"] == 0' 120
+expect "items add: an entry made by hand comes back from the server with its id, locked" "$MEET" 'any(i["text"] == "mac-e2e enviar el acta" and i["locked"] and i["updatedBy"] == "user" and i["owner"] == "Ana" and i["due"] == "hoy" and not i["id"].startswith("local-") for i in d["items"])'
+ITEM_ID="$(jq_py "$MEET" '[i["id"] for i in d["items"] if i["text"] == "mac-e2e enviar el acta"][0]')"
+meet_do "{\"action\":\"item\",\"op\":\"update\",\"id\":\"$ITEM_ID\",\"text\":\"mac-e2e enviar el acta a todos\",\"owner\":\"\",\"due\":\"viernes\"}" >/dev/null
+meet_do "{\"action\":\"item\",\"op\":\"cancel\",\"id\":\"$ITEM_ID\"}" >/dev/null
+wait_meet 'd["pendingEdits"] == 0' 120
+expect "items update and cancel: text, owner cleared, date changed, struck out" "$MEET" "[(i['text'], i['owner'], i['due'], i['status'], i['locked']) for i in d['items'] if i['id'] == '$ITEM_ID'] == [('mac-e2e enviar el acta a todos', '', 'viernes', 'cancelled', True)]"
+meet_do "{\"action\":\"item\",\"op\":\"restore\",\"id\":\"$ITEM_ID\"}" >/dev/null
+wait_meet 'd["pendingEdits"] == 0' 120
+expect "items restore" "$MEET" "[i['status'] for i in d['items'] if i['id'] == '$ITEM_ID'] == ['active']"
+
+auto_post /automation/network '{"reachable":false}' >/dev/null
+meet_do '{"action":"item","op":"add","kind":"agreement","text":"mac-e2e sin servidor"}' >/dev/null
+sleep 1.2
+MEET="$(meet)"
+expect "server out of reach: the status line says the list is made at the end; an edit shows and waits" "$MEET" 'd["listStatus"] == "atEnd" and d["pendingEdits"] == 1 and any(i["text"] == "mac-e2e sin servidor" and i["id"].startswith("local-") and i["locked"] for i in d["items"])'
+auto_get "/automation/native-snapshot?which=meeting" "$ART/13-meeting-live-unreachable.png"
+wait_server
+auto_post /automation/network '{"reachable":null}' >/dev/null
+wait_meet 'd["pendingEdits"] == 0' 120
+expect "reachable again: the edit goes out by itself and the list is live again" "$MEET" 'd["pendingEdits"] == 0 and d["listStatus"] != "atEnd" and any(i["text"] == "mac-e2e sin servidor" and not i["id"].startswith("local-") for i in d["items"])'
+meet_do "{\"action\":\"item\",\"op\":\"remove\",\"id\":\"$ITEM_ID\"}" >/dev/null
+wait_meet 'd["pendingEdits"] == 0' 120
+expect "items remove" "$MEET" "not any(i['id'] == '$ITEM_ID' for i in d['items'])"
+auto_get "/automation/native-snapshot?which=meeting" "$ART/14-meeting-live.png"
+
+wait_server
+MEET="$(meet_do '{"action":"stop"}')"
+expect "Stop closes the panel" "$MEET" 'd["phase"] == "idle" and not d["panelVisible"] and not d["recording"]'
+for _ in $(seq 1 60); do
+  [ "$(jq_py "$(auto_get /automation/meetings)" 'len(d["jobs"])')" = "0" ] && break
+  sleep 1
+done
+SENT_ID="$(last_delivered)"
+[ -n "$LIVE_ID" ] && [ "$SENT_ID" = "$LIVE_ID" ] && pass "the transcript finished the live meeting itself: the server took it under the same meeting id" || fail "the transcript finished the live meeting itself: the server took it under the same meeting id" "live meeting $LIVE_ID, the transcript became $SENT_ID"
+INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$LIVE_ID\"}")"
+expect "on the server: no longer live, virtual, the four speakers with the name typed, the entry made by hand locked" "$INFO" 'd["data"]["status"] in ("queued", "summarizing", "done") and d["data"]["mode"] == "virtual" and len(d["data"]["speakers"]) == 4 and any(s["id"] == "remote-2" and s["name"] == "Diego" for s in d["data"]["speakers"]) and any(i["text"] == "mac-e2e sin servidor" and i["locked"] for i in d["data"]["items"])'
+[ -z "$(ls "$DATA/meetings/audio" 2>/dev/null)" ] && pass "the recording is removed from this Mac once the server has the transcript" || fail "the recording is removed from this Mac once the server has the transcript" "$(ls "$DATA/meetings/audio" 2>&1)"
+
+# -- the notes of the three meetings so far (the server's model writes them)
+say "        waiting up to $NOTES_WAIT s for the server's notes of three meetings"
+wait_notes "$ONLINE_ID" "$OFFLINE_ID" "$LIVE_ID"
+if notes_of "meeting.done { pageId } reaches the page once the server wrote the notes" "$ONLINE_ID"; then
+  DONE_PAGE=""
+  for _ in $(seq 1 15); do
+    DONE_PAGE="$(meeting_done_page "$ONLINE_ID")"
+    [ -n "$DONE_PAGE" ] && break
+    sleep 1
+  done
+  [ "$DONE_PAGE" = "$NOTES_PAGE" ] && pass "meeting.done { pageId } reaches the page once the server wrote the notes" || fail "meeting.done { pageId } reaches the page once the server wrote the notes" "the server's page is $NOTES_PAGE, the event said ${DONE_PAGE:-nothing}"
+  NOTES="$(server_api /api/pages/info "{\"pageId\":\"$NOTES_PAGE\",\"includeContent\":true}")"
+  expect "the page on the server has the notes (homepage, Maria, Tom)" "$NOTES" 'all(word in json.dumps(d["data"]) for word in ("homepage", "Maria", "Tom"))'
+  STATE="$(auto_get /automation/state)"
+  expect "a notification says the notes are ready and leads to the page" "$STATE" "any(n['kind'] == 'meeting-done' and n.get('path') == '/p/$NOTES_PAGE' for n in d['notifications'])"
+fi
+if notes_of "the notes of the transcript that waited in the queue land on a page too" "$OFFLINE_ID"; then
+  pass "the notes of the transcript that waited in the queue land on a page too"
+fi
+if notes_of "the notes of the live meeting name the speaker and have what was said" "$LIVE_ID"; then
+  NOTES="$(server_api /api/pages/info "{\"pageId\":\"$NOTES_PAGE\",\"includeContent\":true}")"
+  expect "the notes of the live meeting name the speaker and have what was said" "$NOTES" '"Diego" in json.dumps(d["data"]) and "lanzamiento" in json.dumps(d["data"])'
+  LIVE_DONE=""
+  for _ in $(seq 1 15); do
+    LIVE_DONE="$(meeting_done_page "$LIVE_ID")"
+    [ -n "$LIVE_DONE" ] && break
+    sleep 1
+  done
+  [ "$LIVE_DONE" = "$NOTES_PAGE" ] && pass "meeting.done carries the live meeting's id and its page" || fail "meeting.done carries the live meeting's id and its page" "the server's page is $NOTES_PAGE, the event said ${LIVE_DONE:-nothing}"
+fi
+
+# -- a recording cut short: the app is killed while it records, the next launch finishes it
+CUT_ID=""
+if [ ! -f "$MEETING_WAV" ]; then
+  skip "interrupted recording" "no speech sample at $MEETING_WAV"
+else
+  wait_server
+  PREVIOUS_MODEL="$(jq_py "$(auto_get /automation/meetings)" 'd["selectedModel"]')"
+  meet_do '{"action":"settings","model":"openai_whisper-tiny"}' >/dev/null
+  MEET="$(meet_do "$(python3 -c 'import json,sys
+print(json.dumps({"action": "start", "mode": "virtual", "spaceId": sys.argv[1], "title": sys.argv[2], "script": {"language": "en", "speed": 20, "audio": sys.argv[3]}}))' "$SPACE_ID" "mac-e2e interrupted $STAMP" "$MEETING_WAV")")"
+  expect "with a kind given the recording starts at once, no chooser" "$MEET" 'd["phase"] == "recording" and d["mode"] == "virtual" and d["choosing"] == False'
+  CUT_ID=""
+  if wait_meet 'd["meetingId"] != "" and len(d["speakers"]) >= 2' 60; then CUT_ID="$(jq_py "$MEET" 'd["meetingId"]')"; fi
+  meet_do '{"action":"rename","speakerId":"room-1","name":"Ana"}' >/dev/null
+  sleep 0.5
+  kill -9 "$APP_PID" 2>/dev/null
+  wait "$APP_PID" 2>/dev/null
+  APP_PID=""
+  SIDECAR="$(python3 -c 'import glob,sys
+files = glob.glob(sys.argv[1] + "/meetings/audio/*.wav.json")
+print(open(files[0]).read() if len(files) == 1 else "{}")' "$DATA")"
+  expect "the app is killed mid-recording: the kind, the live meeting and the name are on disk" "$SIDECAR" "d.get('mode') == 'virtual' and d.get('meetingId') == '$CUT_ID' and d.get('meetingId') and any(s['id'] == 'room-1' and s['name'] == 'Ana' for s in d.get('speakers', []))"
+  launch || exit 1
+  wait_loaded
+  say "        the next launch transcribes the recording and sends it"
+  SENT_ID=""
+  for _ in $(seq 1 90); do
+    SENT_ID="$(last_delivered)"
+    [ -n "$SENT_ID" ] && break
+    sleep 2
+  done
+  [ -n "$CUT_ID" ] && [ "$SENT_ID" = "$CUT_ID" ] && pass "the next launch finishes it as the same meeting (the live meeting's id travels with the transcript)" || fail "the next launch finishes it as the same meeting (the live meeting's id travels with the transcript)" "live meeting $CUT_ID, the transcript became ${SENT_ID:-nothing}; audio folder: $(ls "$DATA/meetings/audio" 2>&1 | tr '\n' ' ')"
+  INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$CUT_ID\"}")"
+  expect "on the server it is no longer live and still a virtual meeting" "$INFO" 'd["data"]["status"] in ("queued", "summarizing", "done") and d["data"]["mode"] == "virtual"'
+  [ -z "$(ls "$DATA/meetings/audio" 2>/dev/null)" ] && pass "and its files are gone from this Mac" || fail "and its files are gone from this Mac" "$(ls "$DATA/meetings/audio" 2>&1)"
+  meet_do "{\"action\":\"settings\",\"model\":\"$PREVIOUS_MODEL\",\"mode\":\"virtual\"}" >/dev/null
+fi
+
+# ---------------------------------------------------------------- meetings: real audio
+section "Meetings v2: the test meeting through the real engine"
+# The Spanish test meeting (four voices, two in the room and two on the
+# call, 123.5 s) goes through the real engine: the final pass over finished
+# recordings of both kinds and of the call on loudspeakers, and the live
+# session fed from the file as if it were being captured. Whisper large-v3
+# turbo and the speaker models; nothing here needs a microphone.
+REAL_VIRTUAL_ID=""
+REAL_INPERSON_ID=""
+REAL_LIVE_ID=""
+REAL_CUT_ID=""
+FIXTURE="$DATA-fixture"
+# score_speakers ANSWER : who each speaker of a transcript is, against the test meeting's ground truth
+score_speakers() {
+  python3 -c 'import collections, json, sys
+truth = json.load(open(sys.argv[1]))
+answer = json.loads(sys.argv[2])
+sides = {person["name"]: person["side"] for person in truth["cast"]}
+seconds = collections.defaultdict(collections.Counter)
+for line in answer.get("lines", []):
+    if not line["speaker"]:
+        continue
+    for turn in truth["turns"]:
+        overlap = min(line["end"], turn["end"]) - max(line["start"], turn["start"])
+        if overlap > 0:
+            seconds[line["speaker"]][turn["speaker"]] += overlap
+people = {speaker: counts.most_common(1)[0][0] for speaker, counts in seconds.items()}
+purity = min((counts.most_common(1)[0][1] / sum(counts.values()) for counts in seconds.values()), default=0)
+side_of = {speaker["id"]: speaker["side"] for speaker in answer.get("speakers", [])}
+room = [line["text"].strip().lower() for line in answer.get("lines", []) if line["side"] == "room"]
+remote = [line["text"].strip().lower() for line in answer.get("lines", []) if line["side"] == "remote"]
+print(json.dumps({
+    "speakers": len(answer.get("speakers", [])),
+    "people": len(set(people.values())),
+    "purity": round(purity, 3),
+    "who": people,
+    "sidesRight": all(side_of.get(speaker) == sides[person] for speaker, person in people.items()),
+    "roomLinesThatRepeatTheCall": sum(1 for text in room if any(text[:24] == other[:24] for other in remote)),
+}))' "$MEETING_ES/meeting-es.json" "$1"
+}
+MEET="$(auto_get /automation/meetings)"
+if [ ! -f "$MEETING_ES/meeting-es.virtual.flac" ]; then
+  skip "the test meeting through the real engine" "no test meeting at $MEETING_ES"
+elif [ "$(jq_py "$MEET" "any(m['id'] == '$LARGE_MODEL' and m['downloaded'] for m in d['models'])")" != "True" ] && [ "${DOCMORE_E2E_LARGE_MODEL:-0}" != "1" ]; then
+  skip "the test meeting through the real engine" "the Whisper large-v3 turbo model (646 MB) is not in $MODEL_CACHE; DOCMORE_E2E_LARGE_MODEL=1 lets the app download it there once"
+else
+  wait_server
+  python3 "$MEETING_ES/make-fixture.py" --from-recording "$MEETING_ES/meeting-es.virtual.flac" --out "$FIXTURE" >/dev/null 2>&1
+  [ -f "$FIXTURE/meeting-es.virtual.wav" ] && [ -f "$FIXTURE/meeting-es.mixed.wav" ] && [ -f "$FIXTURE/meeting-es.virtual-echo.wav" ] \
+    && pass "the recordings of the test meeting are made from the kept one (two tracks, one track, the call on loudspeakers)" \
+    || fail "the recordings of the test meeting are made from the kept one (two tracks, one track, the call on loudspeakers)" "$(ls "$FIXTURE" 2>&1)"
+
+  # the speaker models, through the path Settings > Meetings uses (deleted first when an earlier run left them)
+  meet_do '{"action":"speaker-model","do":"delete"}' >/dev/null
+  SPK="$(meet_do '{"action":"speaker-model"}')"
+  expect "the real engine has speaker models, not on this Mac yet" "$SPK" 'd["speakerModel"]["present"] and d["speakerModel"]["downloaded"] == False'
+  meet_do '{"action":"speaker-model","do":"download"}' >/dev/null
+  SPEAKER_PROGRESS=""
+  for _ in $(seq 1 180); do
+    SPK="$(meet_do '{"action":"speaker-model"}')"
+    SPEAKER_PROGRESS="$SPEAKER_PROGRESS $(jq_py "$SPK" 'd["speakerModel"]["progress"]')"
+    [ "$(jq_py "$SPK" 'd["speakerModel"]["downloaded"]')" = "True" ] && break
+    sleep 1
+  done
+  MEET="$(auto_get /automation/meetings)"
+  expect "they download through the app's own Settings path (about 11 MB), next to the Whisper models" "$MEET" 'd["speakerModel"]["downloaded"] and 5_000_000 < d["speakerModel"]["sizeOnDisk"] < 40_000_000'
+  python3 -c 'import sys
+seen = [float(v) for v in sys.argv[1].split() if v not in ("None", "")]
+sys.exit(0 if any(0 < v < 1 for v in seen) else 1)' "$SPEAKER_PROGRESS" && pass "with visible progress" || fail "with visible progress" "$SPEAKER_PROGRESS"
+
+  # -- finished recordings: the final pass
+  real_file() { python3 -c 'import json,sys
+body = {"path": sys.argv[1], "spaceId": sys.argv[2], "title": sys.argv[3]}
+if sys.argv[4]: body["names"] = json.loads(sys.argv[4])
+print(json.dumps(body))' "$FIXTURE/$1" "$SPACE_ID" "$2" "${3:-}"; }
+  say "        (the first time on a Mac the large model is prepared for its chip: a few minutes)"
+  REAL="$(auto_post /automation/transcribe-file "$(real_file meeting-es.virtual.wav "mac-e2e real virtual $STAMP" '{"s2":"Marta"}')")"
+  expect "a finished virtual recording (two channels): every line has its side, four speakers, two on each side" "$REAL" 'd["ok"] and d["mode"] == "virtual" and 22 <= d["segments"] <= 30 and all(l["side"] in ("room", "remote") for l in d["lines"]) and sorted(s["side"] for s in d["speakers"]) == ["remote", "remote", "room", "room"]'
+  SCORE="$(score_speakers "$REAL")"
+  expect "each speaker is one person of the test meeting, on the side that person is on" "$SCORE" 'd["people"] == 4 and d["purity"] >= 0.9 and d["sidesRight"]'
+  say "        $(jq_py "$SCORE" 'd["who"]'), purity $(jq_py "$SCORE" 'd["purity"]')"
+  expect "the decision and its change are in the text (viernes, then lunes); nothing was taken for an echo" "$REAL" '"viernes" in d["transcript"] and "lunes" in d["transcript"] and d["droppedEchoes"] == 0'
+  expect "the transcript was sent" "$REAL" 'd.get("jobId") and d["jobs"] == []'
+  REAL_VIRTUAL_ID="$(last_delivered)"
+  INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$REAL_VIRTUAL_ID\"}")"
+  expect "on the server: a virtual meeting, four speakers with the right sides, the name given in the app on its speaker" "$INFO" "d['data']['mode'] == 'virtual' and sorted(s['side'] for s in d['data']['speakers']) == ['remote', 'remote', 'room', 'room'] and [s['name'] for s in d['data']['speakers'] if s['id'] == 's2'] == ['Marta'] and $(jq_py "$SCORE" 'repr(d["who"].get("s2") == "Marta")')"
+
+  REAL="$(auto_post /automation/transcribe-file "$(real_file meeting-es.mixed.wav "mac-e2e real in person $STAMP" '{"s1":"Ana"}')")"
+  expect "a finished in-person recording (one channel): no sides, the voices told apart" "$REAL" 'd["ok"] and d["mode"] == "in_person" and all(l["side"] == "" for l in d["lines"]) and all(s["side"] == "" for s in d["speakers"]) and 3 <= len(d["speakers"]) <= 5 and 22 <= d["segments"] <= 32'
+  SCORE="$(score_speakers "$REAL")"
+  expect "in person: the four people are four speakers" "$SCORE" 'd["people"] == 4 and d["purity"] >= 0.85'
+  say "        $(jq_py "$SCORE" 'd["who"]'), purity $(jq_py "$SCORE" 'd["purity"]')"
+  REAL_INPERSON_ID="$(last_delivered)"
+  INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$REAL_INPERSON_ID\"}")"
+  expect "on the server: an in-person meeting, speakers without sides, the name given" "$INFO" 'd["data"]["mode"] == "in_person" and all(s["side"] is None for s in d["data"]["speakers"]) and any(s["name"] == "Ana" for s in d["data"]["speakers"])'
+
+  REAL="$(auto_post /automation/transcribe-file "$(real_file meeting-es.virtual-echo.wav "mac-e2e real echo $STAMP" '')")"
+  SCORE="$(score_speakers "$REAL")"
+  expect "the call on loudspeakers: what the microphone heard of the call is left out of the room's text" "$REAL" 'd["ok"] and d["mode"] == "virtual" and d["droppedEchoes"] >= 8 and 22 <= d["segments"] <= 30'
+  expect "no sentence of the call is in the transcript twice, and the voices of the call are not people in the room" "$SCORE" 'd["roomLinesThatRepeatTheCall"] == 0 and d["speakers"] == 4 and d["people"] == 4 and d["sidesRight"]'
+  say "        $(jq_py "$REAL" 'd["droppedEchoes"]') echoes left out, $(jq_py "$REAL" 'd["segments"]') segments"
+
+  # -- live: the recording fed through the live session, the panel open
+  real_live() { python3 -c 'import json,sys
+print(json.dumps({"action": "start", "mode": sys.argv[1], "spaceId": sys.argv[2], "title": sys.argv[3], "replay": {"file": sys.argv[4], "speed": 3}}))' "$1" "$SPACE_ID" "$2" "$FIXTURE/meeting-es.virtual.wav"; }
+  wait_server
+  MEET="$(meet_do "$(real_live virtual "mac-e2e real live $STAMP")")"
+  expect "live: the test meeting is fed to the real live session as if captured, the panel open" "$MEET" 'd["phase"] == "recording" and d["mode"] == "virtual" and d["panelVisible"]'
+  REMOTE_SPEAKER=""
+  if wait_meet 'any(s["side"] == "remote" for s in d["speakers"])' 90; then REMOTE_SPEAKER="$(jq_py "$MEET" '[s["id"] for s in d["speakers"] if s["side"] == "remote"][0]')"; fi
+  expect "speakers appear while it records, each on its side" "$MEET" 'len(d["speakers"]) >= 1 and all(s["side"] in ("room", "remote") for s in d["speakers"]) and all(l["side"] in ("room", "remote") for l in d["lines"])'
+  meet_do "{\"action\":\"rename\",\"speakerId\":\"$REMOTE_SPEAKER\",\"name\":\"Marta\"}" >/dev/null
+  wait_meet 'len(d["lines"]) >= 22 and len(d["speakers"]) >= 4' 120
+  expect "by the end: four speakers, two on each side" "$MEET" 'sorted(s["side"] for s in d["speakers"]) == ["remote", "remote", "room", "room"]'
+  expect "the name typed during the session is still on its voice after the relabels" "$MEET" '[s["side"] for s in d["speakers"] if s["name"] == "Marta"] == ["remote"] and sum(1 for l in d["lines"] if l["label"] == "Marta") >= 4'
+  sleep 0.5
+  auto_get "/automation/native-snapshot?which=meeting" "$ART/17-meeting-real-live.png"
+  REAL_LIVE_ID="$(jq_py "$MEET" 'd["meetingId"]')"
+  STATE_FILE="$(python3 -c 'import glob,json,sys
+files = glob.glob(sys.argv[1] + "/meetings/audio/*.speakers.json")
+state = json.load(open(files[0])) if len(files) == 1 else {}
+print(json.dumps({"mode": state.get("mode"), "names": [s.get("name") for s in state.get("speakers", []) if s.get("name")]}))' "$DATA")"
+  expect "the engine keeps its speakers next to the recording, with the name (what a crash would need)" "$STATE_FILE" 'd["mode"] == "virtual" and d["names"] == ["Marta"]'
+  # Every line has to reach the server with its speaker: the calls that are
+  # due are made now, until all is acknowledged or one of them gets no
+  # answer within the app's 180 s (the server answers after its model). The
+  # first update of a meeting often has sides and no speakers yet: the
+  # engine waits before it shows a voice it has heard little of.
+  say "        waiting for the server to answer live/update (it answers after its language model)"
+  SYNC_DEADLINE=$(( $(date +%s) + 420 ))
+  while [ "$(date +%s)" -lt "$SYNC_DEADLINE" ]; do
+    wait_server
+    MEET="$(meet_do '{"action":"sync"}')"
+    [ "$(jq_py "$MEET" 'd["segments"] >= 22 and d["acknowledged"] == d["segments"]')" = "True" ] && break
+    [ "$(jq_py "$MEET" "$UPDATE_TIMED_OUT")" = "True" ] && break
+    sleep 3
+  done
+  say "        calls: $(jq_py "$MEET" '[(c.get("fromIndex"), c.get("count"), c["outcome"]) for c in d["calls"] if c["route"] == "live/update"]')"
+  if [ "$(jq_py "$MEET" 'd["segments"] >= 22 and d["acknowledged"] == d["segments"]')" = "True" ]; then
+    INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$REAL_LIVE_ID\"}")"
+    expect "live/update carried the lines with their speakers, their sides and the name to the server" "$INFO" "d['data']['status'] == 'live' and sorted(s['side'] for s in d['data']['speakers']) == ['remote', 'remote', 'room', 'room'] and [s['id'] for s in d['data']['speakers'] if s['name'] == 'Marta'] == ['$REMOTE_SPEAKER'] and sum(s['segments'] for s in d['data']['speakers']) >= 20"
+    say "        the list the lab's model made of the test meeting while it ran: $(jq_py "$MEET" '[(i["kind"], i["text"][:50]) for i in d["items"]]')"
+  elif [ "$(jq_py "$MEET" "$UPDATE_TIMED_OUT")" = "True" ] && [ "$(curl -s -m 5 -o /dev/null -w '%{http_code}' "$SERVER/api/health/live")" = "200" ]; then
+    skip "live/update carried the lines with their speakers, their sides and the name to the server" "the lab's language model was too slow: the server did not answer a live/update within the app's 180 s; the final transcript below carries the same speakers, sides and name"
+  else
+    fail "live/update carried the lines with their speakers, their sides and the name to the server" "$(jq_py "$MEET" '(d["segments"], d["acknowledged"], d["calls"])')"
+  fi
+  MEET="$(meet_do '{"action":"stop"}')"
+  for _ in $(seq 1 60); do
+    [ "$(jq_py "$(auto_get /automation/meetings)" 'len(d["jobs"])')" = "0" ] && break
+    sleep 1
+  done
+  SENT_ID="$(last_delivered)"
+  [ -n "$REAL_LIVE_ID" ] && [ "$SENT_ID" = "$REAL_LIVE_ID" ] && pass "Stop: the final pass is sent as the same meeting" || fail "Stop: the final pass is sent as the same meeting" "live $REAL_LIVE_ID, sent as ${SENT_ID:-nothing}"
+  INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$REAL_LIVE_ID\"}")"
+  expect "on the server: four speakers with their sides, and the name typed live is on the same speaker in the final transcript" "$INFO" "sorted(s['side'] for s in d['data']['speakers']) == ['remote', 'remote', 'room', 'room'] and [s['id'] for s in d['data']['speakers'] if s['name'] == 'Marta'] == ['$REMOTE_SPEAKER']"
+
+  # -- live, cut short: killed while the real engine records
+  MEET="$(meet_do "$(real_live virtual "mac-e2e real cut $STAMP")")"
+  REMOTE_SPEAKER=""
+  if wait_meet 'd["meetingId"] != "" and any(s["side"] == "remote" for s in d["speakers"])' 90; then
+    REMOTE_SPEAKER="$(jq_py "$MEET" '[s["id"] for s in d["speakers"] if s["side"] == "remote"][0]')"
+    REAL_CUT_ID="$(jq_py "$MEET" 'd["meetingId"]')"
+  fi
+  meet_do "{\"action\":\"rename\",\"speakerId\":\"$REMOTE_SPEAKER\",\"name\":\"Marta\"}" >/dev/null
+  wait_meet 'len(d["lines"]) >= 12' 60
+  kill -9 "$APP_PID" 2>/dev/null
+  wait "$APP_PID" 2>/dev/null
+  APP_PID=""
+  LEFT="$(python3 -c 'import glob,json,os,sys
+audio = sys.argv[1] + "/meetings/audio"
+sidecars = glob.glob(audio + "/*.wav.json")
+states = glob.glob(audio + "/*.speakers.json")
+sidecar = json.load(open(sidecars[0])) if len(sidecars) == 1 else {}
+state = json.load(open(states[0])) if len(states) == 1 else {}
+wavs = glob.glob(audio + "/*.wav")
+print(json.dumps({
+    "mode": sidecar.get("mode"), "meetingId": sidecar.get("meetingId"),
+    "sidecarNames": [s["name"] for s in sidecar.get("speakers", []) if s.get("name")],
+    "stateNames": [s.get("name") for s in state.get("speakers", []) if s.get("name")],
+    "audioBytes": os.path.getsize(wavs[0]) if len(wavs) == 1 else 0,
+}))' "$DATA")"
+  expect "killed while the real engine records: part of the audio, the kind, the meeting, the name and the engine's speakers are on disk" "$LEFT" "d['mode'] == 'virtual' and d['meetingId'] == '$REAL_CUT_ID' and d['meetingId'] and d['sidecarNames'] == ['Marta'] and d['stateNames'] == ['Marta'] and 400_000 < d['audioBytes'] < 7_900_000"
+  launch || exit 1
+  wait_loaded
+  SENT_ID=""
+  for _ in $(seq 1 120); do
+    SENT_ID="$(last_delivered)"
+    [ -n "$SENT_ID" ] && break
+    sleep 2
+  done
+  [ -n "$REAL_CUT_ID" ] && [ "$SENT_ID" = "$REAL_CUT_ID" ] && pass "the next launch finishes it with the real engine, as the same meeting" || fail "the next launch finishes it with the real engine, as the same meeting" "live $REAL_CUT_ID, sent as ${SENT_ID:-nothing}; audio folder: $(ls "$DATA/meetings/audio" 2>&1 | tr '\n' ' ')"
+  INFO="$(server_api /api/ai/meetings/info "{\"meetingId\":\"$REAL_CUT_ID\"}")"
+  expect "it kept its kind, its sides and the name on the same speaker" "$INFO" "d['data']['mode'] == 'virtual' and all(s['side'] in ('room', 'remote') for s in d['data']['speakers']) and len(d['data']['speakers']) >= 2 and [s['id'] for s in d['data']['speakers'] if s['name'] == 'Marta'] == ['$REMOTE_SPEAKER']"
+  [ -z "$(ls "$DATA/meetings/audio" 2>/dev/null)" ] && pass "and nothing of it is left next to the recordings" || fail "and nothing of it is left next to the recordings" "$(ls "$DATA/meetings/audio" 2>&1)"
+fi
+
+# -- the notes of the meetings since the last look (the server's model writes them)
+NOTES_PENDING=()
+for id in "${CUT_ID:-}" "$REAL_VIRTUAL_ID" "$REAL_INPERSON_ID" "$REAL_LIVE_ID" "$REAL_CUT_ID"; do [ -n "$id" ] && NOTES_PENDING+=("$id"); done
+if [ "${#NOTES_PENDING[@]}" -gt 0 ]; then
+  say "        waiting up to $NOTES_WAIT s for the server's notes of ${#NOTES_PENDING[@]} meetings"
+  wait_notes "${NOTES_PENDING[@]}"
+  page_text() { server_api /api/pages/info "{\"pageId\":\"$1\",\"includeContent\":true}"; }
+  if [ -n "${CUT_ID:-}" ] && notes_of "the notes of the recording finished after the kill are written" "$CUT_ID"; then
+    pass "the notes of the recording finished after the kill are written"
+  fi
+  if [ -n "$REAL_VIRTUAL_ID" ] && notes_of "the notes of the virtual recording label every line with its speaker and side, and use the name" "$REAL_VIRTUAL_ID"; then
+    expect "the notes of the virtual recording label every line with its speaker and side, and use the name" "$(page_text "$NOTES_PAGE")" 'any(w in json.dumps(d["data"], ensure_ascii=False) for w in ("(sala)", "(room)")) and any(w in json.dumps(d["data"], ensure_ascii=False) for w in ("(remoto)", "(remote)")) and "Marta" in json.dumps(d["data"], ensure_ascii=False) and "viernes" in json.dumps(d["data"], ensure_ascii=False)'
+    # the same page in the app's own web view
+    auto_post /automation/navigate "{\"path\":\"/p/$NOTES_PAGE\"}" >/dev/null
+    sleep 6
+    SEEN="$(ev <<'JS'
+return { text: document.body.innerText.slice(0, 6000), path: location.pathname };
+JS
+)"
+    expect "the notes page opens in the app's web view, with the speakers' labels" "$SEEN" '"Marta" in d["value"]["text"] and ("(sala)" in d["value"]["text"] or "(room)" in d["value"]["text"])'
+    auto_get /automation/snapshot "$ART/18-notes-real-virtual.png"
+    auto_post /automation/navigate '{"path":"/home"}' >/dev/null
+  fi
+  if [ -n "$REAL_INPERSON_ID" ] && notes_of "the notes of the in-person recording use the name given" "$REAL_INPERSON_ID"; then
+    expect "the notes of the in-person recording use the name given" "$(page_text "$NOTES_PAGE")" '"Ana" in json.dumps(d["data"], ensure_ascii=False) and "viernes" in json.dumps(d["data"], ensure_ascii=False)'
+  fi
+  if [ -n "$REAL_LIVE_ID" ] && notes_of "the name typed during the live session is in the final notes" "$REAL_LIVE_ID"; then
+    expect "the name typed during the live session is in the final notes" "$(page_text "$NOTES_PAGE")" '"Marta" in json.dumps(d["data"], ensure_ascii=False)'
+  fi
+  if [ -n "$REAL_CUT_ID" ] && notes_of "the name typed before the kill is in the notes" "$REAL_CUT_ID"; then
+    expect "the name typed before the kill is in the notes" "$(page_text "$NOTES_PAGE")" '"Marta" in json.dumps(d["data"], ensure_ascii=False)'
+  fi
+fi
+if [ "$SLOW_NOTES" -gt 0 ]; then
+  say "        $SLOW_NOTES meeting(s) are still with the lab's language model: their notes pages (titles with \"mac-e2e\") appear later; the clean-up of the next run removes them"
 fi
 
 # ---------------------------------------------------------------- meeting detection
@@ -1125,12 +1723,48 @@ for tab in general accounts offline meetings security; do
 done
 STATE="$(auto_get /automation/state)"
 expect "the Settings window opens" "$STATE" 'd["settingsVisible"]'
+# Settings > Meetings further down: the speaker model row (engine double) and the transcription models
+auto_post /automation/meeting '{"action":"speaker-model","scripted":true}' >/dev/null
+auto_post /automation/window '{"action":"settings","tab":"meetings","scroll":1}' >/dev/null
+sleep 0.5
+auto_get "/automation/native-snapshot?which=settings" "$ART/05-settings-meetings-models-es.png"
+auto_post /automation/meeting '{"action":"speaker-model","scripted":false}' >/dev/null
+# the meeting panel in Spanish, with the server out of reach from the first moment
+auto_post /automation/meeting-preview '{"what":"chooser"}' >/dev/null
+sleep 0.5
+auto_get "/automation/native-snapshot?which=meeting" "$ART/15-meeting-chooser-es.png"
+auto_post /automation/meeting-preview '{"show":false}' >/dev/null
+auto_post /automation/meeting "{\"action\":\"start\",\"mode\":\"virtual\",\"spaceId\":\"$SPACE_ID\",\"script\":{\"language\":\"es\",\"speed\":20}}" >/dev/null
+auto_post /automation/meeting '{"action":"advance"}' >/dev/null
+sleep 1.2
+MEET="$(auto_get /automation/meeting)"
+expect "in Spanish a speaker is \"Persona N\" with its side" "$MEET" 'len(d["lines"]) == 11 and d["lines"][0]["label"] == "Persona 1 (sala)" and d["lines"][1]["label"] == "Persona 2 (remoto)"'
+expect "with no server from the start the meeting still runs: nothing is sent, the list is made at the end" "$MEET" 'd["phase"] == "recording" and d["calls"] == [] and d["meetingId"] == "" and d["listStatus"] == "atEnd" and d["listStatusText"] == "La lista se arma al terminar" and d["canEditList"] == False'
+auto_get "/automation/native-snapshot?which=meeting" "$ART/16-meeting-panel-es-offline.png"
+MEET="$(auto_post /automation/meeting '{"action":"discard"}')"
+expect "and is discarded without the server" "$MEET" 'd["phase"] == "idle" and not d["panelVisible"]'
 auto_post /automation/network '{"reachable":null}' >/dev/null
 
 # ---------------------------------------------------------------- sign out
 section "Clean up and sign out"
 wait_server
 sleep 3   # let the app see the server again
+# notes the server wrote late (a slow model), in this run or an earlier one: found by their title
+LATE_PAGES="$(server_api /api/pages/recent "{\"spaceId\":\"$SPACE_ID\",\"limit\":100}" | python3 -c 'import json,sys
+known = set(sys.argv[1:])
+try:
+    items = json.load(sys.stdin)["data"]["items"]
+except Exception:
+    items = []
+print(" ".join(p["id"] for p in items if "mac-e2e " in (p.get("title") or "") and p["id"] not in known))' ${CREATED_PAGES[@]+"${CREATED_PAGES[@]}"})"
+for page in $LATE_PAGES; do CREATED_PAGES+=("$page"); done
+# each page once, whatever claimed it
+UNIQUE_PAGES=()
+for page in ${CREATED_PAGES[@]+"${CREATED_PAGES[@]}"}; do
+  case " ${UNIQUE_PAGES[*]-} " in *" $page "*) ;; *) UNIQUE_PAGES+=("$page") ;; esac
+done
+CREATED_PAGES=(${UNIQUE_PAGES[@]+"${UNIQUE_PAGES[@]}"})
+[ -n "$LATE_PAGES" ] && say "        $(echo "$LATE_PAGES" | wc -w | tr -d ' ') page(s) with \"mac-e2e\" in the title that no check had claimed are removed too"
 DELETED=0
 for page in ${CREATED_PAGES[@]+"${CREATED_PAGES[@]}"}; do
   CODE="$(server_api /api/pages/delete "{\"pageId\":\"$page\"}" | python3 -c 'import json,sys
