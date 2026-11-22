@@ -193,6 +193,12 @@ describe('the list the model keeps', () => {
     // a date of several words keeps the words that did not change
     const morning = item({ text: 'Llamar al cliente el viernes por la mañana', due: 'viernes por la mañana' });
     expect(applyModelOps([morning], [{ op: 'update', id: 'i1', text: 'Llamar al cliente el lunes por la mañana' }], 70).items[0].due).toBe('lunes por la mañana');
+    // a longer new date still follows, as long as it reads as a date
+    const demo = item({ kind: 'task', text: 'Yo preparo la demostración, la tengo lista el jueves.', owner: 'Luis', due: 'el jueves' });
+    expect(applyModelOps([demo], [{ op: 'update', id: 'i1', text: 'Yo preparo la demostración, la tengo lista el martes de la próxima semana.' }], 70).items[0].due).toBe(
+      'el martes de la próxima semana',
+    );
+    expect(applyModelOps([demo], [{ op: 'update', id: 'i1', text: 'Yo preparo la demostración, la tengo lista cuando el cliente nos confirme.' }], 70).items[0].due).toBe('el jueves');
     // the owner too
     const quote = item({ kind: 'task', text: 'Ana envía la cotización', owner: 'Ana', due: 'mañana' });
     expect(applyModelOps([quote], [{ op: 'update', id: 'i1', text: 'Luis envía la cotización' }], 70).items[0]).toMatchObject({ owner: 'Luis', due: 'mañana' });

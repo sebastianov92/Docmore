@@ -433,6 +433,11 @@ export function mentions(fresh: string, item: { text: string }): boolean {
   return own.filter((stem) => said.has(stem)).length >= needed;
 }
 
+// Words a date is made of. A longer replacement in the sentence is taken for
+// the new date only when it has one of them.
+const DATE_WORD =
+  /\d|\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo|hoy|manana|semana|mes|quincena|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|tonight|week|month|january|february|march|april|june|july|august|september|october|november|december)\b/;
+
 // A date or an owner after the model rewrote the sentence and left that field
 // out. A small model writes "... el lunes" and leaves "viernes" as the date:
 // when the old sentence said the value and the new one says something else in
@@ -457,7 +462,10 @@ function follow(before: string, after: string, value: string | null): string | n
     .slice(head, b.length - tail)
     .join(' ')
     .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-  if (!was.length || !now || now.split(' ').length > 4) return value;
+  // "el jueves" -> "el martes de la próxima semana": up to four words as they
+  // come, a few more only when they read as a date
+  const length = now.split(' ').length;
+  if (!was.length || !now || length > 7 || (length > 4 && !DATE_WORD.test(plain(now)))) return value;
   for (let start = 0; start + was.length <= keys.length; start += 1) {
     if (was.every((word, i) => keys[start + i] === word)) {
       return short([...words.slice(0, start), now, ...words.slice(start + was.length)].join(' '), 120);
