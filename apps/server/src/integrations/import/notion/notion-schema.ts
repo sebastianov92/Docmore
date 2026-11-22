@@ -439,10 +439,13 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
   if (hidden.length) config.hidden = hidden;
 
   if (type === 'kanban') {
-    const by = column(settings.group_by?.property_id);
+    const asked = settings.group_by?.property_id;
+    const by = column(asked);
     if (by && (by.type === 'select' || by.type === 'status')) config.groupBy = by.name;
     else {
-      const fallback = properties.find((p) => p.type === 'status') ?? properties.find((p) => p.type === 'select');
+      // told to group by a column that cannot group here (a multi-select, a
+      // person): a table, rather than a board by some other column
+      const fallback = asked ? undefined : (properties.find((p) => p.type === 'status') ?? properties.find((p) => p.type === 'select'));
       if (!fallback) {
         notes.push({ code: 'board_as_table', name });
         return { name, type: 'table', config };

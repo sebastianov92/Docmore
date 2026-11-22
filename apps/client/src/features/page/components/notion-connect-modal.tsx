@@ -54,6 +54,10 @@ export function noteText(note: ImportNote, t: (key: string, values?: Record<stri
       return t("“{{name}}” could not be made ({{detail}}).", values);
     case "view_failed":
       return t("View “{{name}}” could not be made ({{detail}}).", values);
+    case "buttons_guessed":
+      return t("{{count}} Notion buttons became buttons that add a row to a base shown on their page. Notion does not say what a button does: check each one with the gear next to it.", values);
+    case "buttons_unset":
+      return t("{{count}} Notion buttons came without an action: set them with the gear next to each one.", values);
     case "page_text_failed":
       return t("The text of a page could not be written ({{detail}}).", values);
     default:

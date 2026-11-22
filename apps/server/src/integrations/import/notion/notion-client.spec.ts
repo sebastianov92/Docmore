@@ -91,9 +91,11 @@ describe('notion client', () => {
     plan.push(json(200, { results: [{ object: 'view', id: 'v1' }, { object: 'view', id: 'v2' }], has_more: false, next_cursor: null }));
     plan.push(json(200, { object: 'view', id: 'v1', name: 'Board', type: 'board' }));
     plan.push(json(404, { code: 'object_not_found' }));
-    const views = await client.views('0000000100004000800000000000000a', 10);
+    const views = await client.views({ databaseId: '0000000100004000800000000000000a' }, 10);
     expect(views.map((v) => v.name)).toEqual(['Board']);
     expect(seen[0].url).toContain('database_id=00000001-0000-4000-8000-00000000000a');
+    await client.views({ dataSourceId: '0000000200004000800000000000000b' }, 10);
+    expect(seen[seen.length - 1].url).toContain('data_source_id=00000002-0000-4000-8000-00000000000b');
   });
 });
 

@@ -171,8 +171,11 @@ describe('notion data source to a base', () => {
     expect(mapView({ name: '', type: 'table', configuration: null }, properties, viewNotes)).toEqual({ name: 'Table', type: 'table', config: {} });
     expect(mapView({ name: 'Untitled', type: 'gallery', configuration: null }, properties, viewNotes)!.name).toBe('Gallery');
     expect(mapView({ name: 'untitled', type: 'board', configuration: { type: 'board', group_by: { property_id: 'a6' } } }, properties, viewNotes)!.name).toBe('Board');
-    // a board by a column that cannot group falls back to the status column
-    expect(mapView({ name: 'By owner', type: 'board', configuration: { type: 'board', group_by: { type: 'person', property_id: 'b3' } } }, properties, viewNotes)!.config.groupBy).toBe('State');
+    // a board by a column that cannot group here comes as a table, and says so
+    expect(mapView({ name: 'By owner', type: 'board', configuration: { type: 'board', group_by: { type: 'person', property_id: 'b3' } } }, properties, viewNotes)).toMatchObject({ name: 'By owner', type: 'table' });
+    expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'By owner' });
+    // a board that names no column groups by the status column
+    expect(mapView({ name: 'Plain board', type: 'board', configuration: null }, properties, viewNotes)!.config.groupBy).toBe('State');
     expect(mapView({ name: 'Form', type: 'form', configuration: { type: 'form' } }, properties, viewNotes)).toBeNull();
     expect(viewNotes).toContainEqual({ code: 'view_type', name: 'Form', detail: 'form' });
   });

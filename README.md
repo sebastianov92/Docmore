@@ -299,8 +299,13 @@ outside the `ee/` directories, so they are always on:
   a base with its columns (select and status options with colors and
   groups, dates with time and end, numbers with currency, relations
   between imported databases), its rows, the text of each row as a page,
-  and its views (table, board, calendar, timeline, gallery, list). Files
-  Notion hosts are copied. The report says what did not come over as it
+  and its views (table, board, calendar, timeline, gallery, list). A
+  database that sits inline in its page is embedded in the imported page;
+  a linked view shows the base it is a view of, at that view, and its
+  views become views of that base. Notion buttons become buttons: Notion
+  does not say what a button does, so each one adds a row to a base its
+  page shows (in order) and can be changed with the gear next to it.
+  Bookmarks come as link cards. Files Notion hosts are copied. The report says what did not come over as it
   was (formulas and rollups as values, people as names, view filters,
   forms and charts). This is also how a Notion template is brought in:
   duplicate it into your Notion, share it with the connection, import.

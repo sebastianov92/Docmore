@@ -57,6 +57,9 @@ import {
   TabPanel,
   MicrosoftFile,
   MicrosoftFolder,
+  BaseButton,
+  Bookmark,
+  HtmlBlock,
 } from '@docmost/editor-ext';
 import {
   extensions as coreExtensions,
@@ -145,6 +148,11 @@ export const tiptapExtensions = [
   IntegrationMention,
   MicrosoftFile,
   MicrosoftFolder,
+  // blocks of this fork: without them here, a page that holds one could not
+  // be read or rewritten on the server (imports, the assistant's suggestions)
+  BaseButton,
+  Bookmark,
+  HtmlBlock,
 ] as any;
 
 export function jsonToHtml(tiptapJson: any) {

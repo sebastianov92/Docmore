@@ -19,6 +19,7 @@ import { BaseService } from '../../../core/base/services/base.service';
 import { BasePropertyService } from '../../../core/base/services/base-property.service';
 import { BaseRowService } from '../../../core/base/services/base-row.service';
 import { BaseViewService } from '../../../core/base/services/base-view.service';
+import { BaseAutomationService } from '../../../core/base/automation/base-automation.service';
 import { AttachmentType } from '../../../core/attachment/attachment.constants';
 import { getAttachmentFolderPath } from '../../../core/attachment/attachment.utils';
 import { getMimeType } from '../../../common/helpers/file.helper';
@@ -54,7 +55,34 @@ export interface NotionImportView {
 }
 
 type Row = { id: string; title: string; properties: Record<string, any>; blocks: NotionBlock[]; rowId?: string; pageId?: string };
-type Source = { id: string; name: string; schema: Record<string, any>; rows: Row[]; views: any[]; node?: Node; mapped?: MappedProperty[]; propertyIds?: Map<string, string> };
+type Source = {
+  id: string;
+  name: string;
+  schema: Record<string, any>;
+  rows: Row[];
+  views: any[];
+  node?: Node;
+  mapped?: MappedProperty[];
+  propertyIds?: Map<string, string>;
+  // Notion view id -> the view it became here
+  viewIds?: Map<string, string>;
+};
+// A showing of a table somewhere else than its own database: the views it has there.
+type Linked = { owner: Node; sourceId: string; views: any[] };
+type ReadState = {
+  pages: number;
+  rowPages: number;
+  rowScans: number;
+  notes: ImportNote[];
+  done: Set<string>;
+  picked: Map<string, Node>;
+  databases: Node[];
+  sources: Map<string, Node>;
+  // linked views by the id of the block that shows them
+  linked: Map<string, Linked>;
+  // database blocks with nothing readable in them, until what they show is known
+  hollow: Node[];
+};
 type Node = {
   id: string;
   kind: 'page' | 'database';
@@ -73,6 +101,9 @@ type Node = {
   inline?: boolean;
   // another showing of a database that already came over (a linked view): no base of its own
   aliasOf?: Node;
+  // the views that showing has, and the table they are over
+  linkedViews?: any[];
+  linkedSource?: string;
 };
 
 // what one import brings over at most
@@ -82,7 +113,7 @@ const MAX_ROWS = 2_000;
 const MAX_ROW_PAGES = 400;
 // each row is asked for its text with one request: only so many per import
 const MAX_ROW_SCANS = 1_000;
-const MAX_VIEWS = 12;
+const MAX_VIEWS = 24;
 const MAX_FILES = 300;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_ROOTS_LISTED = 300;
@@ -107,6 +138,7 @@ export class NotionImportService {
     private readonly properties: BasePropertyService,
     private readonly rows: BaseRowService,
     private readonly views: BaseViewService,
+    private readonly automations: BaseAutomationService,
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly storage: StorageService,
     private readonly encryption: EncryptionService,
@@ -282,7 +314,7 @@ export class NotionImportService {
       await progress(true);
 
       // ---- read everything from Notion -----------------------------------
-      const state = { pages: 0, rowPages: 0, rowScans: 0, notes: report.notes, done: new Set<string>(), picked: new Map<string, Node>(), databases: [] as Node[], sources: new Map<string, Node>() };
+      const state: ReadState = { pages: 0, rowPages: 0, rowScans: 0, notes: report.notes, done: new Set<string>(), picked: new Map<string, Node>(), databases: [], sources: new Map<string, Node>(), linked: new Map(), hollow: [] };
       let tree: Node[] = [];
       for (const root of data.roots) {
         const node = root.kind === 'database' ? await this.readDatabase(client, root.id, 0, state, counts, progress) : await this.readPage(client, root.id, 0, state, counts, progress);
@@ -292,14 +324,27 @@ export class NotionImportService {
       }
       // a page picked on its own that turned out to sit inside another picked page lives there
       tree = tree.filter((node) => !node.adopted);
+      // blocks that showed nothing of their own: a linked view of a table read later, or nothing at all
+      for (const node of state.hollow) {
+        const hit = state.linked.get(node.id);
+        if (hit) {
+          node.aliasOf = hit.owner;
+          node.linkedViews = hit.views;
+          node.linkedSource = hit.sourceId;
+        } else {
+          report.notes.push({ code: 'no_table', name: node.title });
+        }
+      }
       if (!tree.length) throw new Error('Nothing could be read: share the pages with the connection in Notion and try again');
 
       // ---- create the pages and bases, empty, so links have somewhere to go
       counts.step = 'creating';
       await progress(true);
       const links = new Map<string, string>();
+      // what each thing that has a link is called
+      const titles = new Map<string, string>();
       // databases that show inline in their page: Notion id -> the base to show there
-      const embeds = new Map<string, string>();
+      const embeds = new Map<string, { pageId: string; viewId?: string | null }>();
       const aliases: Node[] = [];
       const allSources: Source[] = [];
       const create = async (node: Node, parentPageId: string | null) => {
@@ -308,6 +353,8 @@ export class NotionImportService {
           aliases.push(node);
           return;
         }
+        // a database block with nothing to show
+        if (node.kind === 'database' && !node.sources.length) return;
         if (node.kind === 'database') {
           for (const [index, source] of node.sources.entries()) {
             const name = index === 0 ? node.title : `${node.title} · ${source.name || index + 1}`;
@@ -324,9 +371,11 @@ export class NotionImportService {
             source.node = holder;
             allSources.push(source);
             links.set(norm(source.id), holder.url);
+            titles.set(norm(source.id), name);
             if (index === 0) {
               links.set(node.id, holder.url);
-              if (node.inline) embeds.set(node.id, base.id);
+              titles.set(node.id, node.title);
+              if (node.inline) embeds.set(node.id, { pageId: base.id });
             }
             counts.bases++;
           }
@@ -340,6 +389,7 @@ export class NotionImportService {
           node.pageId = page.id;
           node.url = `/s/${space.slug}/p/${page.slugId}`;
           links.set(node.id, node.url);
+          titles.set(node.id, node.title);
         }
         await progress();
         for (const child of node.children) await create(child, node.pageId ?? parentPageId);
@@ -348,16 +398,38 @@ export class NotionImportService {
         await create(node, job.parentPageId);
         if (node.url) report.roots.push({ title: node.title, url: node.url });
       }
+      // the views of a linked showing become views of the base it shows
       for (const alias of aliases) {
         const target = alias.aliasOf!;
         if (target.url) links.set(alias.id, target.url);
-        if (alias.inline && target.pageId) embeds.set(alias.id, target.pageId);
+        titles.set(alias.id, target.title);
+        const source = target.sources.find((s) => s.id === alias.linkedSource) ?? target.sources[0];
+        for (const view of alias.linkedViews ?? []) {
+          if (source && !source.views.some((v) => v?.id === view?.id)) source.views.push(view);
+        }
       }
 
       // ---- bases: columns, rows, row pages, relations, views --------------
       for (const source of allSources) await this.fillBase(user, job.workspaceId, space.slug, source, links, report, counts, progress);
       await this.linkRelations(user, job.workspaceId, allSources, report.notes);
       for (const source of allSources) report.views += await this.makeViews(user, job.workspaceId, source, report.notes);
+      // where a linked view sat, the base shows at that view
+      for (const alias of aliases) {
+        const target = alias.aliasOf!;
+        if (!target.pageId) continue;
+        const first = (alias.linkedViews ?? []).map((v) => target.sources.map((s) => s.viewIds?.get(String(v?.id))).find(Boolean)).find(Boolean);
+        if (alias.linkedViews?.length || alias.inline) embeds.set(alias.id, { pageId: target.pageId, viewId: first ?? null });
+      }
+      // what a Notion button can be made to do: add a row to a base of this import
+      const baseOf = new Map<string, { pageId: string; title: string }>();
+      const eachNode = (node: Node) => {
+        const target = node.aliasOf ?? node;
+        if (node.kind === 'database' && target.pageId) baseOf.set(node.id, { pageId: target.pageId, title: target.title });
+        for (const child of node.children) eachNode(child);
+      };
+      for (const node of tree) eachNode(node);
+      for (const source of allSources) for (const row of source.rows) titles.set(row.id, row.title);
+      const buttons = { baseOf, titles, automations: new Map<string, string>(), guessed: 0, unset: 0 };
 
       // ---- the text of every page -----------------------------------------
       counts.step = 'writing';
@@ -365,7 +437,7 @@ export class NotionImportService {
       const files = { count: 0, notes: report.notes };
       const write = async (node: Node) => {
         if (node.kind === 'page' && node.pageId) {
-          await this.writeContent(user, job, node.pageId, node.blocks, links, embeds, report.skipped, files, counts);
+          await this.writeContent(user, job, node.pageId, node.blocks, links, embeds, buttons, report.skipped, files, counts);
           await progress();
         }
         for (const child of node.children) await write(child);
@@ -374,10 +446,12 @@ export class NotionImportService {
       for (const source of allSources) {
         for (const row of source.rows) {
           if (!row.pageId) continue;
-          await this.writeContent(user, job, row.pageId, row.blocks, links, embeds, report.skipped, files, counts);
+          await this.writeContent(user, job, row.pageId, row.blocks, links, embeds, buttons, report.skipped, files, counts);
           await progress();
         }
       }
+      if (buttons.guessed) report.notes.push({ code: 'buttons_guessed', count: buttons.guessed });
+      if (buttons.unset) report.notes.push({ code: 'buttons_unset', count: buttons.unset });
 
       counts.step = 'done';
       await this.db
@@ -416,8 +490,8 @@ export class NotionImportService {
     client: NotionClient,
     id: string,
     depth: number,
-    state: { pages: number; notes: ImportNote[]; done: Set<string>; picked: Map<string, Node>; databases?: Node[]; sources?: Map<string, Node> },
-    counts: { pages: number },
+    state: ReadState,
+    counts: { pages: number; rows: number },
     progress: () => Promise<void>,
   ): Promise<Node | null> {
     // picked on its own and also part of another page that was picked: once
@@ -450,7 +524,7 @@ export class NotionImportService {
           node.children.push(picked);
           continue;
         }
-        const sub = child.type === 'child_database' ? await this.readDatabase(client, child.id, depth + 1, state as any, counts as any, progress) : await this.readPage(client, child.id, depth + 1, state, counts, progress);
+        const sub = child.type === 'child_database' ? await this.readDatabase(client, child.id, depth + 1, state, counts, progress) : await this.readPage(client, child.id, depth + 1, state, counts, progress);
         if (sub) node.children.push(sub);
       }
     }
@@ -479,7 +553,7 @@ export class NotionImportService {
     client: NotionClient,
     id: string,
     depth: number,
-    state: { pages: number; rowPages: number; rowScans: number; notes: ImportNote[]; done: Set<string>; databases: Node[]; sources: Map<string, Node> },
+    state: ReadState,
     counts: { pages: number; rows: number },
     progress: () => Promise<void>,
   ): Promise<Node | null> {
@@ -496,14 +570,23 @@ export class NotionImportService {
     const title = plainText(database?.title).trim() || 'Untitled';
     const node: Node = { id: norm(id), kind: 'database', title, icon: emojiOf(database?.icon), blocks: [], children: [], sources: [], inline: database?.is_inline === true };
     const refs = (database?.data_sources ?? []) as Array<{ id: string; name?: string }>;
-    // every table it shows already came over with another database: it is a linked view of that one
+    // a linked view of a table that already came over: the views it has here go to that table's base
+    const known = state.linked.get(node.id);
+    if (known) {
+      node.aliasOf = known.owner;
+      node.linkedViews = known.views;
+      node.linkedSource = known.sourceId;
+      return node;
+    }
+    // every table it shows already came over with another database: it is a showing of that one
     const shown = refs.length ? state.sources.get(norm(refs[0].id)) : undefined;
     if (shown && refs.every((ref) => state.sources.get(norm(ref.id)) === shown)) {
       node.aliasOf = shown;
+      node.linkedSource = norm(refs[0].id);
+      node.linkedViews = await client.views({ databaseId: id }, MAX_VIEWS).catch(() => [] as any[]);
       return node;
     }
     const sameTitle = () => state.databases.find((other) => other.title === title && title !== 'Untitled');
-    const views = await client.views(id, MAX_VIEWS * 2).catch(() => [] as any[]);
     for (const ref of refs) {
       let schema: any;
       try {
@@ -528,28 +611,44 @@ export class NotionImportService {
       }
       if (state.rowPages >= MAX_ROW_PAGES) state.notes.push({ code: 'max_row_pages', count: MAX_ROW_PAGES });
       else if (state.rowScans >= MAX_ROW_SCANS) state.notes.push({ code: 'max_row_scans', count: MAX_ROW_SCANS });
-      node.sources.push({
-        id: norm(ref.id),
-        name: String(ref.name ?? ''),
-        schema: schema?.properties ?? {},
-        rows,
-        views: views.filter((v) => !v?.data_source_id || norm(v.data_source_id) === norm(ref.id)),
-      });
+      // every view over this table: the database's own, and the linked ones
+      // that show it from other blocks, kept for when those blocks come up
+      let views = await client.views({ dataSourceId: ref.id }, MAX_VIEWS * 3).catch(() => [] as any[]);
+      if (!views.length) views = await client.views({ databaseId: id }, MAX_VIEWS).catch(() => [] as any[]);
+      const own: any[] = [];
+      for (const view of views) {
+        const holder = norm(view?.parent?.database_id ?? id);
+        if (holder === node.id) {
+          own.push(view);
+          continue;
+        }
+        const entry = state.linked.get(holder) ?? { owner: node, sourceId: norm(ref.id), views: [] };
+        entry.views.push(view);
+        state.linked.set(holder, entry);
+      }
+      node.sources.push({ id: norm(ref.id), name: String(ref.name ?? ''), schema: schema?.properties ?? {}, rows, views: own });
     }
     // Notion hands a linked view over as a database of its own with nothing
     // in it (or nothing readable): when one of the same name already came,
     // this is another showing of that one
     const hollow = node.sources.every((source) => source.rows.length === 0 && Object.keys(source.schema).length <= 1);
-    const twin = hollow ? sameTitle() : undefined;
-    if (twin) {
-      for (const source of node.sources) counts.rows -= source.rows.length;
-      node.sources = [];
-      node.aliasOf = twin;
-      return node;
+    if (hollow) {
+      // its own views say which table it shows
+      const views = await client.views({ databaseId: id }, MAX_VIEWS).catch(() => [] as any[]);
+      const sourceId = views.map((v) => norm(v?.data_source_id)).find((s) => s && state.sources.has(s));
+      const owner = sourceId ? state.sources.get(sourceId) : sameTitle();
+      if (owner) {
+        node.sources = [];
+        node.aliasOf = owner;
+        node.linkedSource = sourceId;
+        node.linkedViews = sourceId ? views.filter((v) => norm(v?.data_source_id) === sourceId) : [];
+        return node;
+      }
     }
     if (!node.sources.length) {
-      state.notes.push({ code: 'no_table', name: title });
-      return null;
+      // maybe a linked view of a table that is read later: decided once everything is read
+      state.hollow.push(node);
+      return node;
     }
     state.databases.push(node);
     for (const source of node.sources) state.sources.set(source.id, node);
@@ -693,7 +792,8 @@ export class NotionImportService {
       // a board with nothing to group by would be empty
       if (mapped.type === 'kanban' && !config.groupByPropertyId) continue;
       try {
-        await this.views.create(user.id, workspaceId, { pageId, name: mapped.name, type: mapped.type, config } as any);
+        const created: any = await this.views.create(user.id, workspaceId, { pageId, name: mapped.name, type: mapped.type, config } as any);
+        if (created?.id && raw?.id) (source.viewIds ??= new Map()).set(String(raw.id), created.id);
         made++;
       } catch (err: any) {
         notes.push({ code: 'view_failed', name: mapped.name, detail: String(err?.message ?? '').slice(0, 100) });
@@ -716,7 +816,8 @@ export class NotionImportService {
     pageId: string,
     blocks: NotionBlock[],
     links: Map<string, string>,
-    embeds: Map<string, string>,
+    embeds: Map<string, { pageId: string; viewId?: string | null }>,
+    buttons: { baseOf: Map<string, { pageId: string; title: string }>; titles: Map<string, string>; automations: Map<string, string>; guessed: number; unset: number },
     skipped: Map<string, number>,
     files: { count: number; notes: ImportNote[] },
     counts: { files: number },
@@ -737,9 +838,35 @@ export class NotionImportService {
         counts.files++;
       }
     }
+    // Notion does not say what a button does. The usual one adds a page to a
+    // database of its page: each button gets, in order, one of the bases the
+    // page shows (the ones shown in place first), and adds a row to it.
+    const wanted = countButtons(blocks);
+    const made: Array<{ label: string; pageId?: string | null; automationId?: string | null }> = [];
+    if (wanted) {
+      const shown = databaseBlocks(blocks).map((id) => ({ id, base: buttons.baseOf.get(id) })).filter((entry) => entry.base);
+      const inPlace = shown.filter((entry) => embeds.has(entry.id));
+      const candidates: Array<{ pageId: string; title: string }> = [];
+      for (const entry of [...inPlace, ...shown]) {
+        if (!candidates.some((c) => c.pageId === entry.base!.pageId)) candidates.push(entry.base!);
+      }
+      for (let i = 0; i < wanted; i++) {
+        const target = candidates[i];
+        const automationId = target ? await this.addRowAutomation(user, job.workspaceId, target.pageId, buttons.automations) : null;
+        if (target && automationId) {
+          made.push({ label: target.title, pageId: target.pageId, automationId });
+          buttons.guessed++;
+        } else {
+          made.push({ label: 'Button' });
+          buttons.unset++;
+        }
+      }
+    }
     const html = blocksToHtml(blocks, {
       linkFor: (id) => links.get(id) ?? null,
+      titleFor: (id) => buttons.titles.get(id) ?? null,
       embedFor: (id) => embeds.get(id) ?? null,
+      buttonFor: () => made.shift() ?? null,
       fileFor: (url) => kept.get(url) ?? null,
       skipped,
     });
@@ -748,6 +875,24 @@ export class NotionImportService {
       await this.pageService.updatePageContent(pageId, htmlToJson(html), 'replace', 'json', user);
     } catch (err: any) {
       files.notes.push({ code: 'page_text_failed', detail: String(err?.message ?? '').slice(0, 100) });
+    }
+  }
+
+  // One automation per base that a button can run: it adds an empty row.
+  private async addRowAutomation(user: User, workspaceId: string, basePageId: string, cache: Map<string, string>): Promise<string | null> {
+    const known = cache.get(basePageId);
+    if (known) return known;
+    try {
+      const created: any = await this.automations.create(
+        { pageId: basePageId, name: 'Add a row', enabled: true, trigger: { type: 'button' }, actions: [{ type: 'create_row', cells: {} }] } as any,
+        workspaceId,
+        user.id,
+      );
+      if (!created?.id) return null;
+      cache.set(basePageId, created.id);
+      return created.id;
+    } catch {
+      return null;
     }
   }
 
@@ -839,6 +984,25 @@ function childRefs(blocks: NotionBlock[]): Array<{ id: string; type: string }> {
   for (const block of blocks) {
     if (block.type === 'child_page' || block.type === 'child_database') out.push({ id: block.id, type: block.type });
     else if (block.children?.length) out.push(...childRefs(block.children));
+  }
+  return out;
+}
+
+function countButtons(blocks: NotionBlock[]): number {
+  let n = 0;
+  for (const block of blocks) {
+    if (block.type === 'unsupported' && block.unsupported?.block_type === 'button') n++;
+    if (block.children?.length) n += countButtons(block.children);
+  }
+  return n;
+}
+
+// The databases a page shows, in the order they come up (Notion ids).
+function databaseBlocks(blocks: NotionBlock[]): string[] {
+  const out: string[] = [];
+  for (const block of blocks) {
+    if (block.type === 'child_database') out.push(norm(block.id));
+    else if (block.type !== 'child_page' && block.children?.length) out.push(...databaseBlocks(block.children));
   }
   return out;
 }

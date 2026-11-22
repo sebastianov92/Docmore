@@ -137,7 +137,7 @@ describe('notion blocks to html', () => {
         '<img src="https://example.com/b.png" alt="">' +
         '<p><a href="https://example.com/docs/Manual%20v2.pdf">Manual v2.pdf</a></p>' +
         '<p>data.zip</p>' +
-        '<p><a href="https://example.com">https://example.com</a></p>' +
+        '<div data-type="bookmark" data-url="https://example.com"></div>' +
         '<p><a href="https://youtu.be/x">Talk</a></p>',
     );
     expect([...ctx.skipped.entries()]).toEqual([
@@ -161,17 +161,46 @@ describe('notion blocks to html', () => {
       ctx,
     );
     expect(html).toBe('<p><a href="/s/general/p/sub">Sub page</a></p><p><a href="/s/general/p/db">Tasks</a></p><p>shared</p><p>notes</p>');
+    expect([...ctx.skipped.entries()]).toEqual([
+      ['unsupported (button)', 1],
+      ['meeting_notes', 1],
+    ]);
     // a database that sits inline in the page is shown in place
-    const inline: HtmlContext = { ...ctxOf({ dddddddddddddddddddddddddddddddd: '/s/general/p/db' }), embedFor: (id) => (id === 'dddddddddddddddddddddddddddddddd' ? 'base-page-id' : null) };
+    const inline: HtmlContext = { ...ctxOf({ dddddddddddddddddddddddddddddddd: '/s/general/p/db' }), embedFor: (id) => (id === 'dddddddddddddddddddddddddddddddd' ? { pageId: 'base-page-id' } : null) };
     expect(
       blocksToHtml(
         [block('child_database', { title: 'Tasks' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd'), block('child_page', { title: 'Sub page' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')],
         inline,
       ),
     ).toBe('<div data-type="base-embed" data-page-id="base-page-id"></div><p><a href="/s/general/p/db">Sub page</a></p>');
+    // a linked view shows the base at one of its views
+    const linked: HtmlContext = { ...ctxOf(), embedFor: () => ({ pageId: 'base-page-id', viewId: 'view-id' }) };
+    expect(blocksToHtml([block('child_database', { title: '' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')], linked)).toBe(
+      '<div data-type="base-embed" data-page-id="base-page-id" data-view-id="view-id"></div>',
+    );
+  });
+
+  it('names a link to a page after the page', () => {
+    const ctx: HtmlContext = { ...ctxOf({ cccccccccccccccccccccccccccccccc: '/s/general/p/sub' }), titleFor: (id) => (id === 'cccccccccccccccccccccccccccccccc' ? 'Sub <page>' : null) };
+    expect(blocksToHtml([block('link_to_page', { type: 'page_id', page_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' })], ctx)).toBe('<p><a href="/s/general/p/sub">Sub &lt;page&gt;</a></p>');
+    // without a name it shows where it goes
+    expect(blocksToHtml([block('link_to_page', { type: 'page_id', page_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' })], ctxOf({ cccccccccccccccccccccccccccccccc: '/s/general/p/sub' }))).toBe(
+      '<p><a href="/s/general/p/sub">/s/general/p/sub</a></p>',
+    );
+  });
+
+  it('turns Notion buttons into what the caller says, in order', () => {
+    const made = [{ label: 'Tasks & "more"', pageId: 'base-1', automationId: 'auto-1' }, { label: 'Button' }];
+    const ctx: HtmlContext = { ...ctxOf(), buttonFor: () => made.shift() ?? null };
+    const html = blocksToHtml([block('unsupported', { block_type: 'button' }), block('unsupported', { block_type: 'button' }), block('unsupported', { block_type: 'button' }), block('unsupported', { block_type: 'form' })], ctx);
+    expect(html).toBe(
+      '<div data-type="base-button" data-label="Tasks &amp; &quot;more&quot;" data-page-id="base-1" data-automation-id="auto-1"></div>' +
+        '<div data-type="base-button" data-label="Button"></div>',
+    );
+    // the third button got nothing: it is counted with what has no equivalent
     expect([...ctx.skipped.entries()]).toEqual([
       ['unsupported (button)', 1],
-      ['meeting_notes', 1],
+      ['unsupported (form)', 1],
     ]);
   });
 });

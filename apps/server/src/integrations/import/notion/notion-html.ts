@@ -21,8 +21,14 @@ export interface NotionBlock {
 export interface HtmlContext {
   // an internal link for a page or database of this import, by Notion id
   linkFor: (notionId: string) => string | null;
+  // what that page or database is called
+  titleFor?: (notionId: string) => string | null;
   // the base to show in place, for a database that sits inline in its page
-  embedFor?: (notionId: string) => string | null;
+  // (and the view of it to show, for a linked view)
+  embedFor?: (notionId: string) => { pageId: string; viewId?: string | null } | null;
+  // what the next Notion button becomes; Notion does not say what a button
+  // does, so the caller decides. null = left out
+  buttonFor?: () => { label: string; pageId?: string | null; automationId?: string | null } | null;
   // where a file hosted by Notion ends up (its link there expires); null = not kept
   fileFor: (url: string, name: string | null) => string | null;
   // block types that have no equivalent here, counted for the report
@@ -207,7 +213,13 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
         }
         break;
       }
-      case 'bookmark':
+      case 'bookmark': {
+        // a card for the link, as in Notion
+        const url = typeof data.url === 'string' ? data.url : '';
+        const caption = plainText(data.caption).trim();
+        if (url) out += `<div data-type="bookmark" data-url="${esc(url)}"${caption ? ` data-title="${esc(caption)}"` : ''}></div>`;
+        break;
+      }
       case 'embed':
       case 'link_preview': {
         const url = typeof data.url === 'string' ? data.url : '';
@@ -248,7 +260,8 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
         // a database that shows its table in the page does so here too
         const embedded = block.type === 'child_database' ? ctx.embedFor?.(normalId(block.id)) : null;
         if (embedded) {
-          out += `<div data-type="base-embed" data-page-id="${esc(embedded)}"></div>`;
+          const view = embedded.viewId ? ` data-view-id="${esc(embedded.viewId)}"` : '';
+          out += `<div data-type="base-embed" data-page-id="${esc(embedded.pageId)}"${view}></div>`;
           break;
         }
         // the page itself lands in the tree; here goes a way to it
@@ -260,7 +273,7 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
       case 'link_to_page': {
         const id = data.page_id ?? data.database_id;
         const href = id ? ctx.linkFor(normalId(String(id))) : null;
-        if (href) out += `<p><a href="${esc(href)}">${esc(href)}</a></p>`;
+        if (href) out += `<p><a href="${esc(href)}">${esc(ctx.titleFor?.(normalId(String(id))) || href)}</a></p>`;
         break;
       }
       case 'synced_block':
@@ -272,10 +285,20 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
       case 'breadcrumb':
         // this app draws its own
         break;
-      default:
+      default: {
+        if (block.type === 'unsupported' && data.block_type === 'button') {
+          const button = ctx.buttonFor?.();
+          if (button) {
+            const base = button.pageId ? ` data-page-id="${esc(button.pageId)}"` : '';
+            const automation = button.automationId ? ` data-automation-id="${esc(button.automationId)}"` : '';
+            out += `<div data-type="base-button" data-label="${esc(button.label)}"${base}${automation}></div>`;
+            break;
+          }
+        }
         skip(block.type === 'unsupported' ? `unsupported (${data.block_type ?? 'unknown'})` : block.type);
         out += kids(block);
         break;
+      }
     }
   }
   return out;
