@@ -397,11 +397,22 @@ const VIEW_TYPES: Record<string, MappedView['type']> = {
   list: 'list',
 };
 
+const VIEW_NAMES: Record<MappedView['type'], string> = {
+  table: 'Table',
+  kanban: 'Board',
+  calendar: 'Calendar',
+  timeline: 'Timeline',
+  gallery: 'Gallery',
+  list: 'List',
+};
+
 // A Notion view as a view of the base. Columns are named by Notion id or
 // name there; here by the name of the column they became.
 export function mapView(view: any, properties: MappedProperty[], notes: ImportNote[]): MappedView | null {
-  const name = String(view?.name ?? '').trim() || 'View';
   const type = VIEW_TYPES[String(view?.type ?? '')];
+  const given = String(view?.name ?? '').trim();
+  // Notion hands unnamed views over as "Untitled": here they are called after what they are
+  const name = given && given.toLowerCase() !== 'untitled' ? given : VIEW_NAMES[type ?? 'table'];
   if (!type) {
     notes.push({ code: 'view_type', name, detail: String(view?.type ?? 'unknown') });
     return null;

@@ -161,6 +161,14 @@ describe('notion blocks to html', () => {
       ctx,
     );
     expect(html).toBe('<p><a href="/s/general/p/sub">Sub page</a></p><p><a href="/s/general/p/db">Tasks</a></p><p>shared</p><p>notes</p>');
+    // a database that sits inline in the page is shown in place
+    const inline: HtmlContext = { ...ctxOf({ dddddddddddddddddddddddddddddddd: '/s/general/p/db' }), embedFor: (id) => (id === 'dddddddddddddddddddddddddddddddd' ? 'base-page-id' : null) };
+    expect(
+      blocksToHtml(
+        [block('child_database', { title: 'Tasks' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd'), block('child_page', { title: 'Sub page' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')],
+        inline,
+      ),
+    ).toBe('<div data-type="base-embed" data-page-id="base-page-id"></div><p><a href="/s/general/p/db">Sub page</a></p>');
     expect([...ctx.skipped.entries()]).toEqual([
       ['unsupported (button)', 1],
       ['meeting_notes', 1],

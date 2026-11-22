@@ -21,6 +21,8 @@ export interface NotionBlock {
 export interface HtmlContext {
   // an internal link for a page or database of this import, by Notion id
   linkFor: (notionId: string) => string | null;
+  // the base to show in place, for a database that sits inline in its page
+  embedFor?: (notionId: string) => string | null;
   // where a file hosted by Notion ends up (its link there expires); null = not kept
   fileFor: (url: string, name: string | null) => string | null;
   // block types that have no equivalent here, counted for the report
@@ -243,6 +245,12 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
       }
       case 'child_page':
       case 'child_database': {
+        // a database that shows its table in the page does so here too
+        const embedded = block.type === 'child_database' ? ctx.embedFor?.(normalId(block.id)) : null;
+        if (embedded) {
+          out += `<div data-type="base-embed" data-page-id="${esc(embedded)}"></div>`;
+          break;
+        }
         // the page itself lands in the tree; here goes a way to it
         const href = ctx.linkFor(normalId(block.id));
         const title = esc(String(data.title ?? '') || 'Untitled');

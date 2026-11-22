@@ -168,7 +168,9 @@ describe('notion data source to a base', () => {
     expect(mapView({ name: 'Cal', type: 'calendar', configuration: { type: 'calendar', date_property_id: 'a7' } }, properties, viewNotes)).toEqual({ name: 'Cal', type: 'calendar', config: { calendarBy: 'When' } });
     expect(mapView({ name: 'Plan', type: 'timeline', configuration: { type: 'timeline', date_property_id: 'When' } }, properties, viewNotes)).toEqual({ name: 'Plan', type: 'timeline', config: { timelineStart: 'When', timelineEnd: 'When (end)' } });
     expect(mapView({ name: 'Cards', type: 'gallery', configuration: { type: 'gallery', cover_size: 'large' } }, properties, viewNotes)).toEqual({ name: 'Cards', type: 'gallery', config: { cardSize: 'large' } });
-    expect(mapView({ name: '', type: 'table', configuration: null }, properties, viewNotes)).toEqual({ name: 'View', type: 'table', config: {} });
+    expect(mapView({ name: '', type: 'table', configuration: null }, properties, viewNotes)).toEqual({ name: 'Table', type: 'table', config: {} });
+    expect(mapView({ name: 'Untitled', type: 'gallery', configuration: null }, properties, viewNotes)!.name).toBe('Gallery');
+    expect(mapView({ name: 'untitled', type: 'board', configuration: { type: 'board', group_by: { property_id: 'a6' } } }, properties, viewNotes)!.name).toBe('Board');
     // a board by a column that cannot group falls back to the status column
     expect(mapView({ name: 'By owner', type: 'board', configuration: { type: 'board', group_by: { type: 'person', property_id: 'b3' } } }, properties, viewNotes)!.config.groupBy).toBe('State');
     expect(mapView({ name: 'Form', type: 'form', configuration: { type: 'form' } }, properties, viewNotes)).toBeNull();

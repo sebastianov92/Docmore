@@ -69,6 +69,10 @@ type Node = {
   url?: string;
   // picked on its own, then found inside another picked page: it went there
   adopted?: boolean;
+  // a database that shows its table in the page that holds it
+  inline?: boolean;
+  // another showing of a database that already came over (a linked view): no base of its own
+  aliasOf?: Node;
 };
 
 // what one import brings over at most
@@ -278,7 +282,7 @@ export class NotionImportService {
       await progress(true);
 
       // ---- read everything from Notion -----------------------------------
-      const state = { pages: 0, rowPages: 0, rowScans: 0, notes: report.notes, done: new Set<string>(), picked: new Map<string, Node>() };
+      const state = { pages: 0, rowPages: 0, rowScans: 0, notes: report.notes, done: new Set<string>(), picked: new Map<string, Node>(), databases: [] as Node[], sources: new Map<string, Node>() };
       let tree: Node[] = [];
       for (const root of data.roots) {
         const node = root.kind === 'database' ? await this.readDatabase(client, root.id, 0, state, counts, progress) : await this.readPage(client, root.id, 0, state, counts, progress);
@@ -294,8 +298,16 @@ export class NotionImportService {
       counts.step = 'creating';
       await progress(true);
       const links = new Map<string, string>();
+      // databases that show inline in their page: Notion id -> the base to show there
+      const embeds = new Map<string, string>();
+      const aliases: Node[] = [];
       const allSources: Source[] = [];
       const create = async (node: Node, parentPageId: string | null) => {
+        if (node.aliasOf) {
+          // no base of its own: it points at the one that came over
+          aliases.push(node);
+          return;
+        }
         if (node.kind === 'database') {
           for (const [index, source] of node.sources.entries()) {
             const name = index === 0 ? node.title : `${node.title} · ${source.name || index + 1}`;
@@ -312,7 +324,10 @@ export class NotionImportService {
             source.node = holder;
             allSources.push(source);
             links.set(norm(source.id), holder.url);
-            if (index === 0) links.set(node.id, holder.url);
+            if (index === 0) {
+              links.set(node.id, holder.url);
+              if (node.inline) embeds.set(node.id, base.id);
+            }
             counts.bases++;
           }
         } else {
@@ -333,6 +348,11 @@ export class NotionImportService {
         await create(node, job.parentPageId);
         if (node.url) report.roots.push({ title: node.title, url: node.url });
       }
+      for (const alias of aliases) {
+        const target = alias.aliasOf!;
+        if (target.url) links.set(alias.id, target.url);
+        if (alias.inline && target.pageId) embeds.set(alias.id, target.pageId);
+      }
 
       // ---- bases: columns, rows, row pages, relations, views --------------
       for (const source of allSources) await this.fillBase(user, job.workspaceId, space.slug, source, links, report, counts, progress);
@@ -345,7 +365,7 @@ export class NotionImportService {
       const files = { count: 0, notes: report.notes };
       const write = async (node: Node) => {
         if (node.kind === 'page' && node.pageId) {
-          await this.writeContent(user, job, node.pageId, node.blocks, links, report.skipped, files, counts);
+          await this.writeContent(user, job, node.pageId, node.blocks, links, embeds, report.skipped, files, counts);
           await progress();
         }
         for (const child of node.children) await write(child);
@@ -354,7 +374,7 @@ export class NotionImportService {
       for (const source of allSources) {
         for (const row of source.rows) {
           if (!row.pageId) continue;
-          await this.writeContent(user, job, row.pageId, row.blocks, links, report.skipped, files, counts);
+          await this.writeContent(user, job, row.pageId, row.blocks, links, embeds, report.skipped, files, counts);
           await progress();
         }
       }
@@ -396,7 +416,7 @@ export class NotionImportService {
     client: NotionClient,
     id: string,
     depth: number,
-    state: { pages: number; notes: ImportNote[]; done: Set<string>; picked: Map<string, Node> },
+    state: { pages: number; notes: ImportNote[]; done: Set<string>; picked: Map<string, Node>; databases?: Node[]; sources?: Map<string, Node> },
     counts: { pages: number },
     progress: () => Promise<void>,
   ): Promise<Node | null> {
@@ -459,7 +479,7 @@ export class NotionImportService {
     client: NotionClient,
     id: string,
     depth: number,
-    state: { pages: number; rowPages: number; rowScans: number; notes: ImportNote[]; done: Set<string> },
+    state: { pages: number; rowPages: number; rowScans: number; notes: ImportNote[]; done: Set<string>; databases: Node[]; sources: Map<string, Node> },
     counts: { pages: number; rows: number },
     progress: () => Promise<void>,
   ): Promise<Node | null> {
@@ -474,9 +494,17 @@ export class NotionImportService {
     }
     if (database?.in_trash) return null;
     const title = plainText(database?.title).trim() || 'Untitled';
-    const node: Node = { id: norm(id), kind: 'database', title, icon: emojiOf(database?.icon), blocks: [], children: [], sources: [] };
+    const node: Node = { id: norm(id), kind: 'database', title, icon: emojiOf(database?.icon), blocks: [], children: [], sources: [], inline: database?.is_inline === true };
+    const refs = (database?.data_sources ?? []) as Array<{ id: string; name?: string }>;
+    // every table it shows already came over with another database: it is a linked view of that one
+    const shown = refs.length ? state.sources.get(norm(refs[0].id)) : undefined;
+    if (shown && refs.every((ref) => state.sources.get(norm(ref.id)) === shown)) {
+      node.aliasOf = shown;
+      return node;
+    }
+    const sameTitle = () => state.databases.find((other) => other.title === title && title !== 'Untitled');
     const views = await client.views(id, MAX_VIEWS * 2).catch(() => [] as any[]);
-    for (const ref of (database?.data_sources ?? []) as Array<{ id: string; name?: string }>) {
+    for (const ref of refs) {
       let schema: any;
       try {
         schema = await client.dataSource(ref.id);
@@ -508,10 +536,23 @@ export class NotionImportService {
         views: views.filter((v) => !v?.data_source_id || norm(v.data_source_id) === norm(ref.id)),
       });
     }
+    // Notion hands a linked view over as a database of its own with nothing
+    // in it (or nothing readable): when one of the same name already came,
+    // this is another showing of that one
+    const hollow = node.sources.every((source) => source.rows.length === 0 && Object.keys(source.schema).length <= 1);
+    const twin = hollow ? sameTitle() : undefined;
+    if (twin) {
+      for (const source of node.sources) counts.rows -= source.rows.length;
+      node.sources = [];
+      node.aliasOf = twin;
+      return node;
+    }
     if (!node.sources.length) {
       state.notes.push({ code: 'no_table', name: title });
       return null;
     }
+    state.databases.push(node);
+    for (const source of node.sources) state.sources.set(source.id, node);
     return node;
   }
 
@@ -675,6 +716,7 @@ export class NotionImportService {
     pageId: string,
     blocks: NotionBlock[],
     links: Map<string, string>,
+    embeds: Map<string, string>,
     skipped: Map<string, number>,
     files: { count: number; notes: ImportNote[] },
     counts: { files: number },
@@ -697,6 +739,7 @@ export class NotionImportService {
     }
     const html = blocksToHtml(blocks, {
       linkFor: (id) => links.get(id) ?? null,
+      embedFor: (id) => embeds.get(id) ?? null,
       fileFor: (url) => kept.get(url) ?? null,
       skipped,
     });
