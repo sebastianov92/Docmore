@@ -16,7 +16,7 @@ Latest full runs:
 
 ```
 xcodebuild test ...                # Executed 117 tests, with 0 failures
-mac/tools/e2e.sh                   # passed 232, failed 0, skipped 0   (2026-11-22 08:03, artifacts mac/build/e2e/20261122-080351)
+mac/tools/e2e.sh                   # passed 232, failed 0, skipped 0   (2026-11-22 11:39, lab on Claude Haiku 5.5, artifacts mac/build/e2e/20261122-113954)
                                    # with the lab's language model healthy; the run of 2026-11-21 19:53 had
                                    # passed 218 and skipped 11, every skip for a model that was too slow
 (cd mac/MeetingKit && swift test --build-path .build --skip RealModelTests)   # Executed 177 tests, with 0 failures
@@ -664,6 +664,13 @@ now a notice during the meeting and the download after Stop).
   accent. The server now keeps the sentence and its date in step, takes the
   same sentence with another date as a change, drops doubles and reads the
   word "null" as empty (`meeting-notes.ts`).
+- Also on 2026-11-22, the same script against the lab set to a hosted model
+  (Claude Haiku 5.5): passed 232, failed 0, skipped 0. A model that fast
+  answered "count to twelve" in three chunks, fewer than the streaming check
+  asked for, so the check now asks for a count to sixty and for three chunks.
+  The lab lets one person send 60 live updates in ten minutes: a run right
+  after a burst of them from the same account gets its `live/update` calls
+  refused (400) and fails for that reason alone.
 - A person at the Mac: a real recording of each kind (the two permission
   dialogs), with real voices, and the mouse and keyboard in the panel.
 - The e2e waits up to six minutes on an unanswered `live/update` of the

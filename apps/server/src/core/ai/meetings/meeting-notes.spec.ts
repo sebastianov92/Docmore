@@ -379,6 +379,65 @@ describe('the final list', () => {
     expect(mergeFinalItems(both, 'garbage', 600)).toHaveLength(2);
   });
 
+  it('goes by the words when the model gives the list back with the ids crossed', () => {
+    const live = [
+      item({ text: 'Queda aprobado el presupuesto de doce mil dólares.' }),
+      item({
+        id: 'i2',
+        kind: 'task',
+        text: 'Yo le envío el contrato al proveedor antes del miércoles.',
+        owner: 'Marta',
+        due: 'miércoles',
+        history: [{ text: 'Yo le envío el contrato al proveedor antes del miércoles.', owner: 'Carla', due: 'miércoles', status: 'active', at: 20, by: 'ai' }],
+      }),
+      item({ id: 'i3', kind: 'task', text: 'Yo preparo la demostración para el cliente, la tengo lista el jueves.', owner: 'Luis', due: 'jueves' }),
+    ];
+    const out = mergeFinalItems(
+      live,
+      [
+        { id: 'i1', kind: 'agreement', text: 'Queda aprobado el presupuesto de doce mil dólares.', status: 'active' },
+        // each of the two under the id of the other, one of them with the day the meeting moved it to
+        { id: 'i2', kind: 'task', text: 'Yo preparo la demostración para el cliente, la tengo lista el martes.', owner: 'Luis', due: 'martes', status: 'active' },
+        { id: 'i3', kind: 'task', text: 'Yo le envío el contrato al proveedor antes del miércoles.', owner: 'Marta', due: 'miércoles', status: 'active' },
+        { id: null, kind: 'task', text: 'Pedir las fotos al fotógrafo', owner: 'Luis', status: 'active' },
+      ],
+      600,
+    );
+    expect(out.map((i) => [i.id, i.owner, i.due])).toEqual([
+      ['i1', null, null],
+      ['i2', 'Marta', 'miércoles'],
+      ['i3', 'Luis', 'martes'],
+      ['i4', 'Luis', null],
+    ]);
+    // each entry kept its own past, and the one that moved says from when
+    expect(out[1].history.map((h) => h.owner)).toEqual(['Carla']);
+    expect(out[2].history.map((h) => h.due)).toEqual(['jueves']);
+    expect(beforeTheChange(out[2])).toContain('jueves');
+
+    // the entry of that id does not come back: nothing says the ids are
+    // crossed, so the id decides as it always did
+    const reused = mergeFinalItems(
+      [item({ text: 'Página de precios lista para revisión' }), item({ id: 'i2', kind: 'task', text: 'Avisar al cliente del cambio de fecha' })],
+      [{ id: 'i1', kind: 'task', text: 'Avisar al cliente del cambio de fecha', status: 'active' }],
+      600,
+    );
+    expect(reused.map((i) => [i.id, i.text, i.history.length])).toEqual([['i1', 'Avisar al cliente del cambio de fecha', 0]]);
+
+    // two entries that read alike, each given back under its own id with a new day: nothing is crossed
+    const alike = mergeFinalItems(
+      [item({ kind: 'task', text: 'Preparar el informe de ventas para el lunes' }), item({ id: 'i2', kind: 'task', text: 'Preparar el informe de compras para el lunes' })],
+      [
+        { id: 'i1', kind: 'task', text: 'Preparar el informe de ventas para el martes', status: 'active' },
+        { id: 'i2', kind: 'task', text: 'Preparar el informe de compras para el martes', status: 'active' },
+      ],
+      600,
+    );
+    expect(alike.map((i) => [i.id, i.text, i.history.map((h) => h.text)])).toEqual([
+      ['i1', 'Preparar el informe de ventas para el martes', ['Preparar el informe de ventas para el lunes']],
+      ['i2', 'Preparar el informe de compras para el martes', ['Preparar el informe de compras para el lunes']],
+    ]);
+  });
+
   it('follows a speaker that got a name', () => {
     const items = [
       item({ kind: 'task', owner: 'Persona 3 (remoto)', history: [{ text: 'Lo hace Persona 3', owner: 'Persona 3 (remoto)', due: null, status: 'active', at: 1, by: 'ai' }] }),

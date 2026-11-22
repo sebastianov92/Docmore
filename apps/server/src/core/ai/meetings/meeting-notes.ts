@@ -524,6 +524,19 @@ function about(before: string, after: string): boolean {
   return !a.size || !b.length || b.some((stem) => a.has(stem));
 }
 
+// How much two sentences say the same thing: 2 when they are the same words,
+// else the share of the telling words of the shorter one that the other has
+// too, and 0 when they share fewer than two.
+function likeness(a: string, b: string): number {
+  if (plain(a) === plain(b)) return 2;
+  const x = stems(a);
+  const y = stems(b);
+  const shared = [...x].filter((stem) => y.has(stem)).length;
+  return shared >= 2 ? shared / Math.min(x.size, y.size) : 0;
+}
+
+const ALIKE = 0.75;
+
 function changeByModel(item: MeetingItem, patch: Parameters<typeof change>[1], at: number | null): boolean {
   const before = item.text;
   const changed = change(item, patch, at, 'ai');
@@ -635,12 +648,46 @@ export function applyUserOp(items: MeetingItem[], op: UserOp, at: number | null)
 // as it was: only an explicit "cancelled" removes something from the notes.
 export function mergeFinalItems(items: MeetingItem[], returned: unknown, at: number | null): MeetingItem[] {
   const next = items.map((i) => ({ ...i, history: [...i.history] }));
-  const list = Array.isArray(returned) ? returned.slice(0, MAX_ITEMS) : [];
-  for (const raw of list) {
+  const list: { raw: any; text: string }[] = [];
+  for (const raw of Array.isArray(returned) ? returned.slice(0, MAX_ITEMS) : []) {
     const text = short(raw?.text, 500);
-    if (!text) continue;
+    if (text) list.push({ raw, text });
+  }
+  // what every entry said before this pass touched any of them
+  const was = new Map(next.map((i) => [i.id, i.text]));
+  // Some models (Gemma 3 does it every time) give the list back with the ids
+  // crossed: the words of one entry under the id of another, whose own words
+  // come back under yet another id. Going by the id would write each entry
+  // over the other and lose what both said before. So when what came under an
+  // id is plainly another entry of the list, and the entry of that id is given
+  // back elsewhere in the same answer, the words decide. Anything less clear
+  // goes by the id, as it always did.
+  const crossed = (index: number, text: string, byId: MeetingItem): MeetingItem | undefined => {
+    const own = was.get(byId.id) ?? byId.text;
+    const mine = likeness(text, own);
+    if (mine === 2) return undefined;
+    let best: MeetingItem | undefined;
+    let top = 0;
+    let tie = false;
+    for (const other of next) {
+      const said = was.get(other.id);
+      if (other === byId || said === undefined) continue;
+      const score = likeness(text, said);
+      if (score > top) {
+        best = other;
+        top = score;
+        tie = false;
+      } else if (score > 0 && score === top) {
+        tie = true;
+      }
+    }
+    if (!best || tie || top < ALIKE || top <= mine) return undefined;
+    return list.some((entry, j) => j !== index && likeness(entry.text, own) >= ALIKE) ? best : undefined;
+  };
+  for (const [index, { raw, text }] of list.entries()) {
     const status: ItemStatus = raw.status === 'cancelled' ? 'cancelled' : 'active';
-    const byId = typeof raw.id === 'string' ? next.find((i) => i.id === raw.id) : undefined;
+    const named = typeof raw.id === 'string' ? next.find((i) => i.id === raw.id) : undefined;
+    const byId = named ? (crossed(index, text, named) ?? named) : undefined;
     const byText = next.find((i) => plain(i.text) === plain(text));
     // a small model now and then gives back the entry a person edited under
     // the id of another one: that other entry is not to be written over
@@ -712,6 +759,8 @@ export const LIVE_SYSTEM =
   'Most new parts of a transcript change nothing: then answer {"ops": []}. ' +
   'One short sentence per entry, in the language of the transcript, every word spelled correctly in that language with its accents and capital letters. ' +
   'The owner and the date go in their own fields: do not repeat them inside the text. ' +
+  'Write a date in the words the meeting used ("el viernes", "lunes 1 de diciembre", "next Tuesday"): ' +
+  'never as a calendar date in numbers, and never with a year or a day that nobody said. ' +
   'As owner use the name or label of the person exactly as the transcript writes it.';
 
 export function livePrompt(items: MeetingItem[], earlier: string, fresh: string): string {
@@ -736,6 +785,8 @@ export const FINAL_SYSTEM =
   '"items": [{"id": string|null, "kind": "agreement"|"task", "text": string, "owner": string|null, "due": string|null, "status": "active"|"cancelled"}]}. ' +
   'Write in the language of the transcript. Never invent decisions, owners or dates that were not said. ' +
   'The owner and the date go in their own fields: do not repeat them inside the text. ' +
+  'Write a date in the words the meeting used ("el viernes", "lunes 1 de diciembre", "next Tuesday"): ' +
+  'never as a calendar date in numbers, and never with a year or a day that nobody said. ' +
   'Write the names and labels of the people exactly as the transcript does.';
 
 export function finalPrompt(label: string, items: MeetingItem[], transcript: string): string {
