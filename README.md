@@ -304,7 +304,9 @@ outside the `ee/` directories, so they are always on:
   was (formulas and rollups as values, people as names, view filters,
   forms and charts). This is also how a Notion template is brought in:
   duplicate it into your Notion, share it with the connection, import.
-  The secret is used for the import and not stored. Written against the
+  The list of what to import comes from Notion's search, which can lag a
+  few minutes behind a page that was just shared: a page can also be added
+  by pasting its link. The secret is used for the import and not stored. Written against the
   API reference (version 2026-03-11) and tested with a stand-in server,
   not yet against Notion itself.
 - **Live meeting recorder**: "Record meeting" records the microphone with

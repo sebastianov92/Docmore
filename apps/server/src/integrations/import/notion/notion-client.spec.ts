@@ -96,3 +96,27 @@ describe('notion client', () => {
     expect(seen[0].url).toContain('database_id=00000001-0000-4000-8000-00000000000a');
   });
 });
+
+describe('notion links', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { idFromLink } = require('./notion-import.service');
+  const ID = '1a2b3c4d5e6f47a8b9c0d1e2f3a4b5c6';
+
+  it('finds the id of a page in its link', () => {
+    expect(idFromLink(`https://www.notion.so/acme/Project-hub-${ID}?pvs=4`)).toBe(ID);
+    expect(idFromLink(`https://app.notion.com/p/${ID}`)).toBe(ID);
+    expect(idFromLink(`https://www.notion.so/${ID}?v=ffffffffffffffffffffffffffffffff`)).toBe(ID);
+    expect(idFromLink('1a2b3c4d-5e6f-47a8-b9c0-d1e2f3a4b5c6')).toBe(ID);
+    expect(idFromLink(`  ${ID}  `)).toBe(ID);
+  });
+
+  it('prefers the page open in a side peek', () => {
+    expect(idFromLink(`https://www.notion.so/acme/ffffffffffffffffffffffffffffffff?v=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee&p=${ID}&pm=s`)).toBe(ID);
+  });
+
+  it('says no to what is not a Notion link', () => {
+    expect(idFromLink('https://example.com/hello')).toBeNull();
+    expect(idFromLink('')).toBeNull();
+    expect(idFromLink(null)).toBeNull();
+  });
+});

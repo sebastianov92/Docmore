@@ -67,6 +67,8 @@ type Node = {
   source?: Source;
   pageId?: string;
   url?: string;
+  // picked on its own, then found inside another picked page: it went there
+  adopted?: boolean;
 };
 
 // what one import brings over at most
@@ -108,8 +110,10 @@ export class NotionImportService {
   ) {}
 
   // What the connection can reach, top level only: the pages and databases
-  // that were shared with it, not what hangs from them.
-  async roots(token: string): Promise<NotionRoot[]> {
+  // that were shared with it, not what hangs from them. `seen` says how
+  // much Notion's search knows of at all: a page shared a moment ago can
+  // take a while to show up there.
+  async roots(token: string): Promise<{ items: NotionRoot[]; seen: { pages: number; databases: number } }> {
     const client = new NotionClient(readToken(token));
     let pages: any[];
     let sources: any[];
@@ -129,23 +133,73 @@ export class NotionImportService {
     }
     for (const id of databases.keys()) reachable.add(id);
 
-    const top = (parent: any): boolean => {
+    // Is this the top of what was shared? A page inside a block (a toggle,
+    // a column) is followed up to the page that holds it.
+    let lookups = 0;
+    const top = async (parent: any): Promise<boolean> => {
+      for (let hop = 0; parent?.type === 'block_id' && hop < 6; hop++) {
+        if (lookups++ > 60) return true;
+        try {
+          parent = (await client.block(String(parent.block_id)))?.parent;
+        } catch {
+          // the block that holds it cannot be read: nothing above it comes along
+          return true;
+        }
+      }
       if (!parent || parent.type === 'workspace') return true;
       if (parent.type === 'page_id') return !reachable.has(norm(parent.page_id));
+      // a row of a database comes with its database
       if (parent.type === 'database_id' || parent.type === 'data_source_id') return false;
-      // inside a block of some page: reached through that page when it is shared
-      return false;
+      return true;
     };
     const out: NotionRoot[] = [];
     for (const page of pages) {
-      if (page?.in_trash || !top(page?.parent)) continue;
+      if (page?.in_trash || !(await top(page?.parent))) continue;
       out.push({ id: norm(page.id), kind: 'page', title: pageTitle(page), icon: emojiOf(page?.icon) });
     }
     for (const [databaseId, source] of databases) {
-      if (source?.in_trash || !top(source?.database_parent)) continue;
+      if (source?.in_trash || !(await top(source?.database_parent))) continue;
       out.push({ id: databaseId, kind: 'database', title: plainText(source?.title).trim() || 'Untitled', icon: emojiOf(source?.icon) });
     }
-    return out.sort((a, b) => a.title.localeCompare(b.title)).slice(0, MAX_ROOTS_LISTED);
+    return {
+      items: out.sort((a, b) => a.title.localeCompare(b.title)).slice(0, MAX_ROOTS_LISTED),
+      seen: { pages: pages.length, databases: databases.size },
+    };
+  }
+
+  // One page or database by its link, asked for directly: it does not
+  // depend on Notion's search, which lags behind what was just shared.
+  async resolve(token: string, link: string): Promise<NotionRoot> {
+    const client = new NotionClient(readToken(token));
+    const id = idFromLink(link);
+    if (!id) throw new BadRequestException('That does not look like the link of a Notion page');
+    let reason = 'Notion did not find it: the page has to be shared with the connection.';
+    try {
+      const page = await client.page(id);
+      if (page?.in_trash) throw new BadRequestException('That page is in the trash in Notion');
+      return { id, kind: 'page', title: pageTitle(page), icon: emojiOf(page?.icon) };
+    } catch (err: any) {
+      if (err instanceof BadRequestException) throw err;
+      if (!(err instanceof NotionError)) throw err;
+      // a wrong secret or no permission is the same whatever is asked for
+      if (err.status === 401 || err.status === 403 || err.status === 429 || err.status === 0) throw new BadRequestException(err.message);
+      reason = err.message;
+    }
+    try {
+      const database = await client.database(id);
+      return { id, kind: 'database', title: plainText(database?.title).trim() || 'Untitled', icon: emojiOf(database?.icon) };
+    } catch (err: any) {
+      if (!(err instanceof NotionError)) throw err;
+    }
+    try {
+      // the link of one table of a database
+      const source = await client.dataSource(id);
+      const databaseId = norm(source?.parent?.database_id);
+      if (databaseId) return { id: databaseId, kind: 'database', title: plainText(source?.title).trim() || 'Untitled', icon: emojiOf(source?.icon) };
+    } catch (err: any) {
+      if (!(err instanceof NotionError)) throw err;
+    }
+    throw new BadRequestException(reason);
   }
 
   async start(
@@ -224,12 +278,16 @@ export class NotionImportService {
       await progress(true);
 
       // ---- read everything from Notion -----------------------------------
-      const state = { pages: 0, rowPages: 0, rowScans: 0, notes: report.notes };
-      const tree: Node[] = [];
+      const state = { pages: 0, rowPages: 0, rowScans: 0, notes: report.notes, done: new Set<string>(), picked: new Map<string, Node>() };
+      let tree: Node[] = [];
       for (const root of data.roots) {
         const node = root.kind === 'database' ? await this.readDatabase(client, root.id, 0, state, counts, progress) : await this.readPage(client, root.id, 0, state, counts, progress);
-        if (node) tree.push(node);
+        if (!node) continue;
+        tree.push(node);
+        state.picked.set(node.id, node);
       }
+      // a page picked on its own that turned out to sit inside another picked page lives there
+      tree = tree.filter((node) => !node.adopted);
       if (!tree.length) throw new Error('Nothing could be read: share the pages with the connection in Notion and try again');
 
       // ---- create the pages and bases, empty, so links have somewhere to go
@@ -334,7 +392,17 @@ export class NotionImportService {
 
   // ---- reading -------------------------------------------------------------
 
-  private async readPage(client: NotionClient, id: string, depth: number, state: { pages: number; notes: ImportNote[] }, counts: { pages: number }, progress: () => Promise<void>): Promise<Node | null> {
+  private async readPage(
+    client: NotionClient,
+    id: string,
+    depth: number,
+    state: { pages: number; notes: ImportNote[]; done: Set<string>; picked: Map<string, Node> },
+    counts: { pages: number },
+    progress: () => Promise<void>,
+  ): Promise<Node | null> {
+    // picked on its own and also part of another page that was picked: once
+    if (state.done.has(norm(id))) return null;
+    state.done.add(norm(id));
     if (state.pages >= MAX_PAGES) {
       state.notes.push({ code: 'max_pages', count: MAX_PAGES });
       return null;
@@ -354,6 +422,14 @@ export class NotionImportService {
     await progress();
     if (depth < MAX_DEPTH) {
       for (const child of childRefs(node.blocks)) {
+        // already read because it was picked on its own: it takes its place here
+        const picked = state.picked.get(norm(child.id));
+        if (picked) {
+          state.picked.delete(picked.id);
+          picked.adopted = true;
+          node.children.push(picked);
+          continue;
+        }
         const sub = child.type === 'child_database' ? await this.readDatabase(client, child.id, depth + 1, state as any, counts as any, progress) : await this.readPage(client, child.id, depth + 1, state, counts, progress);
         if (sub) node.children.push(sub);
       }
@@ -383,10 +459,12 @@ export class NotionImportService {
     client: NotionClient,
     id: string,
     depth: number,
-    state: { pages: number; rowPages: number; rowScans: number; notes: ImportNote[] },
+    state: { pages: number; rowPages: number; rowScans: number; notes: ImportNote[]; done: Set<string> },
     counts: { pages: number; rows: number },
     progress: () => Promise<void>,
   ): Promise<Node | null> {
+    if (state.done.has(norm(id))) return null;
+    state.done.add(norm(id));
     let database: any;
     try {
       database = await client.database(id);
@@ -672,6 +750,26 @@ function uniqueNotes(notes: ImportNote[]): ImportNote[] {
     seen.add(key);
     return true;
   });
+}
+
+// The id in a Notion link: the page shown in a side peek (?p=) when there
+// is one, else the last id of the address. A bare id works too.
+export function idFromLink(raw: unknown): string | null {
+  const link = String(raw ?? '').trim();
+  if (!link || link.length > 2_000) return null;
+  const ID = /[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/gi;
+  let path = link;
+  try {
+    const url = new URL(link);
+    const peek = url.searchParams.get('p');
+    if (peek && ID.test(peek)) return norm(peek.match(ID)![0]);
+    path = url.pathname;
+  } catch {
+    // not an address: maybe the id itself
+  }
+  ID.lastIndex = 0;
+  const found = path.match(ID);
+  return found?.length ? norm(found[found.length - 1]) : null;
 }
 
 function readToken(raw: unknown): string {

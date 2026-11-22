@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Anchor, Button, Checkbox, Group, List, Modal, PasswordInput, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Button, Checkbox, Group, List, Modal, PasswordInput, ScrollArea, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { IconDatabase, IconFileText, IconInfoCircle } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -77,8 +77,11 @@ type ImportView = {
   error: string | null;
 };
 
-async function findRoots(token: string): Promise<{ items: Root[] }> {
+async function findRoots(token: string): Promise<{ items: Root[]; seen?: { pages: number; databases: number } }> {
   return (await api.post("/import/notion/roots", { token })).data;
+}
+async function resolveLink(token: string, link: string): Promise<Root> {
+  return (await api.post("/import/notion/resolve", { token, link })).data;
 }
 async function startImport(data: { token: string; roots: Array<{ id: string; kind: string }>; spaceId: string }): Promise<ImportView> {
   return (await api.post("/import/notion/start", data)).data;
@@ -94,6 +97,8 @@ function notionError(message: string, t: (key: string) => string): string {
   if (message.includes("shared with the connection")) return t("Notion did not find it: the page has to be shared with the connection.");
   if (message.includes("limiting requests")) return t("Notion is limiting requests right now. Try again in a few minutes.");
   if (message.includes("still running")) return t("An import of yours is still running.");
+  if (message.includes("does not look like the link")) return t("That does not look like the link of a Notion page.");
+  if (message.includes("in the trash")) return t("That page is in the trash in Notion.");
   return message;
 }
 
@@ -110,6 +115,9 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [importId, setImportId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState("");
+  // how much Notion's search knows of for this connection
+  const [seen, setSeen] = useState<{ pages: number; databases: number } | null>(null);
 
   useEffect(() => {
     if (opened) return;
@@ -119,6 +127,8 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
     setPicked(new Set());
     setImportId(null);
     setError(null);
+    setLink("");
+    setSeen(null);
   }, [opened]);
 
   const find = useMutation({
@@ -126,7 +136,19 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
     onSuccess: (data) => {
       setError(null);
       setRoots(data.items);
+      setSeen(data.seen ?? null);
       setPicked(new Set(data.items.map((r) => r.id)));
+    },
+    onError: (err) => setError(notionError(getApiErrorMessage(err, t("Could not reach Notion")), t)),
+  });
+  // a page by its link: asked for directly, so it works before Notion's search knows of it
+  const add = useMutation({
+    mutationFn: () => resolveLink(token.trim(), link.trim()),
+    onSuccess: (root) => {
+      setError(null);
+      setLink("");
+      setRoots((current) => ((current ?? []).some((r) => r.id === root.id) ? current : [...(current ?? []), root]));
+      setPicked((current) => new Set(current).add(root.id));
     },
     onError: (err) => setError(notionError(getApiErrorMessage(err, t("Could not reach Notion")), t)),
   });
@@ -206,8 +228,10 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
         {roots && !importId && (
           <>
             {roots.length === 0 ? (
-              <Text size="sm" c="dimmed" data-testid="notion-empty">
-                {t("The connection reaches no page yet. In Notion, open the page, then ••• > Connections, and add it.")}
+              <Text size="sm" data-testid="notion-empty">
+                {seen && seen.pages + seen.databases > 0
+                  ? t("Notion's search shows nothing at the top level for this connection. Paste the link of the page below.")
+                  : t("Notion's search shows nothing for this connection yet. A page shared a moment ago can take a few minutes to appear there. Paste the link of the page below, or go back and try again.")}
               </Text>
             ) : (
               <>
@@ -238,6 +262,23 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
                 </ScrollArea.Autosize>
               </>
             )}
+            <Group gap="xs" align="flex-end" wrap="nowrap">
+              <TextInput
+                style={{ flex: 1 }}
+                label={t("Not in the list? Paste the link of the page")}
+                description={t("In Notion: Share > Copy link. The page still has to be shared with the connection.")}
+                placeholder="https://www.notion.so/…"
+                value={link}
+                onChange={(e) => setLink(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && link.trim().length >= 8) add.mutate();
+                }}
+                data-testid="notion-link"
+              />
+              <Button variant="default" onClick={() => add.mutate()} loading={add.isPending} disabled={link.trim().length < 8} data-testid="notion-link-add">
+                {t("Add")}
+              </Button>
+            </Group>
             <Group justify="space-between">
               <Button variant="subtle" color="gray" onClick={() => setRoots(null)}>
                 {t("Back")}

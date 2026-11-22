@@ -2682,7 +2682,6 @@
   "Find my pages": "Buscar mis páginas",
   "Could not reach Notion": "No se pudo conectar con Notion",
   "Could not start the import": "No se pudo iniciar la importación",
-  "The connection reaches no page yet. In Notion, open the page, then ••• > Connections, and add it.": "La conexión todavía no alcanza ninguna página. En Notion, abre la página, luego ••• > Conexiones, y agrégala.",
   "Choose what to bring over. Sub-pages, databases, rows and views come with each one.": "Elige qué traer. Las subpáginas, bases de datos, filas y vistas vienen con cada una.",
   "Database": "Base de datos",
   "Import {{count}}": "Importar {{count}}",
@@ -2694,8 +2693,6 @@
   "You can close this window: the import keeps going and the pages show up in the sidebar.": "Puedes cerrar esta ventana: la importación sigue y las páginas aparecen en la barra lateral.",
   "The import failed": "La importación falló",
   "What did not come over as it was": "Lo que no llegó tal cual",
-  "Notion (.zip export)": "Notion (exportación .zip)",
-  "Notion (connect: pages, databases, templates)": "Notion (conectar: páginas, bases y plantillas)",
   "“{{name}}”: people come over as names, not as members of this workspace.": "«{{name}}»: las personas llegan como nombres, no como miembros de este espacio de trabajo.",
   "“{{name}}”: the formula comes over as its values, not as a formula.": "«{{name}}»: la fórmula llega como sus valores, no como fórmula.",
   "“{{name}}”: the rollup comes over as its values.": "«{{name}}»: el rollup llega como sus valores.",
@@ -2723,5 +2720,13 @@
   "Notion did not find it: the page has to be shared with the connection.": "Notion no lo encontró: la página tiene que estar compartida con la conexión.",
   "Notion is limiting requests right now. Try again in a few minutes.": "Notion está limitando las peticiones ahora. Intenta de nuevo en unos minutos.",
   "An import of yours is still running.": "Todavía hay una importación tuya en curso.",
-  "Import finished. Pages: {{pages}} · Bases: {{bases}} · Rows: {{rows}} · Views: {{views}} · Files: {{files}}": "Importación terminada. Páginas: {{pages}} · Bases: {{bases}} · Filas: {{rows}} · Vistas: {{views}} · Archivos: {{files}}"
+  "Import finished. Pages: {{pages}} · Bases: {{bases}} · Rows: {{rows}} · Views: {{views}} · Files: {{files}}": "Importación terminada. Páginas: {{pages}} · Bases: {{bases}} · Filas: {{rows}} · Vistas: {{views}} · Archivos: {{files}}",
+  "Notion (.zip)": "Notion (.zip)",
+  "Notion (connect)": "Notion (conectar)",
+  "That does not look like the link of a Notion page.": "Eso no parece el enlace de una página de Notion.",
+  "That page is in the trash in Notion.": "Esa página está en la papelera de Notion.",
+  "Notion's search shows nothing at the top level for this connection. Paste the link of the page below.": "El buscador de Notion no muestra nada en el nivel superior para esta conexión. Pega abajo el enlace de la página.",
+  "Notion's search shows nothing for this connection yet. A page shared a moment ago can take a few minutes to appear there. Paste the link of the page below, or go back and try again.": "El buscador de Notion todavía no muestra nada para esta conexión. Una página compartida hace un momento puede tardar unos minutos en aparecer ahí. Pega abajo el enlace de la página, o vuelve atrás e intenta de nuevo.",
+  "Not in the list? Paste the link of the page": "¿No está en la lista? Pega el enlace de la página",
+  "In Notion: Share > Copy link. The page still has to be shared with the connection.": "En Notion: Compartir > Copiar enlace. La página igual tiene que estar compartida con la conexión."
 }

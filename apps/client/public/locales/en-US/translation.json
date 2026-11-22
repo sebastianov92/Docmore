@@ -2784,7 +2784,6 @@
   "Find my pages": "Find my pages",
   "Could not reach Notion": "Could not reach Notion",
   "Could not start the import": "Could not start the import",
-  "The connection reaches no page yet. In Notion, open the page, then ••• > Connections, and add it.": "The connection reaches no page yet. In Notion, open the page, then ••• > Connections, and add it.",
   "Choose what to bring over. Sub-pages, databases, rows and views come with each one.": "Choose what to bring over. Sub-pages, databases, rows and views come with each one.",
   "Database": "Database",
   "Import {{count}}": "Import {{count}}",
@@ -2796,8 +2795,6 @@
   "You can close this window: the import keeps going and the pages show up in the sidebar.": "You can close this window: the import keeps going and the pages show up in the sidebar.",
   "The import failed": "The import failed",
   "What did not come over as it was": "What did not come over as it was",
-  "Notion (.zip export)": "Notion (.zip export)",
-  "Notion (connect: pages, databases, templates)": "Notion (connect: pages, databases, templates)",
   "“{{name}}”: people come over as names, not as members of this workspace.": "“{{name}}”: people come over as names, not as members of this workspace.",
   "“{{name}}”: the formula comes over as its values, not as a formula.": "“{{name}}”: the formula comes over as its values, not as a formula.",
   "“{{name}}”: the rollup comes over as its values.": "“{{name}}”: the rollup comes over as its values.",
@@ -2825,5 +2822,13 @@
   "Notion did not find it: the page has to be shared with the connection.": "Notion did not find it: the page has to be shared with the connection.",
   "Notion is limiting requests right now. Try again in a few minutes.": "Notion is limiting requests right now. Try again in a few minutes.",
   "An import of yours is still running.": "An import of yours is still running.",
-  "Import finished. Pages: {{pages}} · Bases: {{bases}} · Rows: {{rows}} · Views: {{views}} · Files: {{files}}": "Import finished. Pages: {{pages}} · Bases: {{bases}} · Rows: {{rows}} · Views: {{views}} · Files: {{files}}"
+  "Import finished. Pages: {{pages}} · Bases: {{bases}} · Rows: {{rows}} · Views: {{views}} · Files: {{files}}": "Import finished. Pages: {{pages}} · Bases: {{bases}} · Rows: {{rows}} · Views: {{views}} · Files: {{files}}",
+  "Notion (.zip)": "Notion (.zip)",
+  "Notion (connect)": "Notion (connect)",
+  "That does not look like the link of a Notion page.": "That does not look like the link of a Notion page.",
+  "That page is in the trash in Notion.": "That page is in the trash in Notion.",
+  "Notion's search shows nothing at the top level for this connection. Paste the link of the page below.": "Notion's search shows nothing at the top level for this connection. Paste the link of the page below.",
+  "Notion's search shows nothing for this connection yet. A page shared a moment ago can take a few minutes to appear there. Paste the link of the page below, or go back and try again.": "Notion's search shows nothing for this connection yet. A page shared a moment ago can take a few minutes to appear there. Paste the link of the page below, or go back and try again.",
+  "Not in the list? Paste the link of the page": "Not in the list? Paste the link of the page",
+  "In Notion: Share > Copy link. The page still has to be shared with the connection.": "In Notion: Share > Copy link. The page still has to be shared with the connection."
 }

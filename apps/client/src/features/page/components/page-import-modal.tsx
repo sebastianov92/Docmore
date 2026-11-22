@@ -454,12 +454,12 @@ function ImportFormatSelection({ spaceId, onClose, onNotionConnect }: ImportForm
               leftSection={<IconBrandNotion size={18} />}
               {...props}
             >
-              {t("Notion (.zip export)")}
+              {t("Notion (.zip)")}
             </Button>
           )}
         </FileButton>
         <Button justify="start" variant="default" leftSection={<IconBrandNotion size={18} />} onClick={onNotionConnect} data-testid="import-notion-connect">
-          {t("Notion (connect: pages, databases, templates)")}
+          {t("Notion (connect)")}
         </Button>
         <FileButton
           onChange={(file) => handleZipUpload(file, "confluence")}

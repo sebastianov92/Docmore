@@ -14,6 +14,13 @@ class NotionTokenDto {
   token: string;
 }
 
+class NotionLinkDto extends NotionTokenDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(2000)
+  link: string;
+}
+
 class NotionRootDto {
   @IsString()
   @Matches(/^[0-9a-fA-F-]{32,36}$/)
@@ -53,8 +60,15 @@ export class NotionImportController {
 
   @HttpCode(HttpStatus.OK)
   @Post('roots')
-  async roots(@Body() dto: NotionTokenDto) {
-    return { items: await this.imports.roots(dto.token) };
+  roots(@Body() dto: NotionTokenDto) {
+    return this.imports.roots(dto.token);
+  }
+
+  // A page or database by its link, for what the list does not show (yet).
+  @HttpCode(HttpStatus.OK)
+  @Post('resolve')
+  resolve(@Body() dto: NotionLinkDto) {
+    return this.imports.resolve(dto.token, dto.link);
   }
 
   @HttpCode(HttpStatus.OK)

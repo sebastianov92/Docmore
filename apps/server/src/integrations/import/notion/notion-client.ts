@@ -110,6 +110,11 @@ export class NotionClient {
     return this.all('GET', `/v1/blocks/${notionId(blockId)}/children`, undefined, undefined, 5_000);
   }
 
+  // One block: its parent says where it sits.
+  block(id: string): Promise<any> {
+    return this.request('GET', `/v1/blocks/${notionId(id)}`);
+  }
+
   page(id: string): Promise<any> {
     return this.request('GET', `/v1/pages/${notionId(id)}`);
   }
