@@ -16,9 +16,9 @@ Latest full runs:
 
 ```
 xcodebuild test ...                # Executed 117 tests, with 0 failures
-mac/tools/e2e.sh                   # passed 218, failed 0, skipped 11   (19:53, artifacts mac/build/e2e/20261121-195343)
-                                   # the 11 skips are checks that need an answer of the lab's language model,
-                                   # which was too slow; each says so in the output
+mac/tools/e2e.sh                   # passed 232, failed 0, skipped 0   (2026-11-22 08:03, artifacts mac/build/e2e/20261122-080351)
+                                   # with the lab's language model healthy; the run of 2026-11-21 19:53 had
+                                   # passed 218 and skipped 11, every skip for a model that was too slow
 (cd mac/MeetingKit && swift test --build-path .build --skip RealModelTests)   # Executed 177 tests, with 0 failures
 (cd mac/MeetingKit && MEETINGKIT_MODELS_DIR=../build/e2e-models swift test --build-path .build)   # Executed 181 tests, with 0 failures
 mac/tools/gen-strings.py --check   # 243 strings, all translated
@@ -655,12 +655,15 @@ now a notice during the meeting and the download after Stop).
 
 ### What is left
 
-- With a healthy language model on the lab, run `mac/tools/e2e.sh` once
-  more: the eleven checks it skipped are written and wait for that. Not
-  seen with the real engine yet for that reason: the list of the model
-  during a meeting shown in the panel (one answer with one entry reached
-  the app in one run, unwatched), "antes: ..." on a changed entry, a
-  summary in the notes.
+- Done on 2026-11-22 with the lab's model healthy again: `mac/tools/e2e.sh`
+  four times, each passed 232, failed 0, skipped 0. The list of the model
+  shows in the panel during the scripted meeting and the test meeting, and
+  the notes carry a summary. What a small model (llama3.1 8B) gets wrong in
+  the live list is still there to see: a change of date it misses until the
+  final pass, an opening remark kept as an agreement, a word without its
+  accent. The server now keeps the sentence and its date in step, takes the
+  same sentence with another date as a change, drops doubles and reads the
+  word "null" as empty (`meeting-notes.ts`).
 - A person at the Mac: a real recording of each kind (the two permission
   dialogs), with real voices, and the mouse and keyboard in the panel.
 - The e2e waits up to six minutes on an unanswered `live/update` of the

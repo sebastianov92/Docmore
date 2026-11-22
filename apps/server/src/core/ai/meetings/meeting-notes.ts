@@ -284,8 +284,8 @@ export function cleanItems(input: unknown): MeetingItem[] {
       id: raw.id,
       kind: raw.kind === 'task' ? 'task' : 'agreement',
       text,
-      owner: short(raw.owner, 120),
-      due: short(raw.due, 120),
+      owner: field(raw.owner),
+      due: field(raw.due),
       status: raw.status === 'cancelled' ? 'cancelled' : 'active',
       locked: Boolean(raw.locked),
       at: typeof raw.at === 'number' ? raw.at : null,
@@ -314,6 +314,20 @@ function plain(text: string): string {
     .trim();
 }
 
+// An owner or a date. Asked for "a string or null", a model now and then
+// writes the word instead of leaving the field empty.
+const EMPTY_WORDS = new Set([
+  'null', 'none', 'nil', 'undefined', 'unknown', 'n a', 'na', 'tbd', 'not specified', 'unspecified',
+  'ninguno', 'ninguna', 'nadie', 'sin fecha', 'sin definir', 'por definir', 'no especificado', 'no especificada',
+]);
+
+function field(value: unknown): string | null {
+  const text = short(value, 120);
+  if (!text) return null;
+  const key = plain(text);
+  return key && !EMPTY_WORDS.has(key) ? text : null;
+}
+
 function version(item: MeetingItem): MeetingItemVersion {
   return { text: item.text, owner: item.owner, due: item.due, status: item.status, at: item.at, by: item.updatedBy };
 }
@@ -328,8 +342,8 @@ function change(
   const next = {
     kind: patch.kind === 'task' || patch.kind === 'agreement' ? patch.kind : item.kind,
     text: patch.text === undefined ? item.text : (short(patch.text, 500) ?? item.text),
-    owner: patch.owner === undefined ? item.owner : short(patch.owner, 120),
-    due: patch.due === undefined ? item.due : short(patch.due, 120),
+    owner: patch.owner === undefined ? item.owner : field(patch.owner),
+    due: patch.due === undefined ? item.due : field(patch.due),
     status: patch.status ?? item.status,
   };
   const same =
@@ -419,6 +433,104 @@ export function mentions(fresh: string, item: { text: string }): boolean {
   return own.filter((stem) => said.has(stem)).length >= needed;
 }
 
+// A date or an owner after the model rewrote the sentence and left that field
+// out. A small model writes "... el lunes" and leaves "viernes" as the date:
+// when the old sentence said the value and the new one says something else in
+// that very spot, the value follows the sentence. Anything less clear-cut
+// leaves the value as it was.
+function follow(before: string, after: string, value: string | null): string | null {
+  if (!value) return value;
+  const words = value.split(/\s+/).filter(Boolean);
+  const keys = words.map(plain);
+  const key = keys.join(' ').trim();
+  if (!key) return value;
+  const says = (text: string) => ` ${plain(text)} `.includes(` ${key} `);
+  if (!says(before) || says(after)) return value;
+  const a = before.split(/\s+/).filter(Boolean);
+  const b = after.split(/\s+/).filter(Boolean);
+  let head = 0;
+  while (head < a.length && head < b.length && plain(a[head]) === plain(b[head])) head += 1;
+  let tail = 0;
+  while (tail < a.length - head && tail < b.length - head && plain(a[a.length - 1 - tail]) === plain(b[b.length - 1 - tail])) tail += 1;
+  const was = a.slice(head, a.length - tail).map(plain).filter(Boolean);
+  const now = b
+    .slice(head, b.length - tail)
+    .join(' ')
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  if (!was.length || !now || now.split(' ').length > 4) return value;
+  for (let start = 0; start + was.length <= keys.length; start += 1) {
+    if (was.every((word, i) => keys[start + i] === word)) {
+      return short([...words.slice(0, start), now, ...words.slice(start + was.length)].join(' '), 120);
+    }
+  }
+  return value;
+}
+
+// The sentence without its date, to compare two entries that say the same
+// thing for different days.
+function withoutDate(text: string, due: string): string {
+  return ` ${plain(text)} `.replace(` ${plain(due)} `, ' ').trim();
+}
+
+// True when a new entry is an entry of the list said again with another
+// date: the same sentence (apart from the date, when the sentence has it),
+// by the same person or by nobody in particular.
+function isTwin(item: MeetingItem, text: string, owner: string | null, due: string | null): boolean {
+  if (item.locked || item.status !== 'active' || !due || !item.due) return false;
+  const [a, b] = [plain(item.due), plain(due)];
+  if (!a || !b || a.includes(b) || b.includes(a)) return false;
+  if (owner && item.owner && plain(owner) !== plain(item.owner)) return false;
+  const [before, after] = [withoutDate(item.text, item.due), withoutDate(text, due)];
+  return before.length > 0 && before === after;
+}
+
+// The other way round: the model changed the date or the owner and left the
+// sentence saying the old one.
+function swap(text: string, from: string, to: string): string {
+  const words = from
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!words.length || ` ${plain(text)} `.includes(` ${plain(to)} `)) return text;
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${words.join('\\s+')}(?![\\p{L}\\p{N}])`, 'iu');
+  return short(text.replace(pattern, () => to), 500) ?? text;
+}
+
+// What an entry becomes when the model changes it, with the sentence and its
+// two fields kept in step: a small model often changes one and forgets the other.
+function settle(
+  item: MeetingItem,
+  patch: { text?: unknown; owner?: unknown; due?: unknown },
+): { text: string; owner: string | null; due: string | null } {
+  let text = patch.text === undefined ? item.text : (short(patch.text, 500) ?? item.text);
+  let owner = patch.owner === undefined ? item.owner : field(patch.owner);
+  let due = patch.due === undefined ? item.due : field(patch.due);
+  if (plain(text) !== plain(item.text)) {
+    if (due === item.due) due = follow(item.text, text, due);
+    if (owner === item.owner) owner = follow(item.text, text, owner);
+  } else {
+    if (due && item.due && plain(due) !== plain(item.due)) text = swap(text, item.due, due);
+    if (owner && item.owner && plain(owner) !== plain(item.owner)) text = swap(text, item.owner, owner);
+  }
+  return { text, owner, due };
+}
+
+// True when two sentences share a telling word. A model now and then reuses
+// the id of an entry for another matter: what that entry said before is then
+// not an earlier version of it and is not kept as one.
+function about(before: string, after: string): boolean {
+  const a = stems(before);
+  const b = [...stems(after)];
+  return !a.size || !b.length || b.some((stem) => a.has(stem));
+}
+
+function changeByModel(item: MeetingItem, patch: Parameters<typeof change>[1], at: number | null): boolean {
+  const before = item.text;
+  const changed = change(item, patch, at, 'ai');
+  if (changed && !about(before, item.text)) item.history = [];
+  return changed;
+}
+
 // What the model asked for, applied. Locked entries are never changed, an
 // entry is not added twice, and with `fresh` (the text the model has just
 // read) an entry is only changed when that text is about it.
@@ -430,13 +542,25 @@ export function applyModelOps(items: MeetingItem[], ops: ModelOp[], at: number |
       const text = short(op.text, 500);
       if (!text || next.length >= MAX_ITEMS) continue;
       const key = plain(text);
+      const owner = field(op.owner);
+      const due = field(op.due);
+      // The meeting changed its mind and the model wrote a new entry instead
+      // of changing the old one: the same sentence with another date.
+      const twin = next.find((i) => isTwin(i, text, owner, due));
+      if (twin) {
+        if (fresh === undefined || mentions(fresh, twin)) {
+          changed = changeByModel(twin, { kind: op.kind, text, owner: owner ?? twin.owner, due }, at) || changed;
+          continue;
+        }
+        if (plain(twin.text) === key) continue;
+      }
       if (next.some((i) => plain(i.text) === key)) continue;
       next.push({
         id: nextId(next),
         kind: op.kind ?? 'agreement',
         text,
-        owner: short(op.owner, 120),
-        due: short(op.due, 120),
+        owner,
+        due,
         status: 'active',
         locked: false,
         at,
@@ -450,7 +574,7 @@ export function applyModelOps(items: MeetingItem[], ops: ModelOp[], at: number |
     if (!item || item.locked) continue;
     if (fresh !== undefined && !mentions(fresh, item)) continue;
     if (op.op === 'update') {
-      changed = change(item, { kind: op.kind, text: op.text, owner: op.owner, due: op.due }, at, 'ai') || changed;
+      changed = changeByModel(item, { kind: op.kind, ...settle(item, { text: op.text, owner: op.owner, due: op.due }) }, at) || changed;
     } else {
       changed = change(item, { status: op.op === 'cancel' ? 'cancelled' : 'active' }, at, 'ai') || changed;
     }
@@ -478,8 +602,8 @@ export function applyUserOp(items: MeetingItem[], op: UserOp, at: number | null)
       id: nextId(next),
       kind: op.kind === 'task' ? 'task' : 'agreement',
       text,
-      owner: short(op.owner, 120),
-      due: short(op.due, 120),
+      owner: field(op.owner),
+      due: field(op.due),
       status: 'active',
       locked: true,
       at,
@@ -516,10 +640,15 @@ export function mergeFinalItems(items: MeetingItem[], returned: unknown, at: num
     const text = short(raw?.text, 500);
     if (!text) continue;
     const status: ItemStatus = raw.status === 'cancelled' ? 'cancelled' : 'active';
-    const known = typeof raw.id === 'string' ? next.find((i) => i.id === raw.id) : undefined;
-    const same = known ?? next.find((i) => plain(i.text) === plain(text));
+    const byId = typeof raw.id === 'string' ? next.find((i) => i.id === raw.id) : undefined;
+    const byText = next.find((i) => plain(i.text) === plain(text));
+    // a small model now and then gives back the entry a person edited under
+    // the id of another one: that other entry is not to be written over
+    const same = byId && byText && byText !== byId && byText.locked ? byText : (byId ?? byText);
     if (same) {
-      if (!same.locked) change(same, { kind: raw.kind, text, owner: raw.owner ?? null, due: raw.due ?? null, status }, at, 'ai');
+      if (!same.locked) {
+        changeByModel(same, { kind: raw.kind, ...settle(same, { text, owner: raw.owner ?? null, due: raw.due ?? null }), status }, at);
+      }
       continue;
     }
     if (next.length >= MAX_ITEMS) break;
@@ -527,8 +656,8 @@ export function mergeFinalItems(items: MeetingItem[], returned: unknown, at: num
       id: nextId(next),
       kind: raw.kind === 'task' ? 'task' : 'agreement',
       text,
-      owner: short(raw.owner, 120),
-      due: short(raw.due, 120),
+      owner: field(raw.owner),
+      due: field(raw.due),
       status,
       locked: false,
       at,
@@ -536,7 +665,17 @@ export function mergeFinalItems(items: MeetingItem[], returned: unknown, at: num
       history: [],
     });
   }
-  return next;
+  // the same entry twice (the live list had it twice, or the model made two
+  // alike): the one a person edited stays, else the first
+  const edited = new Set(next.filter((i) => i.locked).map((i) => `${i.status}:${plain(i.text)}`));
+  const seen = new Set<string>();
+  return next.filter((i) => {
+    if (i.locked) return true;
+    const key = `${i.status}:${plain(i.text)}`;
+    if (edited.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // A speaker got a name (or lost it): owners written with the old label follow.
@@ -563,9 +702,11 @@ export const LIVE_SYSTEM =
   '{"op": "update", "id": string, "text"?: string, "owner"?: string|null, "due"?: string|null} | ' +
   '{"op": "cancel", "id": string} | {"op": "restore", "id": string}]}. ' +
   'Rules: an agreement is something the group decided; a task is something a person took on or was asked to do and accepted. ' +
-  'Only what was actually said: never invent owners or dates; ideas, questions and options that were not settled are not entries. ' +
+  'Only what was actually said: never invent owners or dates; ideas, questions and options that were not settled are not entries, ' +
+  'and neither are greetings, the opening or closing of the meeting, or remarks about how things stand. ' +
   'When the meeting changes its mind about an entry already in the list (another date, another owner, a different decision), ' +
-  'update that entry with its id instead of adding a new one. When something is called off, cancel it. ' +
+  'update that entry with its id instead of adding a new one, and give the new date in "due" or the new person in "owner". ' +
+  'When something is called off, cancel it. ' +
   'Change only the entry the new part is about and leave every other entry exactly as it is. ' +
   'Entries with "locked": true were edited by a person: never update or cancel them and never add a duplicate of them. ' +
   'Most new parts of a transcript change nothing: then answer {"ops": []}. ' +
@@ -589,6 +730,7 @@ export const FINAL_SYSTEM =
   'mark as cancelled what was called off later, and when the meeting changed its mind keep only the final version in the entry. ' +
   'Give back every entry of the list with its id; use null as id for a new one. Entries with "locked": true were edited by a person: give them back unchanged. ' +
   'An agreement is something the group decided; a task is something a person took on or was asked to do and accepted. ' +
+  'Greetings, the opening or closing of the meeting and remarks about how things stand are not entries: leave them out, and never give two entries that say the same. ' +
   'Answer with one JSON object and nothing else: ' +
   '{"title": string, "summary": string (2-5 sentences), "topics": string[], ' +
   '"items": [{"id": string|null, "kind": "agreement"|"task", "text": string, "owner": string|null, "due": string|null, "status": "active"|"cancelled"}]}. ' +

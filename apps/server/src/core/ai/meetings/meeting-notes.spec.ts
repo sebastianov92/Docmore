@@ -4,6 +4,7 @@ import {
   applyModelOps,
   applyUserOp,
   beforeTheChange,
+  cleanItems,
   cleanSegments,
   cleanSpeakers,
   defaultLabel,
@@ -184,6 +185,107 @@ describe('the list the model keeps', () => {
     expect(mentions('We will meet then, after that', { text: 'Send the quote' })).toBe(false);
   });
 
+  it('moves the date or the owner along when the model only rewrites the sentence', () => {
+    const report = item({ text: 'Entregamos el informe al cliente el viernes', due: 'viernes' });
+    const moved = applyModelOps([report], [{ op: 'update', id: 'i1', text: 'Entregamos el informe al cliente el lunes.' }], 70);
+    expect(moved.items[0]).toMatchObject({ text: 'Entregamos el informe al cliente el lunes.', due: 'lunes' });
+    expect(moved.items[0].history).toEqual([expect.objectContaining({ text: 'Entregamos el informe al cliente el viernes', due: 'viernes' })]);
+    // a date of several words keeps the words that did not change
+    const morning = item({ text: 'Llamar al cliente el viernes por la mañana', due: 'viernes por la mañana' });
+    expect(applyModelOps([morning], [{ op: 'update', id: 'i1', text: 'Llamar al cliente el lunes por la mañana' }], 70).items[0].due).toBe('lunes por la mañana');
+    // the owner too
+    const quote = item({ kind: 'task', text: 'Ana envía la cotización', owner: 'Ana', due: 'mañana' });
+    expect(applyModelOps([quote], [{ op: 'update', id: 'i1', text: 'Luis envía la cotización' }], 70).items[0]).toMatchObject({ owner: 'Luis', due: 'mañana' });
+    // what the model says itself wins
+    expect(applyModelOps([report], [{ op: 'update', id: 'i1', text: 'Entregamos el informe al cliente el lunes', due: 'lunes 14' }], 70).items[0].due).toBe('lunes 14');
+    expect(applyModelOps([report], [{ op: 'update', id: 'i1', text: 'Entregamos el informe al cliente el lunes', due: null }], 70).items[0].due).toBeNull();
+    // a field the sentence never said, or a sentence written anew, is left alone
+    const apart = item({ text: 'Entregamos el informe al cliente', due: 'viernes' });
+    expect(applyModelOps([apart], [{ op: 'update', id: 'i1', text: 'Entregamos el informe al cliente el lunes' }], 70).items[0].due).toBe('viernes');
+    expect(applyModelOps([quote], [{ op: 'update', id: 'i1', text: 'Enviar la cotización al cliente' }], 70).items[0].owner).toBe('Ana');
+    expect(applyModelOps([report], [{ op: 'update', id: 'i1', text: 'El informe del cliente se entrega cuando esté la revisión completa de todo el equipo' }], 70).items[0].due).toBe('viernes');
+  });
+
+  it('rewrites the sentence when the model only changes the date or the owner', () => {
+    const report = item({ text: 'Entregamos el informe al cliente el Viernes', due: 'viernes' });
+    const moved = applyModelOps([report], [{ op: 'update', id: 'i1', due: 'lunes' }], 70);
+    expect(moved.items[0]).toMatchObject({ text: 'Entregamos el informe al cliente el lunes', due: 'lunes' });
+    expect(moved.items[0].history).toEqual([expect.objectContaining({ text: 'Entregamos el informe al cliente el Viernes', due: 'viernes' })]);
+    // the same sentence given back with a full stop counts as left alone
+    expect(applyModelOps([report], [{ op: 'update', id: 'i1', text: 'entregamos el informe al cliente el viernes.', due: 'lunes 9:00' }], 70).items[0].text).toBe('entregamos el informe al cliente el lunes 9:00.');
+    const quote = item({ kind: 'task', text: 'Ana envía la cotización (urgente)', owner: 'Ana', due: 'mañana' });
+    expect(applyModelOps([quote], [{ op: 'update', id: 'i1', owner: 'Luis' }], 70).items[0]).toMatchObject({ text: 'Luis envía la cotización (urgente)', owner: 'Luis', due: 'mañana' });
+    // a date taken away, or one the sentence never said, leaves the sentence alone
+    expect(applyModelOps([report], [{ op: 'update', id: 'i1', due: null }], 70).items[0]).toMatchObject({ text: 'Entregamos el informe al cliente el Viernes', due: null });
+    const apart = item({ text: 'Entregamos el informe al cliente', due: 'viernes' });
+    expect(applyModelOps([apart], [{ op: 'update', id: 'i1', due: 'lunes' }], 70).items[0]).toMatchObject({ text: 'Entregamos el informe al cliente', due: 'lunes' });
+    // "Ana" inside another word is not the owner
+    const anabel = item({ kind: 'task', text: 'Anabel envía la cotización', owner: 'Ana' });
+    expect(applyModelOps([anabel], [{ op: 'update', id: 'i1', owner: 'Luis' }], 70).items[0].text).toBe('Anabel envía la cotización');
+    // the final pass keeps them in step too, both ways
+    const live = [item({ text: 'Entregamos el informe el viernes', due: 'viernes' }), item({ id: 'i2', kind: 'task', text: 'Ana envía la cotización', owner: 'Ana' })];
+    const final = mergeFinalItems(
+      live,
+      [
+        { id: 'i1', kind: 'agreement', text: 'Entregamos el informe el viernes', due: 'lunes', status: 'active' },
+        { id: 'i2', kind: 'task', text: 'Luis envía la cotización', owner: 'Ana', due: null, status: 'active' },
+      ],
+      600,
+    );
+    expect(final[0]).toMatchObject({ text: 'Entregamos el informe el lunes', due: 'lunes' });
+    expect(final[1]).toMatchObject({ text: 'Luis envía la cotización', owner: 'Luis' });
+  });
+
+  it('takes the word "null" for an empty owner or date', () => {
+    const out = applyModelOps([], [{ op: 'add', kind: 'task', text: 'Cancelar la demo interna', owner: 'Diego', due: 'null' }, { op: 'add', text: 'Lanzar el lunes', owner: ' N/A ', due: '-' }], 30);
+    expect(out.items.map((i) => [i.owner, i.due])).toEqual([['Diego', null], [null, null]]);
+    const cleared = applyModelOps([item({ kind: 'task', owner: 'Ana', due: 'viernes' })], [{ op: 'update', id: 'i1', owner: 'None', due: 'Sin fecha' }], 40);
+    expect(cleared.items[0]).toMatchObject({ owner: null, due: null });
+    expect(mergeFinalItems([], [{ id: null, kind: 'task', text: 'Avisar al cliente', owner: 'null', due: 'undefined', status: 'active' }], 50)[0]).toMatchObject({ owner: null, due: null });
+    // what an earlier version stored that way reads as empty too
+    expect(cleanItems([{ id: 'i1', kind: 'task', text: 'Avisar', owner: 'null', due: 'NULL', status: 'active' }])[0]).toMatchObject({ owner: null, due: null });
+  });
+
+  it('keeps no "before" for an entry the model turned into another matter', () => {
+    const delivery = item({ text: 'Entregamos el viernes', history: [{ text: 'Entregamos el jueves', owner: null, due: null, status: 'active', at: 5, by: 'ai' }] });
+    const other = applyModelOps([delivery], [{ op: 'update', id: 'i1', text: 'Preparar la presentación para el cliente' }], 60);
+    expect(other.items[0]).toMatchObject({ text: 'Preparar la presentación para el cliente', history: [] });
+    // the same matter in other words keeps its story
+    const same = applyModelOps([delivery], [{ op: 'update', id: 'i1', text: 'La entrega pasa al lunes' }], 60);
+    expect(same.items[0].history.map((h) => h.text)).toEqual(['Entregamos el jueves', 'Entregamos el viernes']);
+    // the final pass too
+    const final = mergeFinalItems([delivery, item({ id: 'i2', kind: 'task', text: 'Preparar la presentación' })], [{ id: 'i1', kind: 'task', text: 'Actualizar el calendario del proyecto', owner: 'Luis', status: 'active' }], 600);
+    expect(final[0]).toMatchObject({ id: 'i1', text: 'Actualizar el calendario del proyecto', owner: 'Luis', history: [] });
+  });
+
+  it('takes the same sentence with another date as a change, not as a new entry', () => {
+    const launch = item({ text: 'lanzar el viernes 28 de noviembre', due: 'viernes 28 de noviembre' });
+    const notes = item({ id: 'i2', kind: 'task', text: 'Preparar las notas', owner: 'Diego', due: 'jueves' });
+    const out = applyModelOps([launch, notes], [{ op: 'add', kind: 'agreement', text: 'lanzar el lunes 1 de diciembre', due: 'lunes 1 de diciembre' }], 80);
+    expect(out.items).toHaveLength(2);
+    expect(out.items[0]).toMatchObject({ id: 'i1', text: 'lanzar el lunes 1 de diciembre', due: 'lunes 1 de diciembre' });
+    expect(out.items[0].history.map((h) => h.text)).toEqual(['lanzar el viernes 28 de noviembre']);
+    // the date in its own field only: the sentence is the same word for word
+    const moved = applyModelOps([launch, notes], [{ op: 'add', kind: 'task', text: 'preparar las notas.', owner: 'Diego', due: 'viernes' }], 80);
+    expect(moved.items).toHaveLength(2);
+    expect(moved.items[1]).toMatchObject({ id: 'i2', due: 'viernes', owner: 'Diego' });
+    // the same date said with more or fewer words is no change
+    expect(applyModelOps([launch, notes], [{ op: 'add', kind: 'task', text: 'Preparar las notas', due: 'el jueves' }], 80).changed).toBe(false);
+    // another person, a locked entry or a cancelled one: a new entry
+    expect(applyModelOps([launch, notes], [{ op: 'add', kind: 'task', text: 'Preparar las notas del lunes', owner: 'Ana', due: 'lunes' }], 80).items).toHaveLength(3);
+    const locked = item({ text: 'lanzar el viernes', due: 'viernes', locked: true, updatedBy: 'user' });
+    const beside = applyModelOps([locked], [{ op: 'add', text: 'lanzar el lunes', due: 'lunes' }], 80);
+    expect(beside.items.map((i) => i.text)).toEqual(['lanzar el viernes', 'lanzar el lunes']);
+    const off = item({ text: 'lanzar el viernes', due: 'viernes', status: 'cancelled' });
+    expect(applyModelOps([off], [{ op: 'add', text: 'lanzar el lunes', due: 'lunes' }], 80).items).toHaveLength(2);
+    // with the new text at hand, only when that text is about the entry
+    const about = applyModelOps([launch, notes], [{ op: 'add', text: 'lanzar el lunes 1 de diciembre', due: 'lunes 1 de diciembre' }], 80, 'Ana: Mejor lanzamos el lunes 1 de diciembre.');
+    expect(about.items).toHaveLength(2);
+    const elsewhere = applyModelOps([launch, notes], [{ op: 'add', text: 'Preparar las notas', owner: 'Diego', due: 'viernes' }], 80, 'Ana: Mejor lanzamos el lunes.');
+    expect(elsewhere.items[1].due).toBe('jueves');
+    expect(elsewhere.items).toHaveLength(2);
+  });
+
   it('reads what a model answers, however it wraps it', () => {
     expect(parseOps(parseJson('```json\n{"ops":[{"op":"ADD","kind":"task","text":"x","owner":null}]}\n```'))).toEqual([
       { op: 'add', id: undefined, kind: 'task', text: 'x', owner: null, due: undefined },
@@ -243,6 +345,38 @@ describe('the final list', () => {
     expect(out[3].text).toBe('Nadie lo devolvió');
     expect(out[4]).toMatchObject({ kind: 'task', text: 'Reservar la sala', updatedBy: 'ai' });
     expect(mergeFinalItems(live, 'garbage', 1)).toEqual(live);
+  });
+
+  it('goes by the text when the model mixes the ids, and keeps no entry twice', () => {
+    const live = [
+      item({ text: 'lanzar el viernes 28 de noviembre', due: 'viernes 28 de noviembre' }),
+      item({ id: 'i2', text: 'lanzar el lunes 1 de diciembre', due: 'lunes 1 de diciembre' }),
+      item({ id: 'i3', text: 'Llamar al proveedor', locked: true, updatedBy: 'user' }),
+    ];
+    const out = mergeFinalItems(
+      live,
+      [
+        { id: 'i1', kind: 'agreement', text: 'lanzar el lunes 1 de diciembre', due: 'lunes 1 de diciembre', status: 'active' },
+        // the id of the second entry with the text of the third
+        { id: 'i2', kind: 'agreement', text: 'Llamar al proveedor', status: 'active' },
+        { id: null, kind: 'task', text: 'llamar al proveedor.', owner: 'Ana', status: 'active' },
+      ],
+      600,
+    );
+    // the first entry took the final date and its double is gone; the entry of
+    // the person was not copied over another one, nor changed
+    expect(out.map((i) => [i.id, i.text])).toEqual([
+      ['i1', 'lanzar el lunes 1 de diciembre'],
+      ['i3', 'Llamar al proveedor'],
+    ]);
+    expect(out[0].history.map((h) => h.text)).toEqual(['lanzar el viernes 28 de noviembre']);
+    expect(out[1]).toMatchObject({ locked: true, owner: null });
+    // two alike in the live list: one stays, and the person's wins over the model's
+    const twice = [item({ text: 'Lanzar el lunes' }), item({ id: 'i2', text: 'lanzar el lunes.' }), item({ id: 'i3', text: 'Avisar al cliente' }), item({ id: 'i4', text: 'avisar al cliente', locked: true, updatedBy: 'user' })];
+    expect(mergeFinalItems(twice, [], 600).map((i) => i.id)).toEqual(['i1', 'i4']);
+    // a cancelled entry and an active one with the same words are two things
+    const both = [item({ text: 'Lanzar el lunes', status: 'cancelled' }), item({ id: 'i2', text: 'Lanzar el lunes' })];
+    expect(mergeFinalItems(both, 'garbage', 600)).toHaveLength(2);
   });
 
   it('follows a speaker that got a name', () => {
