@@ -19,6 +19,8 @@ export type NotificationType =
   | "ai.research_completed"
   | "ai.meeting_notes_ready"
   | "ai.meeting_notes_failed"
+  | "ai.agent_run_completed"
+  | "ai.agent_run_failed"
   | "page.suggestion_created"
   | "page.suggestion_accepted"
   | "page.suggestion_rejected";

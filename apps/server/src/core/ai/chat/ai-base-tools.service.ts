@@ -141,6 +141,8 @@ export class AiBaseToolsService {
       .orderBy('pages.updatedAt', 'desc')
       .limit(100);
     if (spaceId) q = q.where('pages.spaceId', '=', spaceId);
+    // an agent kept to one space sees only its bases
+    if ((ctx as any).spaceId) q = q.where('pages.spaceId', '=', (ctx as any).spaceId);
     if (query?.trim()) q = q.where('pages.title', 'ilike', `%${query.trim().replace(/[%_]/g, '\\$&')}%`);
     const pages = await q.execute();
     const readable = new Set(
@@ -271,6 +273,7 @@ export class AiBaseToolsService {
       throw new Error(`Base ${idOrSlug} not found`);
     }
     if (!(page as any).isBase) throw new Error(`Page ${idOrSlug} is not a base`);
+    if ((ctx as any).spaceId && page.spaceId !== (ctx as any).spaceId) throw new Error(`Base ${idOrSlug} not found`);
     await this.pageAccess.validateCanView(page, ctx.user);
     return page;
   }

@@ -66,7 +66,7 @@ export class PageSuggestionController {
   @HttpCode(HttpStatus.OK)
   @Post('create')
   async create(@Body() dto: CreateSuggestionDto, @AuthUser() user: User, @AuthWorkspace() workspace: Workspace) {
-    return this.suggestions.create(user, workspace.id, dto);
+    return this.suggestions.create(user, workspace.id, { pageId: dto.pageId, content: dto.content, title: dto.title, note: dto.note });
   }
 
   @HttpCode(HttpStatus.OK)

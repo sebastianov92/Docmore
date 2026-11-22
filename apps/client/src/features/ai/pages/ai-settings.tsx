@@ -86,7 +86,7 @@ export default function AiSettings() {
   };
 
   const toggleChatFlag = async (
-    key: "aiChat" | "aiChatReadOnly" | "aiChatWorkspaceKnowledgeOnly",
+    key: "aiChat" | "aiChatReadOnly" | "aiChatWorkspaceKnowledgeOnly" | "aiEditsAsSuggestions",
     value: boolean,
   ) => {
     try {
@@ -154,6 +154,23 @@ export default function AiSettings() {
                 kind="chat"
                 value={settings.generation}
                 onChange={(choice) => update.mutate({ generation: choice })}
+                saving={update.isPending}
+              />
+            </ResponsiveSettingsControl>
+          </ResponsiveSettingsRow>
+          <ResponsiveSettingsRow>
+            <ResponsiveSettingsContent>
+              <Text size="md">{t("Meetings model")}</Text>
+              <Text size="sm" c="dimmed">
+                {t("Keeps the list of agreements and tasks while a meeting runs and writes its notes. Empty: the writing model.")}
+              </Text>
+            </ResponsiveSettingsContent>
+            <ResponsiveSettingsControl>
+              <ModelChoiceSelect
+                settings={settings}
+                kind="chat"
+                value={settings.meetings}
+                onChange={(choice) => update.mutate({ meetings: choice })}
                 saving={update.isPending}
               />
             </ResponsiveSettingsControl>
@@ -296,6 +313,22 @@ export default function AiSettings() {
         </ResponsiveSettingsRow>
         {chatOn && (
           <>
+            <ResponsiveSettingsRow>
+              <ResponsiveSettingsContent>
+                <Text size="md">{t("Changes to pages go as suggestions")}</Text>
+                <Text size="sm" c="dimmed">
+                  {t("The assistant and the scheduled agents propose changes to existing pages; someone who can edit the page accepts or rejects them. Off: they edit the page directly.")}
+                </Text>
+              </ResponsiveSettingsContent>
+              <ResponsiveSettingsControl>
+                <Switch
+                  checked={workspace?.settings?.ai?.editsAsSuggestions !== false}
+                  onChange={(e) => toggleChatFlag("aiEditsAsSuggestions", e.currentTarget.checked)}
+                  aria-label={t("Toggle suggestions instead of direct edits")}
+                  data-testid="ai-edits-as-suggestions"
+                />
+              </ResponsiveSettingsControl>
+            </ResponsiveSettingsRow>
             <ResponsiveSettingsRow>
               <ResponsiveSettingsContent>
                 <Text size="md">{t("Chat is read-only")}</Text>

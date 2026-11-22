@@ -86,28 +86,50 @@ final class SystemNotificationSink: NSObject, NotificationSink, UNUserNotificati
     }
 }
 
-/// Where page text goes to be found by Spotlight. Test runs record instead of
+/// One page as the system search knows it: `text` is empty for a page whose
+/// body is not on this Mac (it is found by its title), `detail` is the space.
+struct SpotlightEntry {
+    let id: String
+    let title: String
+    let text: String
+    let detail: String
+}
+
+/// Where pages go to be found by Spotlight. Test runs record instead of
 /// touching the real index.
 protocol SpotlightSink: AnyObject {
-    func index(profileId: String, items: [(id: String, title: String, text: String)])
+    func index(profileId: String, items: [SpotlightEntry])
     func remove(profileId: String, ids: [String])
     func clear(profileId: String)
+    /// Identifiers of this app's entries whose title contains `text`.
+    func find(titleContaining text: String) async -> [String]
     var recorded: [[String: Any]] { get }
 }
 
 final class RecordingSpotlightSink: SpotlightSink {
     private(set) var recorded: [[String: Any]] = []
+    private var titles: [String: String] = [:]
 
-    func index(profileId: String, items: [(id: String, title: String, text: String)]) {
-        recorded.append(["op": "index", "profileId": profileId, "ids": items.map(\.id), "titles": items.map(\.title)])
+    func index(profileId: String, items: [SpotlightEntry]) {
+        recorded.append([
+            "op": "index", "profileId": profileId, "ids": items.map(\.id), "titles": items.map(\.title),
+            "withText": items.filter { !$0.text.isEmpty }.map(\.id), "details": items.map(\.detail),
+        ])
+        for item in items { titles[SpotlightMap.identifier(profileId: profileId, itemId: item.id)] = item.title }
     }
 
     func remove(profileId: String, ids: [String]) {
         recorded.append(["op": "remove", "profileId": profileId, "ids": ids])
+        for id in ids { titles.removeValue(forKey: SpotlightMap.identifier(profileId: profileId, itemId: id)) }
     }
 
     func clear(profileId: String) {
         recorded.append(["op": "clear", "profileId": profileId])
+        titles = titles.filter { !$0.key.hasPrefix("\(profileId)|") }
+    }
+
+    func find(titleContaining text: String) async -> [String] {
+        titles.filter { $0.value.localizedCaseInsensitiveContains(text) }.map(\.key).sorted()
     }
 }
 
@@ -115,14 +137,17 @@ final class SystemSpotlightSink: SpotlightSink {
     let recorded: [[String: Any]] = []
     private let index = CSSearchableIndex.default()
 
-    func index(profileId: String, items: [(id: String, title: String, text: String)]) {
+    func index(profileId: String, items: [SpotlightEntry]) {
         let searchable = items.map { item -> CSSearchableItem in
             let attributes = CSSearchableItemAttributeSet(contentType: .text)
             attributes.title = item.title
             attributes.displayName = item.title
-            attributes.contentDescription = String(item.text.prefix(300))
-            attributes.textContent = item.text
+            // under the title: the start of the page, or the space it lives in
+            let summary = item.text.isEmpty ? item.detail : String(item.text.prefix(300))
+            if !summary.isEmpty { attributes.contentDescription = summary }
+            if !item.text.isEmpty { attributes.textContent = item.text }
             attributes.kind = "Docmore"
+            if !item.detail.isEmpty { attributes.containerTitle = item.detail }
             let entry = CSSearchableItem(
                 uniqueIdentifier: SpotlightMap.identifier(profileId: profileId, itemId: item.id),
                 domainIdentifier: profileId,
@@ -142,5 +167,21 @@ final class SystemSpotlightSink: SpotlightSink {
 
     func clear(profileId: String) {
         index.deleteSearchableItems(withDomainIdentifiers: [profileId], completionHandler: nil)
+    }
+
+    func find(titleContaining text: String) async -> [String] {
+        let escaped = text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let context = CSSearchQueryContext()
+        context.fetchAttributes = ["title"]
+        let query = CSSearchQuery(queryString: "title == \"*\(escaped)*\"cd", queryContext: context)
+        return await withCheckedContinuation { continuation in
+            var found: [String] = []
+            query.foundItemsHandler = { items in found.append(contentsOf: items.map(\.uniqueIdentifier)) }
+            query.completionHandler = { error in
+                if let error { NSLog("Docmore: Spotlight query failed: \(error.localizedDescription)") }
+                continuation.resume(returning: found.sorted())
+            }
+            query.start()
+        }
     }
 }

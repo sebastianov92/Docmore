@@ -30,6 +30,7 @@ export interface IWorkspace {
   mcpEnabled?: boolean;
   aiChatReadOnly?: boolean;
   aiChatWorkspaceKnowledgeOnly?: boolean;
+  aiEditsAsSuggestions?: boolean;
   enforceMcpOauth?: boolean;
   trashRetentionDays?: number;
   restrictApiToAdmins?: boolean;
@@ -66,6 +67,8 @@ export interface IWorkspaceAiSettings {
   chat?: boolean;
   chatReadOnly?: boolean;
   chatWorkspaceKnowledgeOnly?: boolean;
+  // on unless false: the assistant proposes changes to existing pages
+  editsAsSuggestions?: boolean;
 }
 
 export interface IWorkspaceSharingSettings {

@@ -713,6 +713,21 @@ export class WorkspaceService {
         );
       }
 
+      if (typeof updateWorkspaceDto.aiEditsAsSuggestions !== 'undefined') {
+        // on unless it was turned off
+        const prev = settingsBefore?.ai?.editsAsSuggestions ?? true;
+        if (prev !== updateWorkspaceDto.aiEditsAsSuggestions) {
+          before.aiEditsAsSuggestions = prev;
+          after.aiEditsAsSuggestions = updateWorkspaceDto.aiEditsAsSuggestions;
+        }
+        await this.workspaceRepo.updateAiSettings(
+          workspaceId,
+          'editsAsSuggestions',
+          updateWorkspaceDto.aiEditsAsSuggestions,
+          trx,
+        );
+      }
+
       if (typeof updateWorkspaceDto.aiChatWorkspaceKnowledgeOnly !== 'undefined') {
         const prev = settingsBefore?.ai?.chatWorkspaceKnowledgeOnly ?? false;
         if (prev !== updateWorkspaceDto.aiChatWorkspaceKnowledgeOnly) {
@@ -798,6 +813,7 @@ export class WorkspaceService {
       delete updateWorkspaceDto.defaultPageEditMode;
       delete updateWorkspaceDto.defaultLocale;
       delete updateWorkspaceDto.aiChatReadOnly;
+      delete updateWorkspaceDto.aiEditsAsSuggestions;
       delete updateWorkspaceDto.aiChatWorkspaceKnowledgeOnly;
       delete updateWorkspaceDto.enforceMcpOauth;
 

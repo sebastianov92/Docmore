@@ -337,3 +337,23 @@ export async function aiFillProperty(data: { pageId: string; propertyId: string;
   const req = await api.post("/ai/bases/fill", data);
   return req.data;
 }
+
+// --- Calendar subscription (.ics) ---
+export type CalendarFeedInfo = {
+  enabled: boolean;
+  path: string | null;
+  createdAt: string | null;
+  lastReadAt: string | null;
+};
+export async function getCalendarFeed(data: { pageId: string; viewId: string }): Promise<CalendarFeedInfo> {
+  const req = await api.post("/bases/calendar-feed/info", data);
+  return req.data;
+}
+export async function createCalendarFeed(data: { pageId: string; viewId: string }): Promise<CalendarFeedInfo> {
+  const req = await api.post("/bases/calendar-feed/create", data);
+  return req.data;
+}
+export async function removeCalendarFeed(data: { pageId: string; viewId: string }): Promise<CalendarFeedInfo> {
+  const req = await api.post("/bases/calendar-feed/remove", data);
+  return req.data;
+}

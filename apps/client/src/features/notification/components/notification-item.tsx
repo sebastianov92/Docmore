@@ -86,7 +86,15 @@ export function NotificationItem({
         return "Meeting notes from <bold>{{fileName}}</bold> are ready";
       case "ai.meeting_notes_failed":
         return "Couldn't transcribe <bold>{{fileName}}</bold>";
+      case "ai.agent_run_completed":
+        return "Your agent <bold>{{agentName}}</bold> finished";
+      case "ai.agent_run_failed":
+        return notification.data?.paused === true
+          ? "Your agent <bold>{{agentName}}</bold> failed and was paused"
+          : "Your agent <bold>{{agentName}}</bold> failed";
       case "page.suggestion_created":
+        if (notification.data?.origin === "agent") return "A scheduled agent of <bold>{{name}}</bold> suggested edits to a page";
+        if (notification.data?.origin) return "The assistant suggested edits to a page for <bold>{{name}}</bold>";
         return "<bold>{{name}}</bold> suggested edits to a page";
       case "page.suggestion_accepted":
         return "<bold>{{name}}</bold> accepted your suggested edits";
@@ -127,7 +135,20 @@ export function NotificationItem({
       : null;
   const researchChatId =
     notification.type === "ai.research_completed" && typeof notification.data?.chatId === "string" ? notification.data.chatId : null;
-  const linkUrl = isSiemDestination ? "/settings/audit/siem" : researchChatId ? `/ai/chat/${researchChatId}` : pageUrl;
+  const isAgentRun = notification.type === "ai.agent_run_completed" || notification.type === "ai.agent_run_failed";
+  const agentName = isAgentRun && typeof notification.data?.agentName === "string" ? notification.data.agentName : "";
+  // a result that landed on a page opens the page; the rest open the run
+  const agentRunUrl =
+    isAgentRun && typeof notification.data?.agentId === "string"
+      ? `/ai/agents?agent=${notification.data.agentId}${typeof notification.data?.runId === "string" ? `&run=${notification.data.runId}` : ""}`
+      : null;
+  const linkUrl = isSiemDestination
+    ? "/settings/audit/siem"
+    : researchChatId
+      ? `/ai/chat/${researchChatId}`
+      : isAgentRun
+        ? (notification.type === "ai.agent_run_completed" && !notification.data?.suggestions && pageUrl) || agentRunUrl || pageUrl
+        : pageUrl;
 
   const fileName =
     typeof notification.data?.fileName === "string"
@@ -143,8 +164,11 @@ export function NotificationItem({
     if ((notification.type === "page.suggestion_created" || notification.type === "page.suggestion_rejected" || notification.type === "page.suggestion_accepted") && typeof (notification.data?.note ?? notification.data?.reviewNote) === "string") {
       return (notification.data?.note ?? notification.data?.reviewNote) as string;
     }
-    if (notification.type === "ai.meeting_notes_failed") {
+    if (notification.type === "ai.meeting_notes_failed" || notification.type === "ai.agent_run_failed") {
       return typeof notification.data?.error === "string" ? notification.data.error : null;
+    }
+    if (notification.type === "ai.agent_run_completed" && typeof notification.data?.summary === "string") {
+      return notification.data.summary;
     }
     if (notification.type === "ai.research_completed" && typeof notification.data?.question === "string") {
       return notification.data.question;
@@ -220,6 +244,7 @@ export function NotificationItem({
                   ? destinationName
                   : notification.actor?.name,
                 fileName,
+                agentName,
               }}
               components={{ bold: <Text span fw={600} /> }}
             />

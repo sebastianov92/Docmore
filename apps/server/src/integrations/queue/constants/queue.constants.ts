@@ -114,4 +114,5 @@ export enum QueueJob {
   WEBHOOK_DELIVER = 'webhook-deliver',
   AI_RESEARCH = 'ai-research',
   AI_MEETING_NOTES = 'ai-meeting-notes',
+  AI_AGENT_RUN = 'ai-agent-run',
 }

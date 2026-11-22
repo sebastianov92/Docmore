@@ -24,8 +24,24 @@ export interface SuggestionView {
   reviewNote: string | null;
   reviewedAt: string | null;
   createdAt: string;
+  // who wrote it when it was not a person typing: chat | agent | mcp
+  origin: string | null;
+  originLabel: string | null;
+  operation: string;
   content?: unknown;
   baseContent?: unknown;
+}
+
+export type SuggestionOperation = 'replace' | 'append' | 'prepend';
+
+// The body of a page with a piece added at one end.
+export function withFragment(current: unknown, fragment: unknown, operation: SuggestionOperation): unknown {
+  const piece = Array.isArray((fragment as any)?.content) ? (fragment as any).content : [];
+  if (operation === 'replace') return fragment;
+  const body = Array.isArray((current as any)?.content) ? (current as any).content : [];
+  // an empty page is one empty paragraph: the piece takes its place
+  const kept = body.length === 1 && body[0]?.type === 'paragraph' && !body[0]?.content?.length ? [] : body;
+  return { type: 'doc', content: operation === 'append' ? [...kept, ...piece] : [...piece, ...kept] };
 }
 
 const MAX_OPEN_PER_PAGE = 50;
@@ -49,7 +65,7 @@ export class PageSuggestionService {
     let q = this.db
       .selectFrom('pageSuggestions')
       .leftJoin('users', 'users.id', 'pageSuggestions.authorId')
-      .select(['pageSuggestions.id', 'pageSuggestions.pageId', 'pageSuggestions.spaceId', 'pageSuggestions.authorId', 'pageSuggestions.title', 'pageSuggestions.note', 'pageSuggestions.status', 'pageSuggestions.reviewerId', 'pageSuggestions.reviewNote', 'pageSuggestions.reviewedAt', 'pageSuggestions.createdAt', 'users.name as authorName', 'users.avatarUrl as authorAvatar'])
+      .select(['pageSuggestions.id', 'pageSuggestions.pageId', 'pageSuggestions.spaceId', 'pageSuggestions.authorId', 'pageSuggestions.title', 'pageSuggestions.note', 'pageSuggestions.status', 'pageSuggestions.reviewerId', 'pageSuggestions.reviewNote', 'pageSuggestions.reviewedAt', 'pageSuggestions.createdAt', 'pageSuggestions.origin', 'pageSuggestions.originLabel', 'pageSuggestions.operation', 'users.name as authorName', 'users.avatarUrl as authorAvatar'])
       .where('pageSuggestions.pageId', '=', page.id);
     if (status) q = q.where('pageSuggestions.status', '=', status);
     const rows = await q.orderBy('pageSuggestions.createdAt', 'desc').limit(100).execute();
@@ -77,14 +93,27 @@ export class PageSuggestionService {
       canReview = false;
     }
     const author = await this.db.selectFrom('users').select(['id', 'name', 'avatarUrl']).where('id', '=', row.authorId).executeTakeFirst();
-    return { ...view({ ...row, authorName: author?.name, authorAvatar: author?.avatarUrl }), content: row.content, baseContent: row.baseContent, pageContent: page.content ?? null, canReview };
+    // an addition still waiting is shown on the page as it is now
+    const pending = row.status === 'open' && row.fragment && (row.operation === 'append' || row.operation === 'prepend');
+    const content = pending ? withFragment(page.content, row.fragment, row.operation as SuggestionOperation) : row.content;
+    return { ...view({ ...row, authorName: author?.name, authorAvatar: author?.avatarUrl }), content, baseContent: row.baseContent, pageContent: page.content ?? null, canReview };
   }
 
-  async create(user: User, workspaceId: string, input: { pageId: string; content: unknown; title?: string; note?: string }): Promise<SuggestionView> {
+  // `by` says the assistant wrote it for `user`, and how: an addition keeps
+  // only the piece to add (`content` is then that piece).
+  async create(
+    user: User,
+    workspaceId: string,
+    input: { pageId: string; content: unknown; title?: string; note?: string },
+    by?: { origin: 'chat' | 'agent' | 'mcp'; label?: string | null; operation?: SuggestionOperation },
+  ): Promise<SuggestionView> {
     const page = await this.readablePage(user, workspaceId, input.pageId, true);
     if (page.isBase) throw new BadRequestException('Bases take no suggestions');
+    const operation: SuggestionOperation = by?.operation ?? 'replace';
+    const fragment = operation === 'replace' ? null : input.content;
+    const proposed = operation === 'replace' ? input.content : withFragment(page.content, input.content, operation);
     try {
-      jsonToNode(input.content as any);
+      jsonToNode(proposed as any);
     } catch {
       throw new BadRequestException('Invalid content');
     }
@@ -100,17 +129,23 @@ export class PageSuggestionService {
         title: input.title?.trim().slice(0, 500) || null,
         note: input.note?.trim().slice(0, 4000) || null,
         baseContent: (page.content ?? null) as any,
-        content: input.content as any,
+        content: proposed as any,
         status: 'open',
+        origin: by?.origin ?? null,
+        originLabel: by?.label?.trim().slice(0, 200) || null,
+        operation,
+        fragment: fragment as any,
       } as any)
       .returningAll()
       .executeTakeFirstOrThrow();
-    this.audit.log({ event: AuditEvent.PAGE_SUGGESTION_CREATED, resourceType: AuditResource.PAGE, resourceId: page.id, spaceId: page.spaceId, changes: { after: { suggestionId: row.id, title: row.title } } });
-    // the owner and the last editor hear about it; never the author
-    const recipients = new Set<string>([page.ownerId, page.lastUpdatedById, page.creatorId].filter((id): id is string => Boolean(id) && id !== user.id));
+    this.audit.log({ event: AuditEvent.PAGE_SUGGESTION_CREATED, resourceType: AuditResource.PAGE, resourceId: page.id, spaceId: page.spaceId, changes: { after: { suggestionId: row.id, title: row.title, ...(by ? { via: by.origin } : {}) } } });
+    // the owner and the last editor hear about it; the author too when a
+    // scheduled agent wrote it while they were away
+    const skip = by?.origin === 'agent' ? null : user.id;
+    const recipients = new Set<string>([page.ownerId, page.lastUpdatedById, page.creatorId, by?.origin === 'agent' ? user.id : null].filter((id): id is string => Boolean(id) && id !== skip));
     for (const userId of recipients) {
       await this.notifications
-        .create({ userId, workspaceId, type: NotificationType.PAGE_SUGGESTION_CREATED, actorId: user.id, pageId: page.id, spaceId: page.spaceId, data: { suggestionId: row.id, note: row.note } } as any)
+        .create({ userId, workspaceId, type: NotificationType.PAGE_SUGGESTION_CREATED, actorId: user.id, pageId: page.id, spaceId: page.spaceId, data: { suggestionId: row.id, note: row.note, origin: row.origin, originLabel: row.originLabel } } as any)
         .catch(() => undefined);
     }
     return view({ ...row, authorName: user.name, authorAvatar: (user as any).avatarUrl });
@@ -123,7 +158,13 @@ export class PageSuggestionService {
     const page = await this.pageRepo.findById(row.pageId, { includeContent: true });
     if (!page || page.deletedAt) throw new NotFoundException('Page not found');
     await this.pageAccess.validateCanEdit(page, user);
-    await this.pageService.update(page, { pageId: page.id, content: row.content, format: 'json', operation: 'replace', ...(row.title ? { title: row.title } : {}) } as any, user);
+    // an addition goes onto the page as it is now; a new version replaces it
+    const adds = row.fragment && (row.operation === 'append' || row.operation === 'prepend');
+    await this.pageService.update(
+      page,
+      { pageId: page.id, content: adds ? row.fragment : row.content, format: 'json', operation: adds ? row.operation : 'replace', ...(row.title ? { title: row.title } : {}) } as any,
+      user,
+    );
     const updated = await this.resolve(row.id, 'accepted', user.id, reviewNote);
     this.audit.log({ event: AuditEvent.PAGE_SUGGESTION_ACCEPTED, resourceType: AuditResource.PAGE, resourceId: page.id, spaceId: page.spaceId, changes: { after: { suggestionId: row.id } } });
     if (row.authorId !== user.id) {
@@ -194,5 +235,8 @@ function view(r: any): SuggestionView {
     reviewNote: r.reviewNote ?? null,
     reviewedAt: r.reviewedAt ? new Date(r.reviewedAt).toISOString() : null,
     createdAt: new Date(r.createdAt).toISOString(),
+    origin: r.origin ?? null,
+    originLabel: r.originLabel ?? null,
+    operation: r.operation ?? 'replace',
   };
 }

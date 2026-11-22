@@ -106,6 +106,7 @@ const TemplateEditor = lazyWithPrefetch(
 );
 const FavoritesPage = lazyWithPrefetch(() => import("@/pages/favorites/favorites-page"));
 const AiChat = lazyWithPrefetch(() => import("@/features/ai/chat/pages/ai-chat-page.tsx"));
+const AiAgents = lazyWithPrefetch(() => import("@/features/ai/agents/pages/agents-page.tsx"));
 const VerifyEmail = lazyWithPrefetch(() => import("@/ee/pages/verify-email.tsx"));
 const LabelPage = lazyWithPrefetch(() => import("@/pages/label/label-page"));
 const OAuthConsent = lazyWithPrefetch(() => import("@/features/oauth/pages/oauth-consent-page.tsx"));
@@ -208,6 +209,7 @@ export default function App() {
           <Route path={"/clip"} element={<ClipPage />} />
           <Route path={"/ai"} element={<AiChat />} />
           <Route path={"/ai/chat/:chatId"} element={<AiChat />} />
+          <Route path={"/ai/agents"} element={<AiAgents />} />
           <Route path={"/spaces"} element={<SpacesPage />} />
           <Route path={"/people"} element={<PeoplePage />} />
           <Route path={"/people/:userId"} element={<PersonPage />} />

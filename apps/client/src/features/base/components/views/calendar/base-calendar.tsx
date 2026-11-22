@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActionIcon, Button, Group, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { useAtomValue } from "jotai";
+import { basePublicContextAtom } from "@/features/base/atoms/public-context-atom";
 import { IBase, IBaseRow, IBaseView, FilterGroup } from "@/features/base/types/base.types";
 import { flattenRows, useBaseRowsQuery, useCreateRowMutation } from "@/features/base/queries/base-row-query";
 import classes from "@/features/base/styles/calendar.module.css";
@@ -14,6 +16,7 @@ import {
   resolveCalendarProperty,
   startOfMonth,
 } from "./calendar-utils";
+import { CalendarSubscribe } from "./calendar-subscribe";
 
 type Props = {
   base: IBase;
@@ -27,6 +30,8 @@ type Props = {
 // applies and the table's row cache is left alone.
 export function BaseCalendar({ base, effectiveView, editable, onCardClick }: Props) {
   const { t, i18n } = useTranslation();
+  // a signed-in reader may subscribe from a calendar app; a shared page has no account to tie the link to
+  const canSubscribe = !useAtomValue(basePublicContextAtom);
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const property = resolveCalendarProperty(
     base.properties,
@@ -105,9 +110,12 @@ export function BaseCalendar({ base, effectiveView, editable, onCardClick }: Pro
         <Text fw={600} size="sm" className={classes.monthLabel}>
           {monthLabel}
         </Text>
-        <Text size="xs" c="dimmed">
-          {t("By {{name}}", { name: property.name })}
-        </Text>
+        <Group gap="xs" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            {t("By {{name}}", { name: property.name })}
+          </Text>
+          {canSubscribe && effectiveView?.id && <CalendarSubscribe pageId={base.id} viewId={effectiveView.id} />}
+        </Group>
       </Group>
       <div className={classes.weekdays}>
         {weekdays.map((w) => (

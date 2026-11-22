@@ -9,6 +9,7 @@ import SpaceAbilityFactory from '../../casl/abilities/space-ability.factory';
 import { SpaceCaslAction, SpaceCaslSubject } from '../../casl/interfaces/space-ability.type';
 import { PageAccessService } from '../../page/page-access/page-access.service';
 import { PageService } from '../../page/services/page.service';
+import { PageSuggestionService, SuggestionOperation } from '../../page/suggestions/page-suggestion.service';
 import { SearchService } from '../../search/search.service';
 import { AUDIT_SERVICE, IAuditService } from '../../../integrations/audit/audit.service';
 import { AuditEvent, AuditResource } from '../../../common/events/audit-events';
@@ -23,6 +24,16 @@ export interface ToolContext {
   user: User;
   workspace: Workspace;
   readOnly: boolean;
+  // true: an existing page is never changed directly; the change is filed
+  // as a suggestion for a person to accept
+  suggestEdits?: boolean;
+  // who is using the tools, kept on the suggestions they file
+  origin?: 'chat' | 'agent' | 'mcp';
+  originLabel?: string | null;
+  // a scheduled agent kept to one space: nothing outside it is seen or touched
+  spaceId?: string | null;
+  // what "since the last time" means when a tool is not told a date
+  since?: Date | null;
 }
 
 export interface ToolDefinition {
@@ -57,6 +68,7 @@ export class AiChatToolsService {
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly pageAccess: PageAccessService,
     private readonly pageService: PageService,
+    private readonly suggestions: PageSuggestionService,
     private readonly searchService: SearchService,
     private readonly embeddings: AiEmbeddingService,
     private readonly settings: AiSettingsService,
@@ -133,6 +145,34 @@ export class AiChatToolsService {
         }),
         execute: guard('get_page', async ({ pageId }: { pageId: string }) => this.getPage(ctx, pageId)),
       },
+      {
+        name: 'list_changed_pages',
+        scope: 'read',
+        description:
+          'The pages created or edited since a date, newest first, with who changed them last. For "what changed this week" and similar. ' +
+          'Without a date it goes back to the last time (a scheduled agent: its previous run), or seven days.',
+        schema: z.object({
+          since: z.string().max(40).optional().describe('ISO date or date and time, for example 2026-11-16'),
+          spaceId: z.string().uuid().optional(),
+          limit: z.number().int().min(1).max(100).optional(),
+        }),
+        execute: guard('list_changed_pages', async (args: { since?: string; spaceId?: string; limit?: number }) =>
+          this.listChangedPages(ctx, args),
+        ),
+      },
+      {
+        name: 'list_pages_to_verify',
+        scope: 'read',
+        description:
+          'Pages whose verification has run out, or runs out within some days: the ones somebody should read again and confirm. Oldest first.',
+        schema: z.object({
+          spaceId: z.string().uuid().optional(),
+          withinDays: z.number().int().min(0).max(90).optional().describe('Also the ones that run out within this many days'),
+        }),
+        execute: guard('list_pages_to_verify', async (args: { spaceId?: string; withinDays?: number }) =>
+          this.listPagesToVerify(ctx, args),
+        ),
+      },
     ];
 
     if (!ctx.readOnly) {
@@ -155,6 +195,29 @@ export class AiChatToolsService {
           ),
         },
         {
+          name: 'suggest_page_edit',
+          scope: 'write',
+          description:
+            'Propose a change to an existing page as a suggestion: text to append, to prepend, or a new version of the whole body, in Markdown. ' +
+            'The page stays as it is until someone who can edit it accepts the suggestion on the page. ' +
+            (ctx.suggestEdits
+              ? 'This is the only way to change an existing page here: use it whenever the user asks for an edit, then tell them it waits for review and give them reviewUrl.'
+              : 'Use it when the user asks for a proposal or a review rather than a direct edit; give them reviewUrl.'),
+          schema: z.object({
+            pageId: z.string().min(1).max(100).describe('The page id or slugId'),
+            content: z.string().min(1).max(100_000).describe('Markdown to add, or the whole new body'),
+            operation: z.enum(['append', 'prepend', 'replace']).default('append'),
+            note: z.string().max(500).optional().describe('One or two sentences on what changes and why, for the reviewer'),
+          }),
+          execute: guard(
+            'suggest_page_edit',
+            async (args: { pageId: string; content: string; operation: SuggestionOperation; note?: string }) =>
+              this.suggestEdit(ctx, args),
+          ),
+        },
+      );
+      if (!ctx.suggestEdits) {
+        defs.push({
           name: 'update_page',
           scope: 'write',
           description:
@@ -169,8 +232,8 @@ export class AiChatToolsService {
             async (args: { pageId: string; content: string; operation: 'append' | 'prepend' | 'replace' }) =>
               this.updatePage(ctx, args),
           ),
-        },
-      );
+        });
+      }
     }
     defs.push(...this.baseTools.definitions(ctx, guard));
     return defs;
@@ -195,8 +258,105 @@ export class AiChatToolsService {
     return this.getPage(ctx, idOrSlug);
   }
 
+  // The spaces a tool may look at: the person's, or the one an agent is kept to.
+  private async spacesOf(ctx: ToolContext, spaceId?: string): Promise<string[]> {
+    const member = await this.spaceMemberRepo.getUserSpaceIds(ctx.user.id, { excludeArchived: true } as any);
+    const within = ctx.spaceId ? member.filter((id) => id === ctx.spaceId) : member;
+    return spaceId ? within.filter((id) => id === spaceId) : within;
+  }
+
+  private async listChangedPages(ctx: ToolContext, args: { since?: string; spaceId?: string; limit?: number }) {
+    let since = ctx.since ?? new Date(Date.now() - 7 * 86_400_000);
+    if (args.since) {
+      const asked = new Date(args.since);
+      if (Number.isNaN(asked.getTime())) return { error: 'since is not a date' };
+      since = asked;
+    }
+    const spaces = await this.spacesOf(ctx, args.spaceId);
+    if (!spaces.length) return args.spaceId ? { error: 'You do not have access to that space' } : { since, pages: [] };
+    const limit = args.limit ?? 50;
+    const rows = await this.db
+      .selectFrom('pages')
+      .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+      .leftJoin('users', 'users.id', 'pages.lastUpdatedById')
+      .select(['pages.id', 'pages.title', 'pages.slugId', 'pages.spaceId', 'pages.createdAt', 'pages.updatedAt', 'pages.isBase', 'spaces.slug as spaceSlug', 'spaces.name as spaceName', 'users.name as editor'])
+      .where('pages.workspaceId', '=', ctx.workspace.id)
+      .where('pages.spaceId', 'in', spaces)
+      .where('pages.deletedAt', 'is', null)
+      .where('pages.updatedAt', '>=', since)
+      .orderBy('pages.updatedAt', 'desc')
+      // some may be kept from this person: ask for more than is shown
+      .limit(limit * 2)
+      .execute();
+    const visible = await this.visibleIds(ctx, rows);
+    return {
+      since,
+      pages: rows
+        .filter((r) => visible.has(r.id))
+        .slice(0, limit)
+        .map((r) => ({
+          id: r.id,
+          title: r.title || 'Untitled',
+          space: r.spaceName,
+          url: pageUrl(r.spaceSlug, r.slugId),
+          kind: r.isBase ? 'base' : 'page',
+          created: new Date(r.createdAt as any) >= since,
+          updatedAt: r.updatedAt,
+          lastEditedBy: r.editor ?? null,
+        })),
+    };
+  }
+
+  private async listPagesToVerify(ctx: ToolContext, args: { spaceId?: string; withinDays?: number }) {
+    const spaces = await this.spacesOf(ctx, args.spaceId);
+    if (!spaces.length) return args.spaceId ? { error: 'You do not have access to that space' } : { pages: [] };
+    const now = new Date();
+    const horizon = new Date(now.getTime() + (args.withinDays ?? 0) * 86_400_000);
+    const rows = await this.db
+      .selectFrom('pageVerifications')
+      .innerJoin('pages', 'pages.id', 'pageVerifications.pageId')
+      .innerJoin('spaces', 'spaces.id', 'pages.spaceId')
+      .leftJoin('users', 'users.id', 'pageVerifications.verifiedById')
+      .select(['pages.id', 'pages.title', 'pages.slugId', 'pages.spaceId', 'pageVerifications.expiresAt', 'pageVerifications.verifiedAt', 'spaces.slug as spaceSlug', 'spaces.name as spaceName', 'users.name as verifier'])
+      .where('pageVerifications.workspaceId', '=', ctx.workspace.id)
+      .where('pages.spaceId', 'in', spaces)
+      .where('pages.deletedAt', 'is', null)
+      .where('pageVerifications.expiresAt', 'is not', null)
+      .where('pageVerifications.expiresAt', '<=', horizon)
+      .orderBy('pageVerifications.expiresAt', 'asc')
+      .limit(200)
+      .execute();
+    const visible = await this.visibleIds(ctx, rows);
+    return {
+      pages: rows
+        .filter((r) => visible.has(r.id))
+        .slice(0, 100)
+        .map((r) => ({
+          id: r.id,
+          title: r.title || 'Untitled',
+          space: r.spaceName,
+          url: pageUrl(r.spaceSlug, r.slugId),
+          expiresAt: r.expiresAt,
+          expired: new Date(r.expiresAt as any) <= now,
+          lastVerifiedAt: r.verifiedAt,
+          lastVerifiedBy: r.verifier ?? null,
+        })),
+    };
+  }
+
+  // Of these pages, the ones no page restriction keeps from the person.
+  private async visibleIds(ctx: ToolContext, rows: Array<{ id: string; spaceId: string }>): Promise<Set<string>> {
+    const bySpace = new Map<string, string[]>();
+    for (const row of rows) bySpace.set(row.spaceId, [...(bySpace.get(row.spaceId) ?? []), row.id]);
+    const visible = new Set<string>();
+    for (const [spaceId, pageIds] of bySpace) {
+      for (const id of await this.pagePermissionRepo.filterAccessiblePageIds({ pageIds, userId: ctx.user.id, spaceId })) visible.add(id);
+    }
+    return visible;
+  }
+
   private async listPages(ctx: ToolContext, spaceId: string, limit: number) {
-    const member = await this.spaceMemberRepo.getUserSpaceIds(ctx.user.id);
+    const member = await this.spacesOf(ctx);
     if (!member.includes(spaceId)) return { error: 'You do not have access to that space' };
     const rows = await this.db
       .selectFrom('pages')
@@ -238,11 +398,15 @@ export class AiChatToolsService {
       .limit(100)
       .execute();
     return {
-      spaces: spaces.map((s) => ({ id: s.id, name: s.name, slug: s.slug, description: s.description ?? '' })),
+      spaces: spaces
+        .filter((s) => !ctx.spaceId || s.id === ctx.spaceId)
+        .map((s) => ({ id: s.id, name: s.name, slug: s.slug, description: s.description ?? '' })),
     };
   }
 
-  private async searchPages(ctx: ToolContext, query: string, spaceId?: string) {
+  private async searchPages(ctx: ToolContext, query: string, askedSpaceId?: string) {
+    if (ctx.spaceId && askedSpaceId && askedSpaceId !== ctx.spaceId) return { error: 'This agent is kept to one space' };
+    const spaceId = ctx.spaceId ?? askedSpaceId;
     const semantic =
       this.embeddings.available &&
       (await this.embeddings.isEnabled(ctx.workspace.id)) &&
@@ -309,6 +473,7 @@ export class AiChatToolsService {
     ctx: ToolContext,
     args: { spaceId: string; title: string; content: string; parentPageId?: string },
   ) {
+    if (ctx.spaceId && args.spaceId !== ctx.spaceId) return { error: 'This agent is kept to one space' };
     if (args.parentPageId) {
       const parent = await this.pageRepo.findById(args.parentPageId);
       if (!parent || parent.deletedAt || parent.spaceId !== args.spaceId) {
@@ -352,6 +517,31 @@ export class AiChatToolsService {
     return { updated: true, operation: args.operation, ...(await this.refOf(updated)) };
   }
 
+  // The change is filed for review; nothing on the page moves.
+  private async suggestEdit(
+    ctx: ToolContext,
+    args: { pageId: string; content: string; operation: SuggestionOperation; note?: string },
+  ) {
+    const page = await this.findReadablePage(ctx, args.pageId);
+    if (page.isBase) return { error: 'A base takes no suggestions; change its rows instead' };
+    const piece = await this.pageService.parseProsemirrorContent(args.content, 'markdown');
+    const suggestion = await this.suggestions.create(
+      ctx.user,
+      ctx.workspace.id,
+      { pageId: page.id, content: piece, note: args.note },
+      { origin: ctx.origin ?? 'chat', label: ctx.originLabel ?? null, operation: args.operation ?? 'append' },
+    );
+    const ref = await this.refOf(page);
+    return {
+      proposed: true,
+      suggestionId: suggestion.id,
+      operation: suggestion.operation,
+      status: 'waiting for review: the page is unchanged until someone who can edit it accepts the suggestion',
+      reviewUrl: `${ref.url}?suggestion=${suggestion.id}`,
+      ...ref,
+    };
+  }
+
   // ---- helpers ------------------------------------------------------------
 
   private async findReadablePage(ctx: ToolContext, idOrSlug: string): Promise<Page> {
@@ -370,6 +560,7 @@ export class AiChatToolsService {
     if (!page || page.deletedAt || page.workspaceId !== ctx.workspace.id) {
       throw new Error('Page not found');
     }
+    if (ctx.spaceId && page.spaceId !== ctx.spaceId) throw new Error('Page not found');
     await this.pageAccess.validateCanView(page, ctx.user);
     return page;
   }

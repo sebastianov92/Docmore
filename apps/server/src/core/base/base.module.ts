@@ -43,6 +43,11 @@ import { BaseAutomationController } from './automation/base-automation.controlle
 import { BaseFormRepo } from '@docmost/db/repos/base/base-form.repo';
 import { BaseFormService } from './forms/base-form.service';
 import { BaseFormController, BaseFormPublicController } from './forms/base-form.controller';
+import { BaseCalendarFeedService } from './calendar-feed/base-calendar-feed.service';
+import {
+  BaseCalendarFeedController,
+  BaseCalendarFeedPublicController,
+} from './calendar-feed/base-calendar-feed.controller';
 
 @Module({
   imports: [
@@ -55,6 +60,8 @@ import { BaseFormController, BaseFormPublicController } from './forms/base-form.
     IntegrationModule,
   ],
   controllers: [
+    BaseCalendarFeedController,
+    BaseCalendarFeedPublicController,
     BaseMyWorkController,
     BaseHistoryController,
     BaseAutomationController,
@@ -67,6 +74,7 @@ import { BaseFormController, BaseFormPublicController } from './forms/base-form.
     BasePublicController,
   ],
   providers: [
+    BaseCalendarFeedService,
     BaseAutomationRepo,
     BaseAutomationService,
     BaseAutomationListener,

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Group } from "@mantine/core";
 import { IconChevronDown, IconChevronRight, IconLoader2, IconPlugConnected } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { AiChatToolCall, pendingApprovalOf, splitMcpToolName } from "../types";
 import classes from "./chat.module.css";
 
@@ -11,6 +12,7 @@ const LABELS: Record<string, string> = {
   get_page: "Read a page",
   create_page: "Created a page",
   update_page: "Updated a page",
+  suggest_page_edit: "Proposed a change",
   list_bases: "Listed bases",
   get_base: "Read a base",
   list_base_rows: "Read base rows",
@@ -32,6 +34,13 @@ function detail(call: AiChatToolCall): string {
   return "";
 }
 
+// A change the assistant filed for review: where to look at it.
+function reviewOf(call: AiChatToolCall): { url: string; title: string } | null {
+  const r = call.result as any;
+  if (!r || typeof r !== "object" || r.proposed !== true || typeof r.reviewUrl !== "string" || !r.reviewUrl.startsWith("/")) return null;
+  return { url: r.reviewUrl, title: typeof r.title === "string" ? r.title : "" };
+}
+
 export type ApprovalDecision = "approved" | "denied";
 
 interface Props {
@@ -51,6 +60,7 @@ export function ChatToolSteps({ toolCalls, isStreaming, decided = {}, onDecide }
     const p = pendingApprovalOf(c);
     return p && !decided[p.approvalId];
   });
+  const proposals = toolCalls.map((call) => ({ call, review: reviewOf(call) })).filter((p) => p.review);
   const [open, setOpen] = useState(pendingCalls.length > 0);
   const [openStep, setOpenStep] = useState<string | null>(null);
   useEffect(() => {
@@ -73,6 +83,18 @@ export function ChatToolSteps({ toolCalls, isStreaming, decided = {}, onDecide }
         {active ? <IconLoader2 size={13} className={classes.spin} /> : open ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
         <span>{header}</span>
       </button>
+      {proposals.map(({ call, review }) => (
+        <div key={call.id} className={classes.proposal} data-testid="chat-proposal">
+          <span className={classes.proposalText}>
+            {review!.title
+              ? t("Proposed a change to “{{title}}”. The page stays as it is until it is accepted.", { title: review!.title })
+              : t("Proposed a change. The page stays as it is until it is accepted.")}
+          </span>
+          <Button component={Link} to={review!.url} size="compact-xs" variant="light" data-testid="chat-proposal-review">
+            {t("Review")}
+          </Button>
+        </div>
+      ))}
       {open && (
         <div className={classes.stepList}>
           {toolCalls.map((call) => {

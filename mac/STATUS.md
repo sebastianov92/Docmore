@@ -16,7 +16,7 @@ Latest full runs:
 
 ```
 xcodebuild test ...                # Executed 117 tests, with 0 failures
-mac/tools/e2e.sh                   # passed 232, failed 0, skipped 0   (2026-11-22 11:39, lab on Claude Haiku 5.5, artifacts mac/build/e2e/20261122-113954)
+mac/tools/e2e.sh                   # passed 239, failed 0, skipped 0   (2026-11-22 15:10, lab on Claude Haiku 5.5; includes the system search checks)
                                    # with the lab's language model healthy; the run of 2026-11-21 19:53 had
                                    # passed 218 and skipped 11, every skip for a model that was too slow
 (cd mac/MeetingKit && swift test --build-path .build --skip RealModelTests)   # Executed 177 tests, with 0 failures
@@ -224,6 +224,14 @@ here):
 - Spotlight: `spotlight.index/remove/clear` go to CoreSpotlight under a
   per-account domain; the path of each item is kept in
   `profiles/<id>/spotlight.json`; opening a result navigates to it.
+  Since 2026-11-22 every page the person can see is indexed by its title
+  (with its space under it), not only the pages kept offline; those are
+  indexed with their text too. The web client keeps the index in step with
+  the page tree (`lib/offline/system-search.ts`). The end-to-end run puts a
+  made-up entry into the real index of the Mac, finds it with a
+  `CSSearchQuery` and takes it out again (found after 15 ms on this
+  machine); `mdfind` does not list CoreSpotlight entries, and the Spotlight
+  window itself (Cmd-Space) was not looked at.
 - Several accounts: each has its own origin, web data store, web client
   copy, file cache, tokens and reachability. Account menu > Switch Account,
   Settings > Accounts, account picker. Signing one out leaves the others.

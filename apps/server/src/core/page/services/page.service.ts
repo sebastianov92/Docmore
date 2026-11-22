@@ -1469,7 +1469,7 @@ export class PageService {
     }
   }
 
-  private async parseProsemirrorContent(
+  async parseProsemirrorContent(
     content: string | object,
     format: ContentFormat,
   ): Promise<any> {

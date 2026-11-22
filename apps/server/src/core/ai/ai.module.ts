@@ -32,6 +32,9 @@ import { AiTranscriptionService } from './meetings/ai-transcription.service';
 import { AiMeetingService } from './meetings/ai-meeting.service';
 import { AiMeetingController } from './meetings/ai-meeting.controller';
 import { NotificationModule } from '../notification/notification.module';
+import { AiAgentService } from './agents/ai-agent.service';
+import { AiAgentController } from './agents/ai-agent.controller';
+import { AiAgentScheduler } from './agents/ai-agent.scheduler';
 import { CollaborationModule } from '../../collaboration/collaboration.module';
 
 // Built-in AI: provider credentials, model discovery, Ask AI in the editor,
@@ -39,7 +42,7 @@ import { CollaborationModule } from '../../collaboration/collaboration.module';
 // the workspace's pages.
 @Module({
   imports: [PageModule, PageAccessModule, SearchModule, AttachmentModule, StorageModule, BaseModule, NotificationModule, CollaborationModule],
-  controllers: [AiController, AiChatController, AiBaseFillController, AiMcpController, AiSkillController, AiResearchController, AiMeetingController],
+  controllers: [AiController, AiChatController, AiBaseFillController, AiMcpController, AiSkillController, AiResearchController, AiMeetingController, AiAgentController],
   providers: [
     AiBaseFillService,
     AiBaseFillListener,
@@ -60,6 +63,8 @@ import { CollaborationModule } from '../../collaboration/collaboration.module';
     AiResearchService,
     AiTranscriptionService,
     AiMeetingService,
+    AiAgentService,
+    AiAgentScheduler,
   ],
   exports: [AiSettingsService, AiProviderService, AiGenerateService, AiEmbeddingService, AiAnswersService, AiChatToolsService, AiSkillService],
 })

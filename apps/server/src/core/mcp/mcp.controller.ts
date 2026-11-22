@@ -68,6 +68,8 @@ export class McpController {
       user: principal.user,
       workspace: principal.workspace,
       readOnly,
+      // an outside tool keeps its direct edits and can also file a suggestion
+      origin: 'mcp',
     });
     for (const def of definitions) {
       this.register(server, def);

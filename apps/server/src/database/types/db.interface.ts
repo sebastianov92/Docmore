@@ -12,6 +12,8 @@ import { WebhookDeliveries, Webhooks } from '@docmost/db/types/webhook.types';
 import { AiMcpServers, AiMeetingNotes, AiResearchReports, AiSkills, AiToolApprovals } from '@docmost/db/types/ai-extras.types';
 import { PageSuggestions } from '@docmost/db/types/suggestion.types';
 import { IdempotencyKeys, OfflinePins, SyncChanges } from '@docmost/db/types/sync.types';
+import { BaseCalendarFeeds } from '@docmost/db/types/calendar-feed.types';
+import { AiAgentRuns, AiAgents } from '@docmost/db/types/ai-agents.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -35,4 +37,7 @@ export interface DbInterface extends DB {
   syncChanges: SyncChanges;
   idempotencyKeys: IdempotencyKeys;
   offlinePins: OfflinePins;
+  baseCalendarFeeds: BaseCalendarFeeds;
+  aiAgents: AiAgents;
+  aiAgentRuns: AiAgentRuns;
 }

@@ -25,7 +25,7 @@ import { PageVerificationInvalidationModule } from './verification/page-verifica
     TrashCleanupService,
     BacklinkService,
   ],
-  exports: [PageService, PageHistoryService],
+  exports: [PageService, PageHistoryService, PageSuggestionService],
   imports: [NotificationModule, 
     StorageModule,
     CollaborationModule,

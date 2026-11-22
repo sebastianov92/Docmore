@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ActionIcon, Center, Loader, Menu, Text, TextInput, Tooltip } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconDots, IconMessageCircle2, IconPencil, IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
+import { IconDots, IconMessageCircle2, IconPencil, IconPlus, IconRobot, IconSearch, IconTrash } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { useChatsQuery, useDeleteChatMutation, useRenameChatMutation, useSearchChatsQuery } from "../queries";
 import { AiChat } from "../types";
@@ -15,6 +15,7 @@ export default function ChatSidebar() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { chatId } = useParams<{ chatId: string }>();
+  const onAgents = useLocation().pathname.startsWith("/ai/agents");
   const [search, setSearch] = useState("");
   const [debounced] = useDebouncedValue(search, 300);
   const chatsQuery = useChatsQuery();
@@ -75,6 +76,10 @@ export default function ChatSidebar() {
           </ActionIcon>
         </Tooltip>
       </div>
+      <Link to="/ai/agents" className={classes.navLink} data-active={onAgents || undefined} data-testid="ai-agents-link">
+        <IconRobot size={16} stroke={1.6} />
+        <span>{t("Scheduled agents")}</span>
+      </Link>
       <TextInput
         className={classes.search}
         placeholder={t("Search chats…")}

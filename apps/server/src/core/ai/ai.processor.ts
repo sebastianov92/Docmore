@@ -6,6 +6,7 @@ import { AiEmbeddingService } from './embeddings/ai-embedding.service';
 import { AiBaseFillService } from './base-fill/ai-base-fill.service';
 import { AiResearchService } from './research/ai-research.service';
 import { AiMeetingService } from './meetings/ai-meeting.service';
+import { AiAgentService } from './agents/ai-agent.service';
 
 // Drains the AI queue that pages, spaces and workspaces already feed: keeps
 // page embeddings current, drops them with their pages, and runs the
@@ -19,6 +20,7 @@ export class AiProcessor extends WorkerHost {
     private readonly baseFill: AiBaseFillService,
     private readonly research: AiResearchService,
     private readonly meetings: AiMeetingService,
+    private readonly agents: AiAgentService,
   ) {
     super();
   }
@@ -58,6 +60,8 @@ export class AiProcessor extends WorkerHost {
         return this.research.process(job.data);
       case QueueJob.AI_MEETING_NOTES:
         return this.meetings.process(job.data);
+      case QueueJob.AI_AGENT_RUN:
+        return this.agents.process(job.data);
       default:
         return;
     }

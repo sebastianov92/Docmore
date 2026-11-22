@@ -96,6 +96,11 @@ export class UpdateWorkspaceDto extends PartialType(CreateWorkspaceDto) {
   @IsBoolean()
   aiChatWorkspaceKnowledgeOnly: boolean;
 
+  // The assistant proposes changes to existing pages instead of making them.
+  @IsOptional()
+  @IsBoolean()
+  aiEditsAsSuggestions: boolean;
+
   @IsOptional()
   @IsBoolean()
   enforceMcpOauth: boolean;

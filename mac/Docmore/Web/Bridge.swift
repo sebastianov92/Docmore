@@ -84,12 +84,17 @@ enum Bridge {
             return ["ok": true]
 
         case "spotlight.index":
-            var items: [(id: String, title: String, text: String)] = []
+            var items: [SpotlightEntry] = []
             var paths: [(id: String, path: String)] = []
             for raw in (payload["items"] as? [[String: Any]]) ?? [] {
                 guard let id = raw["id"] as? String, !id.isEmpty,
                       let path = (raw["path"] as? String).flatMap(DeepLink.sanitize(path:)) else { continue }
-                items.append((id, raw["title"] as? String ?? "", raw["text"] as? String ?? ""))
+                items.append(SpotlightEntry(
+                    id: id,
+                    title: raw["title"] as? String ?? "",
+                    text: raw["text"] as? String ?? "",
+                    detail: raw["detail"] as? String ?? ""
+                ))
                 paths.append((id, path))
             }
             session.spotlightMap.set(paths)

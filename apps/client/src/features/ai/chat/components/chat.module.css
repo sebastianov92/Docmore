@@ -443,3 +443,20 @@
 .skillRow small {
   color: var(--mantine-color-dimmed);
 }
+
+/* a change filed for review: one line and the way to it */
+.proposal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.proposalText {
+  min-width: 0;
+}

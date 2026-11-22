@@ -379,7 +379,7 @@ export class AiMeetingService {
   private readonly liveUpdates = new Map<string, number[]>();
 
   private async aiAvailable(workspaceId: string): Promise<boolean> {
-    return Boolean(await this.settings.generationChoice(workspaceId).catch(() => null));
+    return Boolean(await this.settings.meetingsChoice(workspaceId).catch(() => null));
   }
 
   // A meeting starts: the row that will hold its transcript and its list.
@@ -479,7 +479,7 @@ export class AiMeetingService {
         // each question to the model counts against the person's daily allowance
         await this.usage.assertAllowed(workspace, user);
         const { generateText } = await import('ai');
-        const model = await this.providers.languageModel(workspace.id);
+        const model = await this.providers.languageModel(workspace.id, await this.settings.meetingsChoice(workspace.id));
         const result = await generateText({
           model,
           system: LIVE_SYSTEM,
@@ -787,7 +787,7 @@ export class AiMeetingService {
   // The final pass: summary and topics, and the list checked against everything that was said.
   private async summarize(workspaceId: string, label: string, items: MeetingItem[], transcript: string): Promise<{ notes: NotesText; items: unknown }> {
     const { generateText } = await import('ai');
-    const model = await this.providers.languageModel(workspaceId);
+    const model = await this.providers.languageModel(workspaceId, await this.settings.meetingsChoice(workspaceId));
     const text = transcript.length > MAX_TRANSCRIPT_FOR_SUMMARY ? `${transcript.slice(0, MAX_TRANSCRIPT_FOR_SUMMARY)}\n[transcript truncated]` : transcript;
     const result = await generateText({
       model,

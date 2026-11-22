@@ -7,7 +7,9 @@
 #   DOCMORE_E2E_KEEP=1 tools/e2e.sh   # keep the data directory afterwards
 #
 # The app runs with DOCMORE_DATA_DIR in a fresh temporary directory, so no
-# real account, Keychain item, notification or Spotlight entry is touched.
+# real account, Keychain item or notification is touched. The system search
+# is recorded too, except for one made-up entry that goes into the real
+# index and is taken out again a moment later.
 # Uses only the test accounts of the repository's .env and deletes the pages
 # it creates. Screenshots and logs land in mac/build/e2e/<time>/.
 set -uo pipefail
@@ -526,7 +528,14 @@ expect "an unknown message type answers with an error" "$BRIDGE" '"Unknown messa
 STATE="$(auto_get /automation/state)"
 expect "notify reaches the notification sink with its path" "$STATE" 'any(n["title"] == "e2e" and n["path"] == "/home" for n in d["notifications"])'
 expect "badge sets the Dock badge" "$STATE" 'd["dockBadge"] == "7"'
-expect "spotlight.index is recorded for the account" "$STATE" 'd["profiles"][0]["spotlightItems"] == 1 and any(s["op"] == "index" and s["ids"] == ["e2e-page-1"] for s in d["spotlight"])'
+expect "spotlight.index is recorded for the account" "$STATE" 'd["profiles"][0]["spotlightItems"] >= 1 and any(s["op"] == "index" and s["ids"] == ["e2e-page-1"] for s in d["spotlight"])'
+# the real index of this Mac: a made-up entry goes in, is found and is taken out
+REAL="$(auto_post /automation/spotlight-selftest '{"phase":"add"}')"
+expect "the system search of this Mac takes an entry of the app and finds it" "$REAL" 'd["found"] == True'
+REAL_TITLE="$(jq_py "$REAL" 'd.get("title", "")')"
+say "        found after $(jq_py "$REAL" 'd.get("afterMs")') ms; mdfind sees: $(mdfind "$REAL_TITLE" 2>/dev/null | head -3 | tr '\n' ' ')"
+REAL="$(auto_post /automation/spotlight-selftest "{\"phase\":\"remove\",\"title\":\"$REAL_TITLE\"}")"
+expect "and lets it go again" "$REAL" 'd["removed"] == True'
 expect "state from the page shows in the native status" "$STATE" 'd["profiles"][0]["sync"]["pending"] == 3 and "3" in d["profiles"][0]["status"]'
 [ -f "$DATA/profiles/$PROFILE/files/index.json" ] && pass "file cache index is on disk in the data directory" || fail "file cache index is on disk in the data directory"
 
@@ -840,6 +849,26 @@ else
   expect "a pinned page is downloaded to the device (IndexedDB under docmore-app://)" "$PIN" 'd["value"]["downloaded"]'
   expect "the page's image was handed to the native file cache" "$PIN" 'd["value"]["imageCached"]'
 
+  # the system search: every page the person can see by its title, the one on the device with its text
+  SPOT=""
+  WITH_TEXT="any(s['op'] == 'index' and '$OFF_PAGE' in s.get('withText', []) for s in d['spotlight'])"
+  for _ in $(seq 1 40); do
+    SPOT="$(auto_post /automation/spotlight-find '{"title":"mac-e2e offline page"}')"
+    STATE="$(auto_get /automation/state)"
+    [ "$(jq_py "$STATE" "$WITH_TEXT")" = "True" ] && break
+    sleep 1
+  done
+  expect "the system search finds a page by its title" "$SPOT" "'$PROFILE|$OFF_PAGE' in d['identifiers']"
+  expect "a page on the device is indexed with its text" "$STATE" "$WITH_TEXT"
+  expect "pages that are not on the device are indexed by title, with their space" "$STATE" "sum(len(s['ids']) - len(s.get('withText', [])) for s in d['spotlight'] if s['op'] == 'index') >= 2 and any(any(s.get('details', [])) for s in d['spotlight'] if s['op'] == 'index')"
+  auto_post /automation/spotlight-open "{\"identifier\":\"$PROFILE|$OFF_PAGE\"}" >/dev/null
+  sleep 1
+  NAV="$(ev <<'JS'
+return { path: location.pathname };
+JS
+)"
+  expect "opening that result goes to the page" "$NAV" "'$OFF_SLUG' in d['value']['path']"
+
   auto_post /automation/network '{"reachable":false}' >/dev/null
   auto_post /automation/reload >/dev/null
   OFFPAGE="$(ev 90 <<JS
@@ -891,6 +920,13 @@ JS
     CREATED_PAGES+=("$MADE_ID")
     ON_SERVER="$(server_api /api/pages/info "{\"pageId\":\"$MADE_ID\"}")"
     expect "the page made offline exists on the server" "$ON_SERVER" 'd["data"]["title"] == "mac-e2e made offline"'
+    SPOT=""
+    for _ in $(seq 1 40); do
+      SPOT="$(auto_post /automation/spotlight-find '{"title":"mac-e2e made offline"}')"
+      [ "$(jq_py "$SPOT" "len(d['identifiers']) > 0")" = "True" ] && break
+      sleep 1
+    done
+    expect "once it is on the server the system search finds it too" "$SPOT" "'$PROFILE|$MADE_ID' in d['identifiers']"
   else
     fail "the page made offline exists on the server" "no page id came back offline"
   fi

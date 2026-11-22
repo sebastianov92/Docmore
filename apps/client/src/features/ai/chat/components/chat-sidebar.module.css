@@ -102,3 +102,25 @@
 .row[data-active] .rowMenu {
   opacity: 1;
 }
+
+/* a place of the AI area that is not a chat */
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: inherit;
+  font-size: var(--mantine-font-size-sm);
+  text-decoration: none;
+}
+
+.navLink:hover,
+.navLink[data-active] {
+  background: var(--mantine-color-default-hover);
+}
+
+.navLink[data-active] {
+  font-weight: 600;
+}

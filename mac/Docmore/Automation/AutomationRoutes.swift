@@ -33,6 +33,8 @@ final class AutomationRoutes {
         case ("POST", "/automation/window"): return await window(request)
         case ("POST", "/automation/emit"): return emit(request)
         case ("POST", "/automation/spotlight-open"): return spotlightOpen(request)
+        case ("POST", "/automation/spotlight-find"): return await spotlightFind(request)
+        case ("POST", "/automation/spotlight-selftest"): return await spotlightSelfTest(request)
         case ("POST", "/automation/sign-out"): return await signOut(request)
         case ("GET", "/automation/native-snapshot"): return nativeSnapshot(request)
         case ("POST", "/automation/transcribe-file"): return await AutomationExtras.transcribeFile(request)
@@ -418,6 +420,40 @@ final class AutomationRoutes {
         guard let controller = browser(request) else { return .error("no window", status: 409) }
         controller.session.emit(type, request.json["payload"] ?? [:], to: controller.webView)
         return .json(["ok": true])
+    }
+
+    /// { title }: this app's entries in the system search whose title contains it.
+    private func spotlightFind(_ request: Request) async -> Response {
+        guard let title = request.json["title"] as? String, !title.isEmpty else { return .error("spotlight-find needs title") }
+        let found = await services.spotlight.find(titleContaining: title)
+        return .json(["identifiers": found, "real": services.spotlight is SystemSpotlightSink])
+    }
+
+    /// The real system index, whatever sink this run uses. { phase: "add" }
+    /// puts a made-up entry in and waits until a query finds it;
+    /// { phase: "remove", title } takes it out and waits until it is gone.
+    private func spotlightSelfTest(_ request: Request) async -> Response {
+        let sink = SystemSpotlightSink()
+        let domain = "selftest"
+        let identifier = SpotlightMap.identifier(profileId: domain, itemId: "probe")
+        let wait: (@escaping ([String]) -> Bool, String) async -> Int? = { done, title in
+            let start = Date()
+            for _ in 0..<60 {
+                if done(await sink.find(titleContaining: title)) { return Int(Date().timeIntervalSince(start) * 1000) }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            return nil
+        }
+        if request.json["phase"] as? String == "remove" {
+            guard let title = request.json["title"] as? String, !title.isEmpty else { return .error("remove needs title") }
+            sink.clear(profileId: domain)
+            let gone = await wait({ !$0.contains(identifier) }, title)
+            return .json(["removed": gone != nil, "afterMs": gone ?? -1])
+        }
+        let title = "docmoreselftest\(UUID().uuidString.prefix(8).lowercased())"
+        sink.index(profileId: domain, items: [SpotlightEntry(id: "probe", title: title, text: "probe text of \(title)", detail: "Self test")])
+        let found = await wait({ $0.contains(identifier) }, title)
+        return .json(["found": found != nil, "afterMs": found ?? -1, "title": title, "identifier": identifier])
     }
 
     private func spotlightOpen(_ request: Request) -> Response {

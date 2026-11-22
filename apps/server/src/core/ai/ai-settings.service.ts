@@ -44,6 +44,9 @@ export interface AiSettings {
   // speech to text: an OpenAI-compatible /audio/transcriptions model, or a
   // Gemini model that hears the file itself
   transcription: ModelChoice | null;
+  // the model that keeps the list of a meeting and writes its notes; empty =
+  // the writing model
+  meetings: ModelChoice | null;
 }
 
 // What admins see: never the key itself.
@@ -65,6 +68,7 @@ export interface AiSettingsView {
   embedding: ModelChoice | null;
   limits: AiLimits;
   transcription: ModelChoice | null;
+  meetings: ModelChoice | null;
   envFallback: { provider: string; model: string | null } | null;
 }
 
@@ -97,6 +101,7 @@ export class AiSettingsService {
       embedding: (asObject(row?.embedding) as ModelChoice | null) ?? null,
       limits: { ...DEFAULT_AI_LIMITS, ...((asObject(row?.limits) as Partial<AiLimits>) ?? {}) },
       transcription: (asObject((row as any)?.transcription) as ModelChoice | null) ?? null,
+      meetings: (asObject((row as any)?.meetings) as ModelChoice | null) ?? null,
     };
   }
 
@@ -123,6 +128,7 @@ export class AiSettingsService {
       embedding: settings.embedding,
       limits: settings.limits,
       transcription: settings.transcription,
+      meetings: settings.meetings,
       envFallback: envDriver
         ? { provider: envDriver, model: this.environment.getAiCompletionModel?.() ?? null }
         : null,
@@ -147,7 +153,8 @@ export class AiSettingsService {
     const limits = dto.limits === undefined ? current.limits : this.readLimits(dto.limits);
     const transcription =
       dto.transcription === undefined ? current.transcription : this.readTranscription(dto.transcription, providers);
-    await this.save(workspaceId, { providers, generation, embedding, limits, transcription });
+    const meetings = dto.meetings === undefined ? current.meetings : this.readChoice(dto.meetings, providers);
+    await this.save(workspaceId, { providers, generation, embedding, limits, transcription, meetings });
 
     // Vectors from one model mean nothing to another: start the index over.
     if (dto.embedding !== undefined && !sameChoice(current.embedding, embedding)) {
@@ -207,6 +214,12 @@ export class AiSettingsService {
     return AI_PROVIDERS.includes(provider) ? { provider, model } : null;
   }
 
+  // The model for meetings: its own choice, else the writing model.
+  async meetingsChoice(workspaceId: string): Promise<ModelChoice | null> {
+    const settings = await this.load(workspaceId);
+    return settings.meetings ?? this.generationChoice(workspaceId);
+  }
+
   private applyPatch(id: AiProviderId, stored: StoredProvider, patch: ProviderPatchDto): StoredProvider {
     const next: StoredProvider = { ...stored };
     if (patch.clearApiKey) {
@@ -262,6 +275,7 @@ export class AiSettingsService {
       embedding: (settings.embedding ?? null) as any,
       limits: (settings.limits ?? DEFAULT_AI_LIMITS) as any,
       transcription: (settings.transcription ?? null) as any,
+      meetings: (settings.meetings ?? null) as any,
     };
     await this.db
       .insertInto('aiSettings')

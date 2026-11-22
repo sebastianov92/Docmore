@@ -1,8 +1,13 @@
 import { useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import { nativeCan, nativeSend } from "@/lib/native/bridge.ts";
-import { buildPageUrl } from "@/features/page/page.utils.ts";
-import { contentText } from "./search.ts";
+import { nativeSend } from "@/lib/native/bridge.ts";
+import {
+  noteTextChanged,
+  resetSystemSearch,
+  scheduleSystemSearch,
+  startSystemSearch,
+  stopSystemSearch,
+} from "./system-search.ts";
 import { disableOfflineAnswers, enableOfflineAnswers } from "./adapter.ts";
 import {
   getConnectivity,
@@ -192,6 +197,7 @@ export async function startOfflineEngine(client: QueryClient, me: Me): Promise<v
     setStatus({ ready: false });
     return;
   }
+  startSystemSearch();
   if (started) return;
   started = true;
   unsubscribers = [
@@ -219,6 +225,7 @@ export async function wipeOfflineData(): Promise<void> {
   unsubscribers = [];
   if (interval) clearInterval(interval);
   interval = null;
+  stopSystemSearch();
   disableOfflineAnswers();
   const pages = downloadedPages();
   try {
@@ -228,7 +235,7 @@ export async function wipeOfflineData(): Promise<void> {
   }
   await Promise.all(pages.map((id) => deleteLocalDoc(id).catch(() => {})));
   await clearFiles().catch(() => {});
-  if (nativeCan("spotlight")) nativeSend("spotlight.clear");
+  await resetSystemSearch();
   treeReset();
   resetPins();
   resetOutboxCounts();
@@ -691,7 +698,8 @@ async function download(): Promise<void> {
       await forgetPageLocally(id);
       await deleteLocalDoc(id);
     }
-    if (nativeCan("spotlight")) nativeSend("spotlight.remove", { ids: dropped });
+    // off the device they are still found by title
+    scheduleSystemSearch();
   }
 
   const missing = [...wanted].filter((id) => !isPageDownloaded(id));
@@ -709,7 +717,7 @@ async function download(): Promise<void> {
     staleComments.delete(id);
     if (ok && (bodies.has(id) || isDocOpen(id))) {
       markDownloaded(id);
-      void indexForSystemSearch(id);
+      noteTextChanged([id]);
     } else if (!ok) {
       unmarkDownloaded([id]);
     }
@@ -726,28 +734,6 @@ async function download(): Promise<void> {
     } catch (error) {
       if (isNoAnswer(error)) throw error;
     }
-  }
-}
-
-// In the desktop app the pages on the device show up in the system search.
-async function indexForSystemSearch(pageId: string): Promise<void> {
-  if (!nativeCan("spotlight")) return;
-  try {
-    const info = await getPageInfo(pageId);
-    const slug = info?.space?.slug;
-    if (!info || !slug) return;
-    nativeSend("spotlight.index", {
-      items: [
-        {
-          id: info.id,
-          title: info.title || "Untitled",
-          text: contentText(info.content).slice(0, 20_000),
-          path: buildPageUrl(slug, info.slugId, info.title),
-        },
-      ],
-    });
-  } catch {
-    // system search is a convenience
   }
 }
 

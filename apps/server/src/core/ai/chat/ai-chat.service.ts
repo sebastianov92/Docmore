@@ -83,6 +83,8 @@ interface ToolCallRecord {
 interface ChatOptions {
   readOnly: boolean;
   knowledgeOnly: boolean;
+  // changes to existing pages go as suggestions (on unless turned off)
+  suggestEdits: boolean;
 }
 
 // The AI chat: a conversation per user with the workspace's pages at hand
@@ -311,7 +313,7 @@ export class AiChatService {
     const { streamText, stepCountIs } = await import('ai');
     const model = await this.providers.languageModel(workspace.id);
     const tools = {
-      ...(await this.tools.build({ user, workspace, readOnly: options.readOnly })),
+      ...(await this.tools.build({ user, workspace, readOnly: options.readOnly, suggestEdits: options.suggestEdits, origin: 'chat' })),
       ...(await this.mcpTools.build(user, workspace, chat.id).catch((err) => {
         this.logger.debug(`MCP tools unavailable: ${err?.message}`);
         return {};
@@ -422,6 +424,7 @@ export class AiChatService {
     return {
       readOnly: ai.chatReadOnly === true,
       knowledgeOnly: ai.chatWorkspaceKnowledgeOnly === true,
+      suggestEdits: ai.editsAsSuggestions !== false,
     };
   }
 
@@ -595,7 +598,10 @@ function systemPrompt(workspace: Workspace, user: User, options: ChatOptions, no
     'When you use a page, link it with its url as a Markdown link, for example [Title](/s/space/p/slugId).',
     options.readOnly
       ? 'You cannot create or change pages in this workspace; say so if asked.'
-      : 'Create or change pages only when the user clearly asks for it, and confirm what you did with a link.',
+      : options.suggestEdits
+        ? 'Create pages only when the user clearly asks for it. You never change an existing page yourself: when the user asks for an edit, file it with suggest_page_edit, ' +
+          'then say that the change waits for review on the page (it is not applied yet) and link its reviewUrl.'
+        : 'Create or change pages only when the user clearly asks for it, and confirm what you did with a link.',
     options.knowledgeOnly
       ? 'Answer only from the workspace content you find or that is given to you. If it is not there, say that the workspace has nothing on it; do not use outside knowledge.'
       : 'Use the workspace content when it is relevant; otherwise answer from general knowledge and say so.',

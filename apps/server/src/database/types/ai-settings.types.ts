@@ -9,6 +9,7 @@ export interface AiSettingsTable {
   embedding: Json | null;
   limits: Json | null;
   transcription: Json | null;
+  meetings: Json | null;
   createdAt: Generated<Timestamp>;
   updatedAt: Generated<Timestamp>;
 }

@@ -72,6 +72,12 @@ export class UpdateAiSettingsDto {
   @ValidateNested()
   @Type(() => ModelChoiceDto)
   transcription?: ModelChoiceDto | null;
+
+  // The model for meetings; null goes back to the writing model.
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ModelChoiceDto)
+  meetings?: ModelChoiceDto | null;
 }
 
 export class ListModelsDto {

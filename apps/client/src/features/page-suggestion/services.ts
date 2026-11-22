@@ -14,6 +14,10 @@ export interface ISuggestion {
   reviewNote: string | null;
   reviewedAt: string | null;
   createdAt: string;
+  // who wrote it when it was not a person typing: chat | agent | mcp
+  origin?: "chat" | "agent" | "mcp" | null;
+  originLabel?: string | null;
+  operation?: "replace" | "append" | "prepend";
   content?: unknown;
   baseContent?: unknown;
 }

@@ -17,4 +17,8 @@ export interface PageSuggestions {
   reviewedAt: Timestamp | null;
   createdAt: Generated<Timestamp>;
   updatedAt: Generated<Timestamp>;
+  origin: string | null;
+  originLabel: string | null;
+  operation: Generated<string>;
+  fragment: Json | null;
 }
