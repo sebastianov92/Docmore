@@ -12,7 +12,12 @@ type KanbanGroupByPickerProps = {
   // List views may drop the grouping again.
   onClear?: () => void;
   placeholder?: string;
+  // The kinds of property on offer. Tables and lists group by one option
+  // per row; a board also takes a multi-select.
+  types?: readonly string[];
 };
+
+const ONE_OPTION: readonly string[] = ["select", "status"];
 
 export function KanbanGroupByPicker({
   properties,
@@ -21,14 +26,15 @@ export function KanbanGroupByPicker({
   size = "sm",
   onClear,
   placeholder,
+  types = ONE_OPTION,
 }: KanbanGroupByPickerProps) {
   const { t } = useTranslation();
   const data = useMemo(
     () =>
       properties
-        .filter((p) => p.type === "select" || p.type === "status")
+        .filter((p) => types.includes(p.type))
         .map((p) => ({ value: p.id, label: p.name || t("Untitled") })),
-    [properties, t],
+    [properties, t, types],
   );
   return (
     <Select

@@ -2730,5 +2730,6 @@
   "Not in the list? Paste the link of the page": "¿No está en la lista? Pega el enlace de la página",
   "In Notion: Share > Copy link. The page still has to be shared with the connection.": "En Notion: Compartir > Copiar enlace. La página igual tiene que estar compartida con la conexión.",
   "{{count}} Notion buttons became buttons that add a row to a base shown on their page. Notion does not say what a button does: check each one with the gear next to it.": "{{count}} botones de Notion pasaron a ser botones que agregan una fila a una base que se muestra en su página. Notion no dice qué hace un botón: revisa cada uno con el engranaje que tiene al lado.",
-  "{{count}} Notion buttons came without an action: set them with the gear next to each one.": "{{count}} botones de Notion llegaron sin acción: configúralos con el engranaje que tiene cada uno al lado."
+  "{{count}} Notion buttons came without an action: set them with the gear next to each one.": "{{count}} botones de Notion llegaron sin acción: configúralos con el engranaje que tiene cada uno al lado.",
+  "“{{name}}”: some of its files could not be copied.": "«{{name}}»: algunos de sus archivos no se pudieron copiar."
 }

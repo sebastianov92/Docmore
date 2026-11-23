@@ -298,7 +298,7 @@ export async function updateAutomation(data: {
 export async function deleteAutomation(data: { pageId: string; automationId: string }): Promise<void> {
   await api.post("/bases/automations/delete", data);
 }
-export async function runAutomation(data: { pageId: string; automationId: string; rowId?: string }): Promise<{ ran: boolean; ok?: boolean; errors?: string[]; reason?: string }> {
+export async function runAutomation(data: { pageId: string; automationId: string; rowId?: string }): Promise<{ ran: boolean; ok?: boolean; errors?: string[]; reason?: string; createdRows?: Array<{ pageId: string; rowId: string }> }> {
   const req = await api.post("/bases/automations/run", data);
   return req.data;
 }

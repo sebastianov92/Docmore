@@ -11,7 +11,7 @@ vi.mock("fractional-indexing-jittered", () => ({
   },
 }));
 
-import { resolveCardDrop } from "../resolve-card-drop";
+import { movedOptions, resolveCardDrop } from "../resolve-card-drop";
 import { NO_VALUE_CHOICE_ID } from "@/features/base/types/base.types";
 
 const mkRow = (id: string, position: string) =>
@@ -128,5 +128,59 @@ describe("resolveCardDrop", () => {
     // upper=null) succeeds. The mock returns "START|END" in that case.
     expect(result.cells).toBeUndefined();
     expect(result.position).toBe("START|END");
+  });
+});
+
+describe("movedOptions", () => {
+  it("swaps the option of the column left for the one landed on", () => {
+    expect(movedOptions(["a", "c"], "a", "b")).toEqual(["b", "c"]);
+    expect(movedOptions(["c", "a"], "a", "b")).toEqual(["c", "b"]);
+  });
+
+  it("does not repeat an option the card already had", () => {
+    expect(movedOptions(["a", "b"], "a", "b")).toEqual(["b"]);
+    expect(movedOptions(["b", "a"], "a", "b")).toEqual(["b"]);
+  });
+
+  it("gives the option to a card that had none", () => {
+    expect(movedOptions([], NO_VALUE_CHOICE_ID, "b")).toEqual(["b"]);
+    expect(movedOptions(undefined, NO_VALUE_CHOICE_ID, "b")).toEqual(["b"]);
+  });
+
+  it("takes every option away on No value", () => {
+    expect(movedOptions(["a", "c"], "a", NO_VALUE_CHOICE_ID)).toEqual([]);
+  });
+});
+
+describe("resolveCardDrop, on a board by a multi-select", () => {
+  it("writes the list of options, not one option", () => {
+    const result = resolveCardDrop({
+      draggedCardId: "r1",
+      targetCardId: "r2",
+      edge: "top",
+      sourceColumnKey: "a",
+      targetColumnKey: "b",
+      groupByPropertyId: "days",
+      columnRows: [mkRow("r2", "b")],
+      sortsActive: true,
+      currentOptions: ["a", "c"],
+    });
+    expect(result.cells).toEqual({ days: ["b", "c"] });
+  });
+
+  it("leaves the cell alone within one column", () => {
+    const result = resolveCardDrop({
+      draggedCardId: "r1",
+      targetCardId: "r2",
+      edge: "top",
+      sourceColumnKey: "a",
+      targetColumnKey: "a",
+      groupByPropertyId: "days",
+      columnRows: [mkRow("r2", "b")],
+      sortsActive: false,
+      currentOptions: ["a"],
+    });
+    expect(result.cells).toBeUndefined();
+    expect(result.position).toBeDefined();
   });
 });

@@ -22,11 +22,14 @@ import { BaseViewService } from '../../../core/base/services/base-view.service';
 import { BaseAutomationService } from '../../../core/base/automation/base-automation.service';
 import { AttachmentType } from '../../../core/attachment/attachment.constants';
 import { getAttachmentFolderPath } from '../../../core/attachment/attachment.utils';
+import { COVER_IMAGE_MIME_TYPES } from '../../../core/page/page-cover.constants';
 import { getMimeType } from '../../../common/helpers/file.helper';
 import { htmlToJson } from '../../../collaboration/collaboration.util';
 import { NotionClient, NotionError } from './notion-client';
 import { blocksToHtml, NotionBlock, plainText } from './notion-html';
-import { cellOf, ImportNote, MappedProperty, mapSchema, mapView } from './notion-schema';
+import { cellOf, fileRef, ImportNote, MappedProperty, mapSchema, mapView, NotionFileRef } from './notion-schema';
+import { fetch as outboundFetch } from 'undici';
+import { OutboundAgentFactory } from '../../outbound/outbound-agent.factory';
 
 export interface NotionRoot {
   id: string;
@@ -54,7 +57,19 @@ export interface NotionImportView {
   finishedAt: string | null;
 }
 
-type Row = { id: string; title: string; properties: Record<string, any>; blocks: NotionBlock[]; rowId?: string; pageId?: string };
+type Row = {
+  id: string;
+  title: string;
+  properties: Record<string, any>;
+  blocks: NotionBlock[];
+  // the cover of the row's page, for the cards of a gallery
+  cover?: NotionFileRef | null;
+  rowId?: string;
+  pageId?: string;
+};
+// A file once it is kept here: what a files cell holds.
+type KeptFile = { id: string; fileName: string; mimeType: string; fileSize: number; filePath: string };
+type FileBudget = { count: number; notes: ImportNote[] };
 type Source = {
   id: string;
   name: string;
@@ -64,6 +79,8 @@ type Source = {
   node?: Node;
   mapped?: MappedProperty[];
   propertyIds?: Map<string, string>;
+  // the column made to hold the pictures of the cards, when views ask for them
+  coverPropertyId?: string;
   // Notion view id -> the view it became here
   viewIds?: Map<string, string>;
 };
@@ -88,6 +105,8 @@ type Node = {
   kind: 'page' | 'database';
   title: string;
   icon: string | null;
+  // the picture across the top of the page
+  cover?: NotionFileRef | null;
   blocks: NotionBlock[];
   children: Node[];
   sources: Source[];
@@ -114,6 +133,13 @@ const MAX_ROW_PAGES = 400;
 // each row is asked for its text with one request: only so many per import
 const MAX_ROW_SCANS = 1_000;
 const MAX_VIEWS = 24;
+// the column of a board for the cards with no option (the client's NO_VALUE_CHOICE_ID)
+const NO_VALUE_CHOICE = '__no_value';
+// files of one cell; the rest are left out
+const MAX_CELL_FILES = 10;
+// a file that lives outside Notion is asked for through the server's guard
+// for outgoing requests, and may send it on to another address this often
+const MAX_FILE_REDIRECTS = 3;
 const MAX_FILES = 300;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_ROOTS_LISTED = 300;
@@ -142,6 +168,7 @@ export class NotionImportService {
     private readonly spaceAbility: SpaceAbilityFactory,
     private readonly storage: StorageService,
     private readonly encryption: EncryptionService,
+    private readonly outbound: OutboundAgentFactory,
     @InjectQueue(QueueName.FILE_TASK_QUEUE) private readonly queue: Queue,
   ) {}
 
@@ -410,7 +437,8 @@ export class NotionImportService {
       }
 
       // ---- bases: columns, rows, row pages, relations, views --------------
-      for (const source of allSources) await this.fillBase(user, job.workspaceId, space.slug, source, links, report, counts, progress);
+      const files: FileBudget = { count: 0, notes: report.notes };
+      for (const source of allSources) await this.fillBase(user, job, space.slug, source, links, report, counts, files, progress);
       await this.linkRelations(user, job.workspaceId, allSources, report.notes);
       for (const source of allSources) report.views += await this.makeViews(user, job.workspaceId, source, report.notes);
       // where a linked view sat, the base shows at that view
@@ -422,20 +450,23 @@ export class NotionImportService {
       }
       // what a Notion button can be made to do: add a row to a base of this import
       const baseOf = new Map<string, { pageId: string; title: string }>();
+      const icons = new Map<string, string>();
       const eachNode = (node: Node) => {
         const target = node.aliasOf ?? node;
+        if (target.icon) icons.set(node.id, target.icon);
         if (node.kind === 'database' && target.pageId) baseOf.set(node.id, { pageId: target.pageId, title: target.title });
         for (const child of node.children) eachNode(child);
       };
       for (const node of tree) eachNode(node);
       for (const source of allSources) for (const row of source.rows) titles.set(row.id, row.title);
-      const buttons = { baseOf, titles, automations: new Map<string, string>(), guessed: 0, unset: 0 };
+      const buttons = { baseOf, titles, icons, automations: new Map<string, string>(), guessed: 0, unset: 0 };
 
       // ---- the text of every page -----------------------------------------
       counts.step = 'writing';
       await progress(true);
-      const files = { count: 0, notes: report.notes };
       const write = async (node: Node) => {
+        // a linked view has no page of its own: its cover is the one of the base it shows
+        if (node.pageId && node.cover && !node.aliasOf) await this.setCover(user, job, node.pageId, node.cover, files, counts);
         if (node.kind === 'page' && node.pageId) {
           await this.writeContent(user, job, node.pageId, node.blocks, links, embeds, buttons, report.skipped, files, counts);
           await progress();
@@ -446,6 +477,7 @@ export class NotionImportService {
       for (const source of allSources) {
         for (const row of source.rows) {
           if (!row.pageId) continue;
+          if (row.cover) await this.setCover(user, job, row.pageId, row.cover, files, counts);
           await this.writeContent(user, job, row.pageId, row.blocks, links, embeds, buttons, report.skipped, files, counts);
           await progress();
         }
@@ -511,7 +543,7 @@ export class NotionImportService {
     if (page?.in_trash) return null;
     state.pages++;
     counts.pages++;
-    const node: Node = { id: norm(id), kind: 'page', title: pageTitle(page), icon: emojiOf(page?.icon), blocks: [], children: [], sources: [] };
+    const node: Node = { id: norm(id), kind: 'page', title: pageTitle(page), icon: emojiOf(page?.icon), cover: fileRef(page?.cover), blocks: [], children: [], sources: [] };
     node.blocks = await this.readBlocks(client, id, 0);
     await progress();
     if (depth < MAX_DEPTH) {
@@ -568,14 +600,19 @@ export class NotionImportService {
     }
     if (database?.in_trash) return null;
     const title = plainText(database?.title).trim() || 'Untitled';
-    const node: Node = { id: norm(id), kind: 'database', title, icon: emojiOf(database?.icon), blocks: [], children: [], sources: [], inline: database?.is_inline === true };
+    const node: Node = { id: norm(id), kind: 'database', title, icon: emojiOf(database?.icon), cover: fileRef(database?.cover), blocks: [], children: [], sources: [], inline: database?.is_inline === true };
     const refs = (database?.data_sources ?? []) as Array<{ id: string; name?: string }>;
     // a linked view of a table that already came over: the views it has here go to that table's base
     const known = state.linked.get(node.id);
     if (known) {
       node.aliasOf = known.owner;
-      node.linkedViews = known.views;
       node.linkedSource = known.sourceId;
+      // those views were listed by table, across the workspace, in no order;
+      // asked of this block, they come in the order of its tabs
+      const order = await client.viewIds(id, MAX_VIEWS).catch(() => [] as string[]);
+      const at = new Map(order.map((viewId, index) => [norm(viewId), index]));
+      const place = (view: any) => at.get(norm(String(view?.id ?? ''))) ?? Number.MAX_SAFE_INTEGER;
+      node.linkedViews = [...known.views].sort((a, b) => place(a) - place(b));
       return node;
     }
     // every table it shows already came over with another database: it is a showing of that one
@@ -599,7 +636,7 @@ export class NotionImportService {
       const rows: Row[] = [];
       for (const page of pages.slice(0, MAX_ROWS)) {
         if (page?.object !== 'page' || page?.in_trash) continue;
-        const row: Row = { id: norm(page.id), title: pageTitle(page), properties: page.properties ?? {}, blocks: [] };
+        const row: Row = { id: norm(page.id), title: pageTitle(page), properties: page.properties ?? {}, blocks: [], cover: fileRef(page.cover) };
         if (state.rowPages < MAX_ROW_PAGES && state.rowScans < MAX_ROW_SCANS) {
           state.rowScans++;
           row.blocks = await this.readBlocks(client, page.id, 0);
@@ -659,14 +696,16 @@ export class NotionImportService {
 
   private async fillBase(
     user: User,
-    workspaceId: string,
+    job: { workspaceId: string; spaceId: string },
     spaceSlug: string,
     source: Source,
     links: Map<string, string>,
     report: { notes: ImportNote[] },
-    counts: { pages: number },
+    counts: { pages: number; files: number },
+    files: FileBudget,
     progress: () => Promise<void>,
   ): Promise<void> {
+    const workspaceId = job.workspaceId;
     const pageId = source.node!.pageId!;
     const base = await this.baseService.getBaseInfo(pageId);
     const primary = ((base as any).properties as Array<{ id: string; isPrimary: boolean }>).find((p) => p.isPrimary);
@@ -689,15 +728,66 @@ export class NotionImportService {
     source.mapped = mapped;
     source.propertyIds = ids;
 
+    // The cards of a gallery can show the cover of each row's page, or the
+    // first image of its text. Neither is a column in Notion; here the
+    // picture of a card is a files column, so one is made to hold them.
+    const asked = new Set<string>();
+    for (const raw of source.views.slice(0, MAX_VIEWS)) {
+      const from = mapView(raw, mapped, [])?.config.coverFrom;
+      if (from) asked.add(from);
+    }
+    const coverOf = (row: Row): NotionFileRef | null => {
+      if (asked.has('page_cover') && row.cover) return row.cover;
+      if (asked.has('page_content')) return firstImage(row.blocks);
+      return null;
+    };
+    if (asked.size && source.rows.some((row) => coverOf(row))) {
+      let name = 'Cover';
+      for (let n = 2; mapped.some((p) => p.type && p.name.toLowerCase() === name.toLowerCase()); n++) name = `Cover ${n}`;
+      const made: any = await this.properties.create(workspaceId, { pageId, name, type: 'file' } as any, user.id).catch(() => null);
+      source.coverPropertyId = made?.id ?? made?.property?.id ?? undefined;
+    }
+    const keepAll = async (refs: NotionFileRef[]): Promise<KeptFile[]> => {
+      const kept: KeptFile[] = [];
+      for (const ref of refs.slice(0, MAX_CELL_FILES)) {
+        if (files.count >= MAX_FILES) {
+          files.notes.push({ code: 'max_files', count: MAX_FILES });
+          break;
+        }
+        const file = await this.keepAttachment(user, job, pageId, ref).catch(() => null);
+        if (!file) continue;
+        kept.push(file);
+        files.count++;
+        counts.files++;
+      }
+      return kept;
+    };
+
     // rows; the ones with text of their own get a page under the base
     let pageProperty: string | null = null;
+    // files columns some file of which could not be copied
+    const lost = new Set<string>();
     for (const row of source.rows) {
       const cells: Record<string, unknown> = {};
       for (const property of mapped) {
         const propertyId = ids.get(property.name);
         if (!propertyId || property.type === 'relation') continue;
         const value = cellOf(property, row.properties[property.notionName]);
-        if (value !== undefined) cells[propertyId] = value;
+        if (value === undefined) continue;
+        if (property.type === 'file') {
+          // the files are copied first: a cell holds what is kept here
+          const refs = value as NotionFileRef[];
+          const kept = await keepAll(refs);
+          if (kept.length) cells[propertyId] = kept;
+          if (kept.length < refs.length) lost.add(property.notionName);
+          continue;
+        }
+        cells[propertyId] = value;
+      }
+      if (source.coverPropertyId) {
+        const cover = coverOf(row);
+        const kept = cover ? await keepAll([cover]) : [];
+        if (kept.length) cells[source.coverPropertyId] = kept;
       }
       let created: any;
       try {
@@ -731,6 +821,7 @@ export class NotionImportService {
       }
       await progress();
     }
+    for (const name of lost) report.notes.push({ code: 'files_missing', name });
   }
 
   // Relations, once every row of every base exists.
@@ -776,6 +867,15 @@ export class NotionImportService {
     const id = (name: string | undefined) => (name ? ids.get(name) : undefined);
     const existing = await this.views.listByBaseId(pageId, workspaceId);
     let made = 0;
+    // a database's own unnamed table and a linked one both arrive as "Table":
+    // the second of a name gets a number, so the tabs can be told apart
+    const taken = new Set<string>();
+    const named = (name: string): string => {
+      let out = name;
+      for (let n = 2; taken.has(out.toLowerCase()); n++) out = `${name} ${n}`;
+      taken.add(out.toLowerCase());
+      return out;
+    };
     for (const raw of source.views.slice(0, MAX_VIEWS)) {
       const mapped = mapView(raw, source.mapped ?? [], notes);
       if (!mapped) continue;
@@ -785,14 +885,24 @@ export class NotionImportService {
       if (id(mapped.config.timelineStart)) config.timelineStartPropertyId = id(mapped.config.timelineStart);
       if (id(mapped.config.timelineEnd)) config.timelineEndPropertyId = id(mapped.config.timelineEnd);
       if (mapped.config.cardSize) config.cardSize = mapped.config.cardSize;
+      if (id(mapped.config.cover)) config.coverPropertyId = id(mapped.config.cover);
+      else if (mapped.config.coverFrom && source.coverPropertyId) config.coverPropertyId = source.coverPropertyId;
+      // Notion leaves out the column of the cards with no option when there
+      // are none; so does the board here
+      if (mapped.type === 'kanban' && mapped.config.groupBy) {
+        const by = (source.mapped ?? []).find((p) => p.name === mapped.config.groupBy);
+        const every = by && source.rows.length > 0 && source.rows.every((row) => cellOf(by, row.properties[by.notionName]) !== undefined);
+        if (every) config.hiddenChoiceIds = [NO_VALUE_CHOICE];
+      }
       const hidden = (mapped.config.hidden ?? []).map(id).filter(Boolean);
       if (hidden.length) config.hiddenPropertyIds = hidden;
       const sorts = (mapped.config.sorts ?? []).map((s) => ({ propertyId: id(s.property), direction: s.direction })).filter((s) => s.propertyId);
       if (sorts.length) config.sorts = sorts;
       // a board with nothing to group by would be empty
       if (mapped.type === 'kanban' && !config.groupByPropertyId) continue;
+      const name = named(mapped.name);
       try {
-        const created: any = await this.views.create(user.id, workspaceId, { pageId, name: mapped.name, type: mapped.type, config } as any);
+        const created: any = await this.views.create(user.id, workspaceId, { pageId, name, type: mapped.type, config } as any);
         if (created?.id && raw?.id) (source.viewIds ??= new Map()).set(String(raw.id), created.id);
         made++;
       } catch (err: any) {
@@ -817,7 +927,7 @@ export class NotionImportService {
     blocks: NotionBlock[],
     links: Map<string, string>,
     embeds: Map<string, { pageId: string; viewId?: string | null }>,
-    buttons: { baseOf: Map<string, { pageId: string; title: string }>; titles: Map<string, string>; automations: Map<string, string>; guessed: number; unset: number },
+    buttons: { baseOf: Map<string, { pageId: string; title: string }>; titles: Map<string, string>; icons: Map<string, string>; automations: Map<string, string>; guessed: number; unset: number },
     skipped: Map<string, number>,
     files: { count: number; notes: ImportNote[] },
     counts: { files: number },
@@ -865,6 +975,7 @@ export class NotionImportService {
     const html = blocksToHtml(blocks, {
       linkFor: (id) => links.get(id) ?? null,
       titleFor: (id) => buttons.titles.get(id) ?? null,
+      iconFor: (id) => buttons.icons.get(id) ?? null,
       embedFor: (id) => embeds.get(id) ?? null,
       buttonFor: () => made.shift() ?? null,
       fileFor: (url) => kept.get(url) ?? null,
@@ -897,15 +1008,81 @@ export class NotionImportService {
   }
 
   private async keepFile(user: User, job: { workspaceId: string; spaceId: string }, pageId: string, url: string, name: string | null): Promise<string | null> {
-    // files come from Notion's own storage, over https (the test stand-in aside)
-    if (!/^https:\/\//i.test(url) && !process.env.NOTION_API_URL) return null;
-    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-    if (!res.ok) return null;
-    const declared = Number(res.headers.get('content-length') ?? 0);
-    if (declared > MAX_FILE_BYTES) return null;
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (!buffer.length || buffer.length > MAX_FILE_BYTES) return null;
-    const fileName = safeName(name || fileNameOf(url));
+    const kept = await this.keepAttachment(user, job, pageId, { url, name, hosted: true });
+    return kept ? `/api/files/${kept.id}/${encodeURIComponent(kept.fileName)}` : null;
+  }
+
+  // The bytes of a file. One Notion hosts comes from Notion's own storage,
+  // over https (the test stand-in aside). One that lives elsewhere is any
+  // address a Notion page names: it goes through the guard for outgoing
+  // requests, pinned to the address that was checked, and so does every
+  // address it is sent on to.
+  private async download(ref: NotionFileRef): Promise<Buffer | null> {
+    const fits = (res: { headers: { get(name: string): string | null } }) => Number(res.headers.get('content-length') ?? 0) <= MAX_FILE_BYTES;
+    if (ref.hosted) {
+      if (!/^https:\/\//i.test(ref.url) && !process.env.NOTION_API_URL) return null;
+      const res = await fetch(ref.url, { signal: AbortSignal.timeout(60_000) });
+      if (!res.ok || !fits(res)) return null;
+      return Buffer.from(await res.arrayBuffer());
+    }
+    let url = ref.url;
+    for (let hop = 0; hop <= MAX_FILE_REDIRECTS; hop++) {
+      if (!/^https:\/\//i.test(url)) return null;
+      const lease = await this.outbound.lease(url);
+      try {
+        const res = await outboundFetch(url, { dispatcher: lease.dispatcher, redirect: 'manual', signal: AbortSignal.timeout(60_000) });
+        if (res.status >= 300 && res.status < 400) {
+          const next = res.headers.get('location');
+          if (!next) return null;
+          url = new URL(next, url).toString();
+          continue;
+        }
+        if (!res.ok || !fits(res)) return null;
+        return Buffer.from(await res.arrayBuffer());
+      } finally {
+        await lease.release().catch(() => undefined);
+      }
+    }
+    return null;
+  }
+
+  // The picture across the top of a page: kept as the cover of the page here.
+  private async setCover(
+    user: User,
+    job: { workspaceId: string; spaceId: string },
+    pageId: string,
+    ref: NotionFileRef,
+    files: FileBudget,
+    counts: { files: number },
+  ): Promise<void> {
+    if (files.count >= MAX_FILES) {
+      files.notes.push({ code: 'max_files', count: MAX_FILES });
+      return;
+    }
+    const kept = await this.keepAttachment(user, job, pageId, ref, 'cover').catch(() => null);
+    if (!kept) return;
+    files.count++;
+    counts.files++;
+    await this.db
+      .updateTable('pages')
+      .set({ coverPhoto: `/api/files/${kept.id}/${encodeURIComponent(kept.fileName)}`, coverPosition: null, coverAttribution: null } as any)
+      .where('id', '=', pageId)
+      .execute();
+  }
+
+  // `as`: a file of a page or of a cell, or the cover of the page (an image
+  // of the kinds a cover can be, kept as a cover upload is).
+  private async keepAttachment(
+    user: User,
+    job: { workspaceId: string; spaceId: string },
+    pageId: string,
+    ref: NotionFileRef,
+    as: 'file' | 'cover' = 'file',
+  ): Promise<KeptFile | null> {
+    const buffer = await this.download(ref);
+    if (!buffer?.length || buffer.length > MAX_FILE_BYTES) return null;
+    const fileName = withExtension(safeName(ref.name || fileNameOf(ref.url)), buffer);
+    if (as === 'cover' && !COVER_IMAGE_MIME_TYPES.includes(getMimeType(fileName))) return null;
     const attachmentId = uuid7();
     const filePath = `${getAttachmentFolderPath(AttachmentType.File, job.workspaceId)}/${attachmentId}/${fileName}`;
     await this.storage.upload(filePath, buffer);
@@ -917,7 +1094,7 @@ export class NotionImportService {
         fileName,
         fileSize: buffer.length,
         mimeType: getMimeType(fileName),
-        type: 'file',
+        type: as === 'cover' ? AttachmentType.PageCover : AttachmentType.File,
         fileExt: path.extname(fileName).toLowerCase(),
         creatorId: user.id,
         workspaceId: job.workspaceId,
@@ -925,7 +1102,7 @@ export class NotionImportService {
         spaceId: job.spaceId,
       } as any)
       .execute();
-    return `/api/files/${attachmentId}/${encodeURIComponent(fileName)}`;
+    return { id: attachmentId, fileName, mimeType: getMimeType(fileName), fileSize: buffer.length, filePath };
   }
 }
 
@@ -1017,6 +1194,34 @@ function hostedFiles(blocks: NotionBlock[]): Array<{ url: string; name: string |
     if (block.children?.length) out.push(...hostedFiles(block.children));
   }
   return out;
+}
+
+// The first image in the text of a page, as a gallery shows it on a card.
+function firstImage(blocks: NotionBlock[]): NotionFileRef | null {
+  for (const block of blocks) {
+    if (block.type === 'image') {
+      const found = fileRef(block.image);
+      if (found) return found;
+    }
+    if (block.type !== 'child_page' && block.children?.length) {
+      const inside = firstImage(block.children);
+      if (inside) return inside;
+    }
+  }
+  return null;
+}
+
+// A picture named without its kind ("photo-1500…" from an image service)
+// would not be shown as one: the name gets the extension its bytes say.
+function withExtension(name: string, bytes: Buffer): string {
+  if (path.extname(name)) return name;
+  const head = bytes.subarray(0, 12);
+  const starts = (...values: number[]) => values.every((value, index) => head[index] === value);
+  if (starts(0xff, 0xd8, 0xff)) return `${name}.jpg`;
+  if (starts(0x89, 0x50, 0x4e, 0x47)) return `${name}.png`;
+  if (starts(0x47, 0x49, 0x46, 0x38)) return `${name}.gif`;
+  if (starts(0x52, 0x49, 0x46, 0x46) && head.subarray(8, 12).toString('latin1') === 'WEBP') return `${name}.webp`;
+  return name;
 }
 
 function fileNameOf(url: string): string {

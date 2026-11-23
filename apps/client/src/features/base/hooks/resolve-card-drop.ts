@@ -12,12 +12,45 @@ export type ResolveCardDropInput = {
   groupByPropertyId: string;
   columnRows: IBaseRow[]; // rows currently in the target column, in display order
   sortsActive: boolean;
+  // Board grouped by a multi-select: the options the dragged card has now.
+  // Left out (undefined) for a select or a status, whose cell is one option.
+  currentOptions?: unknown;
 };
 
 export type ResolveCardDropResult = {
   cells: Record<string, unknown> | undefined;
   position: string | undefined;
 };
+
+// A card of a multi-select board sits under each of its options. Moving it
+// swaps the option of the column it left for the one it lands on, where the
+// old one was, and keeps the others. Onto "No value" it loses them all:
+// short of that it would not show there.
+export function movedOptions(
+  current: unknown,
+  from: string,
+  to: string,
+): string[] {
+  const now = Array.isArray(current)
+    ? current.filter((v): v is string => typeof v === "string")
+    : [];
+  if (to === NO_VALUE_CHOICE_ID) return [];
+  const out: string[] = [];
+  let placed = false;
+  for (const id of now) {
+    if (id === to) {
+      if (!placed) out.push(to);
+      placed = true;
+    } else if (id === from) {
+      if (!placed && !now.includes(to)) {
+        out.push(to);
+        placed = true;
+      }
+    } else out.push(id);
+  }
+  if (!placed) out.push(to);
+  return out;
+}
 
 export function resolveCardDrop(
   input: ResolveCardDropInput,
@@ -31,6 +64,7 @@ export function resolveCardDrop(
     groupByPropertyId,
     columnRows,
     sortsActive,
+    currentOptions,
   } = input;
 
   const sameColumn = sourceColumnKey === targetColumnKey;
@@ -40,7 +74,11 @@ export function resolveCardDrop(
     ? undefined
     : {
         [groupByPropertyId]:
-          targetColumnKey === NO_VALUE_CHOICE_ID ? null : targetColumnKey,
+          currentOptions !== undefined
+            ? movedOptions(currentOptions, sourceColumnKey, targetColumnKey)
+            : targetColumnKey === NO_VALUE_CHOICE_ID
+              ? null
+              : targetColumnKey,
       };
 
   // Same column + sort active → block (caller should have stopped the drag

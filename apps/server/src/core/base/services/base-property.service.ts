@@ -513,7 +513,7 @@ export class BasePropertyService {
 
   /*
    * Post-type-conversion cleanup: when a property's type flips to something
-   * not groupable (anything other than select/status), drop the kanban
+   * not groupable (anything other than select/multi-select/status), drop the kanban
    * grouping fields from any view rooted on it. Called from BOTH the inline
    * path here and the BullMQ processor after the pending→live swap, so
    * `view.config` stays coherent with the property's actual type. Each
@@ -528,7 +528,8 @@ export class BasePropertyService {
   ): Promise<void> {
     if (
       newType === BasePropertyType.SELECT ||
-      newType === BasePropertyType.STATUS
+      newType === BasePropertyType.STATUS ||
+      newType === BasePropertyType.MULTI_SELECT
     ) {
       return;
     }

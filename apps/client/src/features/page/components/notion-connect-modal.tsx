@@ -22,6 +22,8 @@ export function noteText(note: ImportNote, t: (key: string, values?: Record<stri
       return t("“{{name}}”: the rollup comes over as its values.", values);
     case "files_column":
       return t("“{{name}}”: the files of a column are not imported.", values);
+    case "files_missing":
+      return t("“{{name}}”: some of its files could not be copied.", values);
     case "column_type":
       return t("“{{name}}”: columns of type {{detail}} are not imported.", values);
     case "view_type":

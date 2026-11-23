@@ -19,6 +19,14 @@ import { LinkedViewPicker } from "./linked-view-picker";
 
 const SIDE_GUTTER = 8;
 
+// An embed that sits in a column, a callout or a toggle keeps to that box:
+// reaching for the edges of the page would lay its scrolling area over the
+// neighbouring column and take its clicks.
+function isNested(wrapper: HTMLElement): boolean {
+  const holder = wrapper.closest(".react-renderer")?.parentElement;
+  return Boolean(holder && !holder.classList.contains("ProseMirror"));
+}
+
 // Extend the scroll viewport on both sides (toward AppShell.Main's
 // edges), but offset the grid content with padding-left = extendLeft
 // so the first cell still lines up with page-content on load.
@@ -33,8 +41,9 @@ function applyExtension(wrapper: HTMLDivElement) {
     ? mainRect.right - SIDE_GUTTER
     : window.innerWidth - SIDE_GUTTER;
 
-  const extendLeft = Math.max(0, rect.left - targetLeft);
-  const extendRight = Math.max(0, targetRight - rect.right);
+  const nested = isNested(wrapper);
+  const extendLeft = nested ? 0 : Math.max(0, rect.left - targetLeft);
+  const extendRight = nested ? 0 : Math.max(0, targetRight - rect.right);
 
   wrapper.style.setProperty("--embed-extend-l", `${extendLeft}px`);
   wrapper.style.setProperty("--embed-extend-r", `${extendRight}px`);

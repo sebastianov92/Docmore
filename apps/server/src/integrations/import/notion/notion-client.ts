@@ -134,6 +134,12 @@ export class NotionClient {
   // The views of a database, or every view over one table: its own and the
   // linked ones that show it from other pages. The list only names the
   // views: each is read on its own.
+  // The ids of the views of one database block, in the order of its tabs.
+  async viewIds(databaseId: string, cap: number): Promise<string[]> {
+    const refs = await this.all('GET', '/v1/views', undefined, { database_id: notionId(databaseId) }, cap);
+    return refs.map((ref) => String(ref?.id ?? '')).filter(Boolean);
+  }
+
   async views(of: { databaseId?: string; dataSourceId?: string }, cap: number): Promise<any[]> {
     const query = of.dataSourceId ? { data_source_id: notionId(of.dataSourceId) } : { database_id: notionId(of.databaseId ?? '') };
     const refs = await this.all('GET', '/v1/views', undefined, query, cap);

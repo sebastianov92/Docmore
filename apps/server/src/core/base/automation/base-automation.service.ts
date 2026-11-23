@@ -15,7 +15,9 @@ import { CreateAutomationDto, UpdateAutomationDto } from '../dto/automation.dto'
 
 export const BASE_AUTOMATION_NOTIFICATION = 'base.automation';
 
-type RunContext = { workspaceId: string; actorId: string | null; depth: number };
+// `made`: the rows the actions add, for whoever pressed the button to be
+// shown what it did.
+type RunContext = { workspaceId: string; actorId: string | null; depth: number; made?: Array<{ pageId: string; rowId: string }> };
 
 // Rules of a base: a trigger, optional conditions on the row, and actions.
 // Rows written by actions carry the depth so chains stop after a few hops.
@@ -92,8 +94,9 @@ export class BaseAutomationService {
     if (row && automation.conditions && !matchesFilter(automation.conditions, row, properties)) {
       return { ran: false, reason: 'conditions' as const };
     }
-    const result = await this.execute(automation, row ?? null, properties, { workspaceId, actorId, depth: 1 });
-    return { ran: true, ...result };
+    const made: Array<{ pageId: string; rowId: string }> = [];
+    const result = await this.execute(automation, row ?? null, properties, { workspaceId, actorId, depth: 1, made });
+    return { ran: true, ...result, createdRows: made };
   }
 
   // Row events from the services: find the rules that fire and run them.
@@ -168,7 +171,8 @@ export class BaseAutomationService {
         const targetPageId = action.pageId ?? automation.pageId;
         const targetProps = targetPageId === automation.pageId ? properties : await this.basePropertyRepo.findByPageId(targetPageId);
         const cells = this.writableCells(tpl(action.cells) as Record<string, unknown>, targetProps);
-        await this.baseRowService.create(ctx.actorId, ctx.workspaceId, { pageId: targetPageId, cells }, { automationDepth: ctx.depth });
+        const created: any = await this.baseRowService.create(ctx.actorId, ctx.workspaceId, { pageId: targetPageId, cells }, { automationDepth: ctx.depth });
+        if (created?.id) ctx.made?.push({ pageId: targetPageId, rowId: created.id });
         return;
       }
       case 'notify': {

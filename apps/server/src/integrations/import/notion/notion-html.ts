@@ -23,6 +23,8 @@ export interface HtmlContext {
   linkFor: (notionId: string) => string | null;
   // what that page or database is called
   titleFor?: (notionId: string) => string | null;
+  // its emoji, when it has one: Notion writes it before the name
+  iconFor?: (id: string) => string | null;
   // the base to show in place, for a database that sits inline in its page
   // (and the view of it to show, for a linked view)
   embedFor?: (notionId: string) => { pageId: string; viewId?: string | null } | null;
@@ -79,6 +81,11 @@ export function richTextHtml(rich: NotionRichText[] | undefined, ctx: HtmlContex
 }
 
 const CALLOUT_TYPES: Record<string, string> = {
+  // Notion's plain grey box is the plain box here, not a blue notice
+  default: 'default',
+  gray: 'default',
+  blue: 'info',
+  purple: 'note',
   red: 'danger',
   pink: 'danger',
   orange: 'warning',
@@ -89,10 +96,40 @@ const CALLOUT_TYPES: Record<string, string> = {
 
 function calloutType(color: string | undefined): string {
   const base = (color ?? '').replace(/_background$/, '');
-  return CALLOUT_TYPES[base] ?? 'info';
+  return CALLOUT_TYPES[base || 'default'] ?? 'info';
 }
 
 const COLUMN_LAYOUTS = ['', '', 'two_equal', 'three_equal', 'four_equal', 'five_equal'];
+
+// Notion gives each column its share of the row (`width_ratio`, absent when
+// they are all alike). The layouts here are a few set shapes, so a row with a
+// narrow side column takes the closest one: halfway between a third and a
+// half is where "a sidebar" ends and "two alike" begins.
+const UNEVEN = 5 / 12;
+
+export function columnLayout(ratios: Array<number | null | undefined>): string {
+  const count = ratios.length;
+  const alike = COLUMN_LAYOUTS[count] ?? '';
+  if (count !== 2 && count !== 3) return alike;
+  const given = ratios.map((r) => (typeof r === 'number' && r > 0 ? r : null));
+  if (given.every((r) => r === null)) return alike;
+  const said = given.reduce<number>((sum, r) => sum + (r ?? 0), 0);
+  const unsaid = given.filter((r) => r === null).length;
+  const each = unsaid ? Math.max(0, 1 - said) / unsaid : 0;
+  const shares = given.map((r) => r ?? each);
+  const total = shares.reduce((sum, r) => sum + r, 0);
+  if (!(total > 0)) return alike;
+  const share = shares.map((r) => r / total);
+  if (count === 2) {
+    if (share[0] <= UNEVEN) return 'two_left_sidebar';
+    if (share[1] <= UNEVEN) return 'two_right_sidebar';
+    return alike;
+  }
+  if (share[0] >= UNEVEN) return 'three_left_wide';
+  if (share[2] >= UNEVEN) return 'three_right_wide';
+  if (share[1] >= UNEVEN) return 'three_with_sidebars';
+  return alike;
+}
 
 function fileOf(data: any): { url: string; hosted: boolean; name: string | null; caption: NotionRichText[] } | null {
   if (!data) return null;
@@ -246,7 +283,7 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
       }
       case 'column_list': {
         const columns = (block.children ?? []).filter((c) => c.type === 'column');
-        const layout = COLUMN_LAYOUTS[columns.length];
+        const layout = columnLayout(columns.map((c) => (c as any).column?.width_ratio));
         if (!layout) {
           // one column, or more than fit side by side: one after the other
           out += columns.map((c) => kids(c)).join('');
@@ -260,6 +297,14 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
         // a database that shows its table in the page does so here too
         const embedded = block.type === 'child_database' ? ctx.embedFor?.(normalId(block.id)) : null;
         if (embedded) {
+          // Notion writes the name of the database over its table; with
+          // several of them on a page, that name is what tells them apart
+          const id = normalId(block.id);
+          const name = (ctx.titleFor?.(id) || String(data.title ?? '')).trim();
+          const to = ctx.linkFor(id);
+          const icon = ctx.iconFor?.(id);
+          const shown = esc(icon && name ? `${icon} ${name}` : name);
+          if (name) out += `<h3>${to ? `<a href="${esc(to)}">${shown}</a>` : shown}</h3>`;
           const view = embedded.viewId ? ` data-view-id="${esc(embedded.viewId)}"` : '';
           out += `<div data-type="base-embed" data-page-id="${esc(embedded.pageId)}"${view}></div>`;
           break;
@@ -273,7 +318,11 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
       case 'link_to_page': {
         const id = data.page_id ?? data.database_id;
         const href = id ? ctx.linkFor(normalId(String(id))) : null;
-        if (href) out += `<p><a href="${esc(href)}">${esc(ctx.titleFor?.(normalId(String(id))) || href)}</a></p>`;
+        if (href) {
+          const name = ctx.titleFor?.(normalId(String(id)));
+          const icon = name ? ctx.iconFor?.(normalId(String(id))) : null;
+          out += `<p><a href="${esc(href)}">${esc(name ? (icon ? `${icon} ${name}` : name) : href)}</a></p>`;
+        }
         break;
       }
       case 'synced_block':

@@ -6,6 +6,20 @@ import {
   SelectTypeOptions,
 } from "@/features/base/types/base.types";
 
+// What a board can be grouped by. A multi-select groups too: a card with
+// several options shows under each of them.
+export const KANBAN_GROUP_TYPES: readonly string[] = [
+  "select",
+  "status",
+  "multiSelect",
+];
+
+export function isKanbanGroupable(
+  property: Pick<IBaseProperty, "type"> | undefined,
+): boolean {
+  return Boolean(property && KANBAN_GROUP_TYPES.includes(property.type));
+}
+
 export type KanbanColumnData = {
   key: string;            // choice id or NO_VALUE_CHOICE_ID
   choiceId: string | null; // null for NO_VALUE column
@@ -77,8 +91,21 @@ export function partitionRowsByGroup(
   const buckets = new Map<string, IBaseRow[]>();
   for (const key of order) buckets.set(key, []);
 
+  const many = property.type === "multiSelect";
   for (const row of rows) {
     const value = (row.cells ?? {})[property.id];
+    if (many) {
+      const options = Array.isArray(value)
+        ? [...new Set(value.filter((v) => typeof v === "string" && byId.has(v)))]
+        : [];
+      if (options.length === 0) {
+        buckets.get(NO_VALUE_CHOICE_ID)?.push(row);
+        continue;
+      }
+      // under each option that has a column; a hidden one keeps it out
+      for (const id of options) buckets.get(id as string)?.push(row);
+      continue;
+    }
     const key =
       typeof value === "string" && buckets.has(value)
         ? value

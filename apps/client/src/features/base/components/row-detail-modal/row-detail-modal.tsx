@@ -8,7 +8,7 @@ import {
 import { useWindowEvent } from "@mantine/hooks";
 import { IconDotsVertical, IconX, IconLock } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import {
   IBase,
   IBaseRow,
@@ -21,6 +21,40 @@ import classes from "./row-detail-modal.module.css";
 import { RowHierarchy } from "@/features/base/components/row-detail-modal/row-hierarchy";
 import { RowComments } from "@/features/base/components/row-detail-modal/row-comments";
 import { BaseHistoryList } from "@/features/base/components/history/base-history-list";
+
+// A page can show the same base twice (its table and a linked view of it).
+// Both read `?row=` and both have the row: left alone, the row would open in
+// two modals, one over the other. The first one to have the row shows it;
+// when that one lets go, another may.
+const rowsShowing = new Map<string, symbol>();
+const rowModalsWaiting = new Set<() => void>();
+
+function useShowsRow(rowId: string | null): boolean {
+  const me = useRef(Symbol("row-modal")).current;
+  const [turn, again] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    rowModalsWaiting.add(again);
+    return () => {
+      rowModalsWaiting.delete(again);
+    };
+  }, []);
+  useEffect(() => {
+    if (rowId && !rowsShowing.has(rowId)) {
+      rowsShowing.set(rowId, me);
+      again();
+    }
+  }, [rowId, me, turn]);
+  useEffect(
+    () => () => {
+      if (rowId && rowsShowing.get(rowId) === me) {
+        rowsShowing.delete(rowId);
+        rowModalsWaiting.forEach((retry) => retry());
+      }
+    },
+    [rowId, me],
+  );
+  return rowId ? rowsShowing.get(rowId) === me : false;
+}
 
 type RowDetailModalProps = {
   base: IBase;
@@ -62,9 +96,15 @@ export function RowDetailModal({
     [base.properties],
   );
 
-  // If a row was open and disappeared (deleted, filtered out, or not yet
-  // loaded into the rows page), close the modal.
-  const wasOpen = !!openRowId && !row;
+  // If a row was open here and disappeared (deleted, filtered out), close
+  // the modal. Only a row this base has shown: a page can hold several
+  // bases, each with a modal of its own reading the same `?row=`, and the
+  // row of one of them is "missing" in all the others. Closing on that
+  // would take the row away from the base that does have it. A row that is
+  // not loaded yet (one a button just added) opens once it arrives.
+  const shownRowId = useRef<string | null>(null);
+  if (row) shownRowId.current = row.id;
+  const wasOpen = !!openRowId && !row && shownRowId.current === openRowId;
   useEffect(() => {
     if (wasOpen) onClose();
   }, [wasOpen, onClose]);
@@ -84,7 +124,7 @@ export function RowDetailModal({
   // popover) or a native editable element (input, textarea,
   // contenteditable). Only when nothing inner claims Esc do we close
   // the modal.
-  const opened = !!row;
+  const opened = useShowsRow(row ? row.id : null);
   const handleEscape = useCallback(
     (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.isComposing || !opened) return;

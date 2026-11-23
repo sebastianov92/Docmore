@@ -25,6 +25,7 @@ export type BaseType =
   | 'email'
   | 'phone'
   | 'location'
+  | 'file'
   | 'relation';
 
 export interface Choice {
@@ -258,8 +259,8 @@ export function mapSchema(schema: Record<string, any>, rows: Array<Record<string
         break;
       }
       case 'files':
-        add(null);
-        notes.push({ code: 'files_column', name: notionName });
+        // the files themselves are copied by the caller: see fileRefs
+        add('file');
         break;
       default:
         add(null);
@@ -287,6 +288,24 @@ function peopleNames(people: any[]): string {
     .map((person) => person?.name ?? person?.person?.email ?? '')
     .filter(Boolean)
     .join(', ');
+}
+
+// A file as Notion hands it over: one it hosts itself (at an address that
+// expires) or one that lives somewhere else.
+export type NotionFileRef = { url: string; name: string | null; hosted: boolean };
+
+export function fileRef(file: any): NotionFileRef | null {
+  if (!file || typeof file !== 'object') return null;
+  const hosted = file.type === 'file';
+  const url = hosted ? file.file?.url : file.type === 'external' ? file.external?.url : null;
+  if (typeof url !== 'string' || !url) return null;
+  return { url, name: typeof file.name === 'string' && file.name ? file.name : null, hosted };
+}
+
+// The files of a files cell (or of anything shaped like one).
+export function fileRefs(value: any): NotionFileRef[] {
+  const list = Array.isArray(value?.files) ? value.files : Array.isArray(value) ? value : [];
+  return list.map(fileRef).filter((f: NotionFileRef | null): f is NotionFileRef => f !== null);
 }
 
 // The cell of one column for one Notion page; undefined = leave it empty.
@@ -321,6 +340,11 @@ export function cellOf(property: MappedProperty, value: any): unknown {
     case 'created_time':
     case 'last_edited_time':
       return dateCell(inner);
+    case 'files': {
+      // references only: copying them here is the caller's work
+      const refs = fileRefs(inner);
+      return refs.length ? refs : undefined;
+    }
     case 'checkbox':
       return inner === true ? true : undefined;
     case 'url':
@@ -380,7 +404,11 @@ export interface MappedView {
     calendarBy?: string;
     timelineStart?: string;
     timelineEnd?: string;
+    // the picture of a card: a files column of the table...
     cover?: string;
+    // ...or what Notion takes from each row's page: its cover, or the first
+    // image of its text. The caller copies those into a column of their own.
+    coverFrom?: 'page_cover' | 'page_content';
     cardSize?: 'small' | 'medium' | 'large';
     visible?: string[];
     hidden?: string[];
@@ -441,10 +469,10 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
   if (type === 'kanban') {
     const asked = settings.group_by?.property_id;
     const by = column(asked);
-    if (by && (by.type === 'select' || by.type === 'status')) config.groupBy = by.name;
+    if (by && (by.type === 'select' || by.type === 'status' || by.type === 'multiSelect')) config.groupBy = by.name;
     else {
-      // told to group by a column that cannot group here (a multi-select, a
-      // person): a table, rather than a board by some other column
+      // told to group by a column that cannot group here (a person, a
+      // date): a table, rather than a board by some other column
       const fallback = asked ? undefined : (properties.find((p) => p.type === 'status') ?? properties.find((p) => p.type === 'select'));
       if (!fallback) {
         notes.push({ code: 'board_as_table', name });
@@ -471,6 +499,13 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
   if (type === 'gallery') {
     const size = settings.cover_size;
     if (size === 'small' || size === 'medium' || size === 'large') config.cardSize = size;
+    const cover = settings.cover;
+    if (cover?.type === 'property') {
+      const by = column(cover.property_id);
+      if (by?.type === 'file') config.cover = by.name;
+    } else if (cover?.type === 'page_cover' || cover?.type === 'page_content') {
+      config.coverFrom = cover.type;
+    }
   }
 
   const sorts = Array.isArray(view?.sorts) ? view.sorts : [];

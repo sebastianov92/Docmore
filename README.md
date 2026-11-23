@@ -181,7 +181,9 @@ outside the `ee/` directories, so they are always on:
   into one. Properties of every kind (text, long text, number, select,
   status, multi-select, date, person, file, page, checkbox, URL, email,
   created/edited stamps and formulas evaluated on the server), table and
-  kanban views with filters, sorts and per-user drafts, a row detail
+  kanban views with filters, sorts and per-user drafts (a board groups by
+  a select, a status or a multi-select: a card with several options shows
+  under each of them), a row detail
   modal, type conversion with a background job for large tables, realtime
   updates, CSV export and CSV import (map columns to existing or new
   properties; options and people are resolved by name), a calendar view by
@@ -231,7 +233,9 @@ outside the `ee/` directories, so they are always on:
   comments, cell history with restore, automations (row created or changed,
   form submitted or a button pressed; conditions as a filter tree; set
   cells, create a row, notify people, call a webhook; a run log), button
-  blocks and button properties, public forms that create rows, and AI
+  blocks (one that adds a row to a base shown on the same page opens the
+  new row to be filled in) and button properties, public forms that create
+  rows, and AI
   autofill of a property from a prompt.
 - **Links and files**: a bookmark card for any URL (Open Graph, with an
   SSRF guard), PDF export of a whole space or workspace as a ZIP, and a
@@ -297,23 +301,31 @@ outside the `ee/` directories, so they are always on:
   (connect)". With the secret of a connection made in Notion, the pages
   shared with it come over with their sub-pages, and each database becomes
   a base with its columns (select and status options with colors and
-  groups, dates with time and end, numbers with currency, relations
+  groups, dates with time and end, numbers with currency, files, relations
   between imported databases), its rows, the text of each row as a page,
-  and its views (table, board, calendar, timeline, gallery, list). A
-  database that sits inline in its page is embedded in the imported page;
-  a linked view shows the base it is a view of, at that view, and its
-  views become views of that base. Notion buttons become buttons: Notion
+  and its views (table, board, calendar, timeline, gallery, list). The
+  cards of a gallery keep their picture: from a files column, or from the
+  cover or the first image of each row's page, which are copied into a
+  column made for them. A
+  database that sits inline in its page is embedded in the imported page
+  under its name; a linked view shows the base it is a view of, at its
+  first tab, and its views become views of that base in the order of its
+  tabs. A row of columns with a narrow side column keeps that shape.
+  Notion buttons become buttons: Notion
   does not say what a button does, so each one adds a row to a base its
   page shows (in order) and can be changed with the gear next to it.
-  Bookmarks come as link cards. Files Notion hosts are copied. The report says what did not come over as it
+  Bookmarks come as link cards. Files Notion hosts are copied; files that
+  live elsewhere (a cover from Notion's gallery) are fetched through the
+  server's guard for outgoing requests. The report says what did not come over as it
   was (formulas and rollups as values, people as names, view filters,
   forms and charts). This is also how a Notion template is brought in:
   duplicate it into your Notion, share it with the connection, import.
   The list of what to import comes from Notion's search, which can lag a
   few minutes behind a page that was just shared: a page can also be added
   by pasting its link. The secret is used for the import and not stored. Written against the
-  API reference (version 2026-03-11) and tested with a stand-in server,
-  not yet against Notion itself.
+  API reference (version 2026-03-11), tested with a stand-in server and
+  tried with a real Notion template (a page with five linked views in
+  columns).
 - **Live meeting recorder**: "Record meeting" records the microphone with
   a live transcript every 45 seconds; stopping turns the recording into
   notes on the page.

@@ -31,6 +31,7 @@ import { ViewSortConfigPopover } from "@/features/base/components/views/view-sor
 import { ViewFilterConfigPopover } from "@/features/base/components/views/view-filter-config";
 import { ViewFieldVisibility } from "@/features/base/components/views/view-field-visibility";
 import { KanbanGroupByPicker } from "@/features/base/components/views/kanban/kanban-group-by-picker";
+import { KANBAN_GROUP_TYPES } from "@/features/base/hooks/use-kanban-groups";
 import { CalendarDatePicker } from "@/features/base/components/views/calendar/calendar-date-picker";
 import { useUpdateViewMutation } from "@/features/base/queries/base-view-query";
 import { useTranslation } from "react-i18next";
@@ -300,6 +301,7 @@ export function BaseToolbar({
           properties={base.properties}
           value={activeView?.config?.groupByPropertyId ?? null}
           onChange={handleGroupByChange}
+          types={KANBAN_GROUP_TYPES}
           size="xs"
         />
       )}

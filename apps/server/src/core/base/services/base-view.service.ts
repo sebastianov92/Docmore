@@ -27,7 +27,8 @@ export class BaseViewService {
   ) {}
 
   // Kanban columns come from a choice property; anything else cannot be
-  // grouped.
+  // grouped. A multi-select groups too: a card shows under each of its
+  // options.
   private async assertGroupable(
     pageId: string,
     config: Record<string, unknown> | undefined,
@@ -42,10 +43,11 @@ export class BaseViewService {
     }
     if (
       property.type !== BasePropertyType.SELECT &&
-      property.type !== BasePropertyType.STATUS
+      property.type !== BasePropertyType.STATUS &&
+      property.type !== BasePropertyType.MULTI_SELECT
     ) {
       throw new BadRequestException(
-        'Kanban views can only be grouped by a select or status property',
+        'Kanban views can only be grouped by a select, multi-select or status property',
       );
     }
   }

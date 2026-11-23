@@ -8,6 +8,7 @@ import { IconPlayerPlay, IconSettings } from "@tabler/icons-react";
 import { listAutomations, listBases, runAutomation } from "@/features/base/services/base-service";
 import { usePageQuery } from "@/features/page/queries/page-query";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { useRowDetailModal } from "@/features/base/hooks/use-row-detail-modal";
 
 // A button block: press it to run an automation of a base in this space.
 export default function BaseButtonView({ node, editor, updateAttributes }: NodeViewProps) {
@@ -16,6 +17,7 @@ export default function BaseButtonView({ node, editor, updateAttributes }: NodeV
   const isEditable = useEditorState({ editor, selector: ({ editor }) => editor?.isEditable ?? false });
   const [configOpen, setConfigOpen] = useState(!automationId && isEditable);
   const [running, setRunning] = useState(false);
+  const { openRow } = useRowDetailModal();
   // @ts-ignore
   const parentPageId = editor.storage?.pageId as string | undefined;
   const { data: page } = usePageQuery({ pageId: parentPageId });
@@ -29,6 +31,17 @@ export default function BaseButtonView({ node, editor, updateAttributes }: NodeV
     try {
       const r = await runAutomation({ pageId, automationId });
       notifications.show({ message: r.ok === false ? r.errors?.join("; ") || t("Automation failed") : t("Done"), color: r.ok === false ? "red" : undefined });
+      // A button that adds a row: when the page shows that base, the new row
+      // opens to be filled in, instead of sitting empty at the end of a table.
+      const made = r.createdRows?.[0];
+      if (made) {
+        let shown = false;
+        editor.state.doc.descendants((n) => {
+          if (n.type.name === "base" && n.attrs.pageId === made.pageId) shown = true;
+          return !shown;
+        });
+        if (shown) openRow(made.rowId);
+      }
     } catch (err) {
       notifications.show({ message: getApiErrorMessage(err), color: "red" });
     } finally {

@@ -8,7 +8,10 @@ import {
   IBaseView,
   NO_VALUE_CHOICE_ID,
 } from "@/features/base/types/base.types";
-import { useKanbanGroups } from "@/features/base/hooks/use-kanban-groups";
+import {
+  isKanbanGroupable,
+  useKanbanGroups,
+} from "@/features/base/hooks/use-kanban-groups";
 import { useKanbanAutoScroll } from "@/features/base/hooks/use-kanban-auto-scroll";
 import { useUpdateViewMutation } from "@/features/base/queries/base-view-query";
 import {
@@ -57,7 +60,9 @@ export function BaseKanban({
     () => base.properties.find((p) => p.isPrimary),
     [base.properties],
   );
-  const isGroupable = property?.type === "select" || property?.type === "status";
+  const isGroupable = isKanbanGroupable(property);
+  // a card of a multi-select board holds several options, one per column it shows in
+  const manyOptions = property?.type === "multiSelect";
   const updateViewMutation = useUpdateViewMutation();
   const createRowMutation = useCreateRowMutation();
   const updateRowMutation = useUpdateRowMutation();
@@ -125,6 +130,14 @@ export function BaseKanban({
         groupByPropertyId,
         columnRows: targetColumn?.rows ?? [],
         sortsActive,
+        ...(manyOptions && {
+          currentOptions:
+            columns
+              .find((c) => c.key === payload.sourceColumnKey)
+              ?.rows.find((r) => r.id === payload.draggedCardId)?.cells?.[
+              groupByPropertyId
+            ] ?? [],
+        }),
       });
 
       if (result.cells !== undefined) {
@@ -154,6 +167,7 @@ export function BaseKanban({
       base.id,
       columns,
       groupByPropertyId,
+      manyOptions,
       reorderRowMutation,
       sortsActive,
       updateRowMutation,
@@ -165,7 +179,7 @@ export function BaseKanban({
     const cells =
       columnKey === NO_VALUE_CHOICE_ID
         ? {}
-        : { [groupByPropertyId]: columnKey };
+        : { [groupByPropertyId]: manyOptions ? [columnKey] : columnKey };
     const column = columns.find((c) => c.key === columnKey);
     const afterRowId = column?.rows[column.rows.length - 1]?.id;
     try {

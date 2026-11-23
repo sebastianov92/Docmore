@@ -3,6 +3,10 @@ import { IconColumns3 } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { IBase } from "@/features/base/types/base.types";
 import { KanbanGroupByPicker } from "./kanban-group-by-picker";
+import {
+  isKanbanGroupable,
+  KANBAN_GROUP_TYPES,
+} from "@/features/base/hooks/use-kanban-groups";
 import { CreatePropertyPopover } from "@/features/base/components/property/create-property-popover";
 
 type KanbanEmptyStateProps = {
@@ -12,9 +16,7 @@ type KanbanEmptyStateProps = {
 
 export function KanbanEmptyState({ base, onPick }: KanbanEmptyStateProps) {
   const { t } = useTranslation();
-  const hasGroupable = base.properties.some(
-    (p) => p.type === "select" || p.type === "status",
-  );
+  const hasGroupable = base.properties.some((p) => isKanbanGroupable(p));
 
   return (
     <Stack align="center" gap="md" p="xl" mt={48}>
@@ -27,6 +29,7 @@ export function KanbanEmptyState({ base, onPick }: KanbanEmptyStateProps) {
           properties={base.properties}
           value={null}
           onChange={onPick}
+          types={KANBAN_GROUP_TYPES}
         />
       ) : (
         <Stack align="center" gap="xs">

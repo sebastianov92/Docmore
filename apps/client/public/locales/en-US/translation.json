@@ -2832,5 +2832,6 @@
   "Not in the list? Paste the link of the page": "Not in the list? Paste the link of the page",
   "In Notion: Share > Copy link. The page still has to be shared with the connection.": "In Notion: Share > Copy link. The page still has to be shared with the connection.",
   "{{count}} Notion buttons became buttons that add a row to a base shown on their page. Notion does not say what a button does: check each one with the gear next to it.": "{{count}} Notion buttons became buttons that add a row to a base shown on their page. Notion does not say what a button does: check each one with the gear next to it.",
-  "{{count}} Notion buttons came without an action: set them with the gear next to each one.": "{{count}} Notion buttons came without an action: set them with the gear next to each one."
+  "{{count}} Notion buttons came without an action: set them with the gear next to each one.": "{{count}} Notion buttons came without an action: set them with the gear next to each one.",
+  "“{{name}}”: some of its files could not be copied.": "“{{name}}”: some of its files could not be copied."
 }

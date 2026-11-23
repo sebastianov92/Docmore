@@ -1,4 +1,4 @@
-import { blocksToHtml, HtmlContext, NotionBlock, plainText, richTextHtml } from './notion-html';
+import { blocksToHtml, columnLayout, HtmlContext, NotionBlock, plainText, richTextHtml } from './notion-html';
 
 const text = (content: string, annotations: Record<string, unknown> = {}, href: string | null = null) => ({
   type: 'text',
@@ -95,7 +95,7 @@ describe('notion blocks to html', () => {
         '<details><summary>More</summary><div data-type="detailsContent"><p></p></div></details>' +
         '<blockquote><p>Said</p></blockquote>' +
         '<div data-type="callout" data-callout-type="danger" data-callout-icon="!"><p>Careful</p></div>' +
-        '<div data-type="callout" data-callout-type="info"><p>Note</p></div>' +
+        '<div data-type="callout" data-callout-type="default"><p>Note</p></div>' +
         '<pre><code class="language-javascript">if (a &lt; b) {}</code></pre><p><em>sample</em></p>' +
         '<pre><code>plain</code></pre>' +
         '<div data-type="mathBlock" data-katex="true">e = mc^2</div>' +
@@ -116,6 +116,31 @@ describe('notion blocks to html', () => {
     );
     expect(blocksToHtml([block('column_list', {}, [column('only')])], ctxOf())).toBe('<p>only</p>');
     expect(blocksToHtml([block('column_list', {}, ['1', '2', '3', '4', '5', '6'].map(column))], ctxOf())).toBe('<p>1</p><p>2</p><p>3</p><p>4</p><p>5</p><p>6</p>');
+  });
+
+  it('gives a row with a narrow column the closest layout', () => {
+    // a side column and the rest of the page, as templates lay it out
+    expect(columnLayout([0.2, 0.8])).toBe('two_left_sidebar');
+    expect(columnLayout([0.75, 0.25])).toBe('two_right_sidebar');
+    expect(columnLayout([0.5, 0.5])).toBe('two_equal');
+    expect(columnLayout([0.45, 0.55])).toBe('two_equal');
+    // Notion leaves the share out when the columns are alike
+    expect(columnLayout([undefined, undefined])).toBe('two_equal');
+    // one share said: the other column has what is left
+    expect(columnLayout([0.25, undefined])).toBe('two_left_sidebar');
+    expect(columnLayout([0.5, 0.25, 0.25])).toBe('three_left_wide');
+    expect(columnLayout([0.2, 0.2, 0.6])).toBe('three_right_wide');
+    expect(columnLayout([0.25, 0.5, 0.25])).toBe('three_with_sidebars');
+    expect(columnLayout([0.3, 0.35, 0.35])).toBe('three_equal');
+    // four and more only come alike; one column is no row
+    expect(columnLayout([0.1, 0.3, 0.3, 0.3])).toBe('four_equal');
+    expect(columnLayout([1])).toBe('');
+    expect(columnLayout([0, -1])).toBe('two_equal');
+
+    const column = (label: string, share?: number) => block('column', share === undefined ? {} : { width_ratio: share }, [block('paragraph', { rich_text: [text(label)] })]);
+    expect(blocksToHtml([block('column_list', {}, [column('side', 0.2), column('main', 0.8)])], ctxOf())).toBe(
+      '<div data-type="columns" data-layout="two_left_sidebar"><div data-type="column"><p>side</p></div><div data-type="column"><p>main</p></div></div>',
+    );
   });
 
   it('keeps files Notion hosts, links the rest, and counts what it drops', () => {
@@ -172,17 +197,24 @@ describe('notion blocks to html', () => {
         [block('child_database', { title: 'Tasks' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd'), block('child_page', { title: 'Sub page' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')],
         inline,
       ),
-    ).toBe('<div data-type="base-embed" data-page-id="base-page-id"></div><p><a href="/s/general/p/db">Sub page</a></p>');
+    ).toBe('<h3><a href="/s/general/p/db">Tasks</a></h3><div data-type="base-embed" data-page-id="base-page-id"></div><p><a href="/s/general/p/db">Sub page</a></p>');
     // a linked view shows the base at one of its views
     const linked: HtmlContext = { ...ctxOf(), embedFor: () => ({ pageId: 'base-page-id', viewId: 'view-id' }) };
     expect(blocksToHtml([block('child_database', { title: '' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')], linked)).toBe(
       '<div data-type="base-embed" data-page-id="base-page-id" data-view-id="view-id"></div>',
+    );
+    // over it goes the name of the base it shows: the one the caller knows it by
+    const named: HtmlContext = { ...linked, titleFor: () => 'Itinerary <2026>', linkFor: () => '/s/general/p/itinerary' };
+    expect(blocksToHtml([block('child_database', { title: '' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')], named)).toBe(
+      '<h3><a href="/s/general/p/itinerary">Itinerary &lt;2026&gt;</a></h3><div data-type="base-embed" data-page-id="base-page-id" data-view-id="view-id"></div>',
     );
   });
 
   it('names a link to a page after the page', () => {
     const ctx: HtmlContext = { ...ctxOf({ cccccccccccccccccccccccccccccccc: '/s/general/p/sub' }), titleFor: (id) => (id === 'cccccccccccccccccccccccccccccccc' ? 'Sub <page>' : null) };
     expect(blocksToHtml([block('link_to_page', { type: 'page_id', page_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' })], ctx)).toBe('<p><a href="/s/general/p/sub">Sub &lt;page&gt;</a></p>');
+    // with the emoji the page has, as Notion writes it
+    expect(blocksToHtml([block('link_to_page', { type: 'page_id', page_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' })], { ...ctx, iconFor: () => '*' })).toBe('<p><a href="/s/general/p/sub">* Sub &lt;page&gt;</a></p>');
     // without a name it shows where it goes
     expect(blocksToHtml([block('link_to_page', { type: 'page_id', page_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc' })], ctxOf({ cccccccccccccccccccccccccccccccc: '/s/general/p/sub' }))).toBe(
       '<p><a href="/s/general/p/sub">/s/general/p/sub</a></p>',

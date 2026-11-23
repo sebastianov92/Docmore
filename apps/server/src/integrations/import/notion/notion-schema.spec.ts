@@ -1,4 +1,4 @@
-import { cellOf, ImportNote, mapSchema, mapView } from './notion-schema';
+import { cellOf, fileRef, fileRefs, ImportNote, mapSchema, mapView } from './notion-schema';
 
 const rich = (text: string) => [{ type: 'text', plain_text: text }];
 
@@ -82,13 +82,14 @@ describe('notion data source to a base', () => {
       'Owner:text',
       'Total:number',
       'Project:relation',
+      'Docs:file',
       'Ref:text',
       'Made:date',
       'Sum:number',
       // a second column with the same name (apart from case) gets a number
       'notes 2:text',
     ]);
-    expect(properties.filter((p) => !p.type).map((p) => p.notionName)).toEqual(['Docs', 'Press']);
+    expect(properties.filter((p) => !p.type).map((p) => p.notionName)).toEqual(['Press']);
     expect(by('Budget').typeOptions).toEqual({ format: 'currency', currencySymbol: '€' });
     expect(by('Share').typeOptions).toEqual({ format: 'percent' });
     expect(by('Kind').typeOptions).toEqual({
@@ -103,7 +104,6 @@ describe('notion data source to a base', () => {
       expect.arrayContaining([
         { code: 'people_as_names', name: 'Owner' },
         { code: 'formula_as_values', name: 'Total' },
-        { code: 'files_column', name: 'Docs' },
         { code: 'column_type', name: 'Press', detail: 'button' },
         { code: 'rollup_as_values', name: 'Sum' },
       ]),
@@ -174,9 +174,39 @@ describe('notion data source to a base', () => {
     // a board by a column that cannot group here comes as a table, and says so
     expect(mapView({ name: 'By owner', type: 'board', configuration: { type: 'board', group_by: { type: 'person', property_id: 'b3' } } }, properties, viewNotes)).toMatchObject({ name: 'By owner', type: 'table' });
     expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'By owner' });
+    // a board by a multi-select stays a board: a card shows under each of its options
+    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'a5' } } }, properties, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Tags' } });
+    expect(viewNotes).not.toContainEqual({ code: 'board_as_table', name: 'Days' });
+    // the picture of a card: a files column, or what the caller copies from each row's page
+    expect(mapView({ name: 'Shots', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'property', property_id: 'b6' }, cover_size: 'small' } }, properties, viewNotes)).toEqual({ name: 'Shots', type: 'gallery', config: { cover: 'Docs', cardSize: 'small' } });
+    expect(mapView({ name: 'Covers', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_cover' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_cover' });
+    expect(mapView({ name: 'First image', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_content' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_content' });
+    expect(mapView({ name: 'No picture', type: 'gallery', configuration: { type: 'gallery', cover: null } }, properties, viewNotes)!.config).toEqual({});
     // a board that names no column groups by the status column
     expect(mapView({ name: 'Plain board', type: 'board', configuration: null }, properties, viewNotes)!.config.groupBy).toBe('State');
     expect(mapView({ name: 'Form', type: 'form', configuration: { type: 'form' } }, properties, viewNotes)).toBeNull();
     expect(viewNotes).toContainEqual({ code: 'view_type', name: 'Form', detail: 'form' });
+  });
+
+  it('reads the files of a cell as references for the caller to copy', () => {
+    const docs = by('Docs');
+    expect(cellOf(docs, { type: 'files', files: [] })).toBeUndefined();
+    expect(
+      cellOf(docs, {
+        type: 'files',
+        files: [
+          { name: 'plan.pdf', type: 'file', file: { url: 'https://files.notion.test/plan.pdf?sig=1', expiry_time: '2026-01-01T00:00:00.000Z' } },
+          { name: 'https://example.com/a.png', type: 'external', external: { url: 'https://example.com/a.png' } },
+          { name: 'broken', type: 'file', file: {} },
+        ],
+      }),
+    ).toEqual([
+      { url: 'https://files.notion.test/plan.pdf?sig=1', name: 'plan.pdf', hosted: true },
+      { url: 'https://example.com/a.png', name: 'https://example.com/a.png', hosted: false },
+    ]);
+    // the cover of a page has the same shape, without a name
+    expect(fileRef({ type: 'external', external: { url: 'https://example.com/cover.jpg' } })).toEqual({ url: 'https://example.com/cover.jpg', name: null, hosted: false });
+    expect(fileRef(null)).toBeNull();
+    expect(fileRefs(undefined)).toEqual([]);
   });
 });

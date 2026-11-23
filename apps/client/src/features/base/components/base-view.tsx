@@ -332,7 +332,10 @@ export function BaseView({
         if (created) config.sorts = [{ propertyId: created.id, direction: "desc" }];
       }
       if (type === "kanban") {
-        const groupable = base?.properties.find((p) => p.type === "select" || p.type === "status");
+        // one option per row first; a multi-select when that is all there is
+        const groupable =
+          base?.properties.find((p) => p.type === "select" || p.type === "status") ??
+          base?.properties.find((p) => p.type === "multiSelect");
         if (groupable) config.groupByPropertyId = groupable.id;
       }
       if (type === "calendar") {
