@@ -51,7 +51,7 @@ export function NotionConnectionsSection() {
     <Box py="sm" px="xs" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }} data-testid="notion-connections">
       <Group justify="space-between" wrap="nowrap">
         <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-          <IconBrandNotion size={28} stroke={1.5} />
+          <IconBrandNotion size={28} stroke={1.5} style={{ flexShrink: 0 }} />
           <Stack gap={2} style={{ minWidth: 0 }}>
             <Text size="sm" fw={500}>
               Notion
@@ -67,7 +67,7 @@ export function NotionConnectionsSection() {
       </Group>
 
       {!isLoading && items.length > 0 && (
-        <Stack gap={6} mt="sm" ml={40}>
+        <Stack gap={6} mt="sm" ml={{ base: 0, sm: 40 }}>
           {items.map((connection) => (
             <Group
               key={connection.id}

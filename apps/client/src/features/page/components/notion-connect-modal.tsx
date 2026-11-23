@@ -245,7 +245,7 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
                     data-testid="notion-kept-row"
                   >
                     <Radio checked={chosen === connection.id} readOnly tabIndex={-1} aria-hidden />
-                    <IconBrandNotion size={16} stroke={1.6} />
+                    <IconBrandNotion size={16} stroke={1.6} style={{ flexShrink: 0 }} />
                     <Text size="sm" truncate style={{ flex: 1 }}>
                       {connection.name}
                     </Text>
@@ -263,7 +263,7 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
                   data-testid="notion-kept-other"
                 >
                   <Radio checked={pasting} readOnly tabIndex={-1} aria-hidden />
-                  <IconKey size={16} stroke={1.6} />
+                  <IconKey size={16} stroke={1.6} style={{ flexShrink: 0 }} />
                   <Text size="sm" style={{ flex: 1 }}>
                     {t("Another connection: paste its secret")}
                   </Text>
