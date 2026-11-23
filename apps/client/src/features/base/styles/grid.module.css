@@ -436,6 +436,11 @@
   display: flex;
   align-items: center;
   gap: var(--mantine-spacing-xs);
+  /* In a narrow box (a base shown inside a column of a page) the buttons
+   * take a second line rather than run over what sits beside them. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
 }
 
 .primaryCell {

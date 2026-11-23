@@ -163,11 +163,11 @@ describe('notion data source to a base', () => {
       properties,
       viewNotes,
     );
-    expect(board).toEqual({ name: 'Board', type: 'kanban', config: { groupBy: 'State', visible: ['Name'], hidden: ['Notes'], sorts: [{ property: 'Budget', direction: 'desc' }] } });
+    expect(board).toEqual({ name: 'Board', type: 'kanban', config: { groupBy: 'State', visible: ['Name'], hidden: ['Notes'], cardFields: [], sorts: [{ property: 'Budget', direction: 'desc' }] } });
     expect(viewNotes).toContainEqual({ code: 'view_filter', name: 'Board' });
     expect(mapView({ name: 'Cal', type: 'calendar', configuration: { type: 'calendar', date_property_id: 'a7' } }, properties, viewNotes)).toEqual({ name: 'Cal', type: 'calendar', config: { calendarBy: 'When' } });
     expect(mapView({ name: 'Plan', type: 'timeline', configuration: { type: 'timeline', date_property_id: 'When' } }, properties, viewNotes)).toEqual({ name: 'Plan', type: 'timeline', config: { timelineStart: 'When', timelineEnd: 'When (end)' } });
-    expect(mapView({ name: 'Cards', type: 'gallery', configuration: { type: 'gallery', cover_size: 'large' } }, properties, viewNotes)).toEqual({ name: 'Cards', type: 'gallery', config: { cardSize: 'large' } });
+    expect(mapView({ name: 'Cards', type: 'gallery', configuration: { type: 'gallery', cover_size: 'large' } }, properties, viewNotes)).toEqual({ name: 'Cards', type: 'gallery', config: { cardSize: 'large', cardFields: [] } });
     expect(mapView({ name: '', type: 'table', configuration: null }, properties, viewNotes)).toEqual({ name: 'Table', type: 'table', config: {} });
     expect(mapView({ name: 'Untitled', type: 'gallery', configuration: null }, properties, viewNotes)!.name).toBe('Gallery');
     expect(mapView({ name: 'untitled', type: 'board', configuration: { type: 'board', group_by: { property_id: 'a6' } } }, properties, viewNotes)!.name).toBe('Board');
@@ -175,22 +175,30 @@ describe('notion data source to a base', () => {
     expect(mapView({ name: 'By owner', type: 'board', configuration: { type: 'board', group_by: { type: 'person', property_id: 'b3' } } }, properties, viewNotes)).toMatchObject({ name: 'By owner', type: 'table' });
     expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'By owner', detail: 'person b3' });
     // a board by a multi-select stays a board: a card shows under each of its options
-    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'a5' } } }, properties, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Tags' } });
+    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'a5' } } }, properties, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Tags', cardFields: [] } });
     expect(viewNotes).not.toContainEqual({ code: 'board_as_table', name: 'Days' });
     // the picture of a card: a files column, or what the caller copies from each row's page
-    expect(mapView({ name: 'Shots', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'property', property_id: 'b6' }, cover_size: 'small' } }, properties, viewNotes)).toEqual({ name: 'Shots', type: 'gallery', config: { cover: 'Docs', cardSize: 'small' } });
-    expect(mapView({ name: 'Covers', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_cover' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_cover' });
-    expect(mapView({ name: 'First image', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_content' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_content' });
-    expect(mapView({ name: 'No picture', type: 'gallery', configuration: { type: 'gallery', cover: null } }, properties, viewNotes)!.config).toEqual({});
+    expect(mapView({ name: 'Shots', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'property', property_id: 'b6' }, cover_size: 'small' } }, properties, viewNotes)).toEqual({ name: 'Shots', type: 'gallery', config: { cover: 'Docs', cardSize: 'small', cardFields: [] } });
+    expect(mapView({ name: 'Covers', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_cover' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_cover', cardFields: [] });
+    expect(mapView({ name: 'First image', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_content' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_content', cardFields: [] });
+    expect(mapView({ name: 'No picture', type: 'gallery', configuration: { type: 'gallery', cover: null } }, properties, viewNotes)!.config).toEqual({ cardFields: [] });
     // the id of a column comes url-encoded in the schema and plain in a view, or the other way round
     const odd = mapSchema({ Name: { id: 'title', name: 'Name', type: 'title', title: {} }, Day: { id: '%3AvK%7B', name: 'Day', type: 'multi_select', multi_select: { options: [{ id: 'd1', name: 'Day 1', color: 'green' }] } }, Tags: { id: 'tg%40', name: 'Tags', type: 'multi_select', multi_select: { options: [] } } }, [], []);
-    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: ':vK{', hide_empty_groups: true } } }, odd, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Day', hideEmptyGroups: true } });
-    expect(mapView({ name: 'By tags', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'tg@' }, properties: [{ property_id: ':vK{', visible: false }] } }, odd, viewNotes)!.config).toEqual({ groupBy: 'Tags', hidden: ['Day'] });
+    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: ':vK{', hide_empty_groups: true } } }, odd, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Day', hideEmptyGroups: true, cardFields: [] } });
+    expect(mapView({ name: 'By tags', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'tg@' }, properties: [{ property_id: ':vK{', visible: false }] } }, odd, viewNotes)!.config).toEqual({ groupBy: 'Tags', hidden: ['Day'], cardFields: [] });
     // an id the schema does not have: the kind of column and the name of the view say which one
     expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'zzzz' } } }, odd, viewNotes)!.config.groupBy).toBe('Day');
     // two columns of that kind and a name that points at neither: a table, and what Notion asked for is kept
     expect(mapView({ name: 'Plan', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'zzzz' } } }, odd, viewNotes)).toMatchObject({ type: 'table' });
     expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'Plan', detail: 'multi_select zzzz' });
+    // a table keeps the order and the widths of its columns; a card shows the columns the view lists, besides its title
+    expect(
+      mapView({ name: 'Wide', type: 'table', configuration: { type: 'table', properties: [{ property_id: 'a2', visible: true, width: 120.4 }, { property_id: 'title', visible: true, width: 300 }, { property_id: 'Notes', visible: false }, { property_id: 'a2', visible: true }] } }, properties, viewNotes)!.config,
+    ).toEqual({ visible: ['Budget', 'Name'], hidden: ['Notes'], order: ['Budget', 'Name', 'Notes'], widths: { Budget: 120, Name: 300 } });
+    expect(mapView({ name: 'Faces', type: 'gallery', configuration: { type: 'gallery', properties: [{ property_id: 'title', visible: true }, { property_id: 'a2', visible: true }, { property_id: 'Notes', visible: false }] } }, properties, viewNotes)!.config).toEqual({ visible: ['Name', 'Budget'], hidden: ['Notes'], cardFields: ['Budget'] });
+    // how far a timeline is zoomed, in the steps there are here
+    expect(mapView({ name: 'Plan', type: 'timeline', configuration: { type: 'timeline', date_property_id: 'a7', preference: { zoom_level: 'bi_week' } } }, properties, viewNotes)!.config.timelineZoom).toBe('week');
+    expect(mapView({ name: 'Plan', type: 'timeline', configuration: { type: 'timeline', date_property_id: 'a7', preference: { zoom_level: 'eon' } } }, properties, viewNotes)!.config.timelineZoom).toBeUndefined();
     // a board that names no column groups by the status column
     expect(mapView({ name: 'Plain board', type: 'board', configuration: null }, properties, viewNotes)!.config.groupBy).toBe('State');
     expect(mapView({ name: 'Form', type: 'form', configuration: { type: 'form' } }, properties, viewNotes)).toBeNull();

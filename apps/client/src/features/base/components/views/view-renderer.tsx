@@ -45,43 +45,56 @@ type ViewRendererProps = {
 
 export function ViewRenderer(props: ViewRendererProps) {
   const viewType = props.effectiveView?.type ?? "table";
+  // Embedded in a page, the tabs and the toolbar come as a prelude: the
+  // table puts it in its sticky band. The other views have no band, and
+  // dropped it: a base shown as a board or a gallery had no tabs at all,
+  // and could not be taken off that view from the page.
+  const framed = (view: React.ReactNode) =>
+    props.stickyBandPrelude ? (
+      <>
+        <div data-testid="base-embed-prelude">{props.stickyBandPrelude}</div>
+        {view}
+      </>
+    ) : (
+      view
+    );
 
   if (viewType === "calendar") {
-    return (
+    return framed(
       <BaseCalendar
         base={props.base}
         effectiveView={props.effectiveView}
         editable={Boolean(props.editable)}
         onCardClick={props.onCardClick}
-      />
+      />,
     );
   }
 
   if (viewType === "chart") {
-    return (
+    return framed(
       <BaseChart
         base={props.base}
         effectiveView={props.effectiveView}
         embedded={props.embedded}
         editable={Boolean(props.editable)}
-      />
+      />,
     );
   }
 
   if (viewType === "timeline") {
-    return (
+    return framed(
       <BaseTimeline
         base={props.base}
         effectiveView={props.effectiveView}
         embedded={props.embedded}
         editable={Boolean(props.editable)}
         onCardClick={props.onCardClick}
-      />
+      />,
     );
   }
 
   if (viewType === "list") {
-    return (
+    return framed(
       <BaseList
         base={props.base}
         rows={props.rows}
@@ -92,12 +105,12 @@ export function ViewRenderer(props: ViewRendererProps) {
         hasNextPage={props.hasNextPage}
         isFetchingNextPage={props.isFetchingNextPage}
         onFetchNextPage={props.onFetchNextPage}
-      />
+      />,
     );
   }
 
   if (viewType === "feed") {
-    return (
+    return framed(
       <BaseFeed
         base={props.base}
         rows={props.rows}
@@ -108,12 +121,12 @@ export function ViewRenderer(props: ViewRendererProps) {
         hasNextPage={props.hasNextPage}
         isFetchingNextPage={props.isFetchingNextPage}
         onFetchNextPage={props.onFetchNextPage}
-      />
+      />,
     );
   }
 
   if (viewType === "gallery") {
-    return (
+    return framed(
       <BaseGallery
         base={props.base}
         rows={props.rows}
@@ -124,12 +137,12 @@ export function ViewRenderer(props: ViewRendererProps) {
         hasNextPage={props.hasNextPage}
         isFetchingNextPage={props.isFetchingNextPage}
         onFetchNextPage={props.onFetchNextPage}
-      />
+      />,
     );
   }
 
   if (viewType === "kanban") {
-    return (
+    return framed(
       <BaseKanban
         base={props.base}
         rows={props.rows}
@@ -138,7 +151,7 @@ export function ViewRenderer(props: ViewRendererProps) {
         hasNextPage={props.hasNextPage}
         isFetchingNextPage={props.isFetchingNextPage}
         onFetchNextPage={props.onFetchNextPage}
-      />
+      />,
     );
   }
 

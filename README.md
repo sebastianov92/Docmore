@@ -303,8 +303,11 @@ outside the `ee/` directories, so they are always on:
   a base with its columns (select and status options with colors and
   groups, dates with time and end, numbers with currency, files, relations
   between imported databases), its rows, the text of each row as a page,
-  and its views (table, board, calendar, timeline, gallery, list). The
-  cards of a gallery keep their picture: from a files column, or from the
+  and its views (table, board, calendar, timeline, gallery, list) as they
+  are set: a table with its columns in order and at their widths, a board
+  with the groups Notion hides hidden and numbered groups ("Day 1, Day 2")
+  in order, a timeline at its zoom, cards showing the fields the view
+  lists. The cards of a gallery keep their picture: from a files column, or from the
   cover or the first image of each row's page, which are copied into a
   column made for them. A
   database that sits inline in its page is embedded in the imported page

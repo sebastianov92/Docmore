@@ -414,6 +414,12 @@ export interface MappedView {
     cardSize?: 'small' | 'medium' | 'large';
     visible?: string[];
     hidden?: string[];
+    // table: the columns in the order the view has them, and their widths
+    order?: string[];
+    widths?: Record<string, number>;
+    // board, gallery: the columns a card shows besides its title
+    cardFields?: string[];
+    timelineZoom?: 'day' | 'week' | 'month';
     sorts?: Array<{ property: string; direction: 'asc' | 'desc' }>;
   };
 }
@@ -446,6 +452,18 @@ export function plainId(id: string): string {
   }
 }
 
+// how far a Notion timeline is zoomed, in the three steps there are here
+const TIMELINE_ZOOM: Record<string, 'day' | 'week' | 'month'> = {
+  hours: 'day',
+  day: 'day',
+  week: 'week',
+  bi_week: 'week',
+  month: 'month',
+  quarter: 'month',
+  year: 'month',
+  '5_years': 'month',
+};
+
 const GROUP_TYPES: Record<string, BaseType> = { select: 'select', status: 'status', multi_select: 'multiSelect' };
 
 // A Notion view as a view of the base. Columns are named by Notion id or
@@ -473,13 +491,22 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
   const listed = Array.isArray(settings.properties) ? settings.properties : [];
   const visible: string[] = [];
   const hidden: string[] = [];
+  const order: string[] = [];
+  const widths: Record<string, number> = {};
   for (const entry of listed) {
     const found = column(entry?.property_id);
-    if (!found) continue;
+    if (!found || order.includes(found.name)) continue;
+    order.push(found.name);
     (entry?.visible === false ? hidden : visible).push(found.name);
+    if (typeof entry?.width === 'number' && entry.width > 0) widths[found.name] = Math.round(entry.width);
   }
   if (visible.length) config.visible = visible;
   if (hidden.length) config.hidden = hidden;
+  // a table keeps its columns in the order, and of the width, the view has them
+  if (type === 'table' && order.length > 1) config.order = order;
+  if (type === 'table' && Object.keys(widths).length) config.widths = widths;
+  // a card shows what the view lists and nothing else: with nothing listed, its title
+  if (type === 'kanban' || type === 'gallery') config.cardFields = visible.filter((name) => !properties.find((p) => p.name === name)?.primary);
 
   if (type === 'kanban') {
     const asked = settings.group_by?.property_id;
@@ -518,6 +545,8 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
   if (type === 'timeline') {
     const start = column(settings.date_property_id);
     const end = column(settings.end_date_property_id);
+    const zoom = TIMELINE_ZOOM[String(settings.preference?.zoom_level ?? '')];
+    if (zoom) config.timelineZoom = zoom;
     if (start?.type === 'date') {
       config.timelineStart = start.name;
       // a Notion date with an end became two columns

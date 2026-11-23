@@ -954,6 +954,12 @@ export class NotionImportService {
       if (id(mapped.config.calendarBy)) config.calendarPropertyId = id(mapped.config.calendarBy);
       if (id(mapped.config.timelineStart)) config.timelineStartPropertyId = id(mapped.config.timelineStart);
       if (id(mapped.config.timelineEnd)) config.timelineEndPropertyId = id(mapped.config.timelineEnd);
+      if (mapped.config.timelineZoom) config.timelineZoom = mapped.config.timelineZoom;
+      const order = (mapped.config.order ?? []).map(id).filter(Boolean);
+      if (order.length > 1) config.propertyOrder = order;
+      const widths = Object.entries(mapped.config.widths ?? {}).filter(([name]) => id(name));
+      if (widths.length) config.propertyWidths = Object.fromEntries(widths.map(([name, width]) => [id(name), width]));
+      if (mapped.config.cardFields) config.visiblePropertyIds = mapped.config.cardFields.map(id).filter(Boolean);
       if (mapped.config.cardSize) config.cardSize = mapped.config.cardSize;
       if (id(mapped.config.cover)) config.coverPropertyId = id(mapped.config.cover);
       else if (mapped.config.coverFrom && source.coverPropertyId) config.coverPropertyId = source.coverPropertyId;
@@ -976,6 +982,12 @@ export class NotionImportService {
           for (const choice of choices) if (!used.has(choice.id)) hidden.push(choice.id);
         }
         if (hidden.length) config.hiddenChoiceIds = hidden;
+        // "Day 1, Day 2, Day 3": options that are one name with a number go
+        // in the order of the number. Notion does not say how the columns
+        // of a board were arranged, and the options come in the order they
+        // were made in.
+        const order = by ? numberedOrder((((by.typeOptions as any)?.choices ?? []) as Array<{ id: string; name: string }>)) : null;
+        if (order) config.choiceOrder = raw?.configuration?.group_by?.sort?.type === 'descending' ? order.reverse() : order;
       }
       const hidden = (mapped.config.hidden ?? []).map(id).filter(Boolean);
       // the column made to hold the pictures of the cards is not one of
@@ -1280,6 +1292,20 @@ function hostedFiles(blocks: NotionBlock[]): Array<{ url: string; name: string |
     if (block.children?.length) out.push(...hostedFiles(block.children));
   }
   return out;
+}
+
+// Options that are one name with a number ("Day 1", "Day 2", "Day 10"), by
+// that number; null when they are not such a series.
+export function numberedOrder(choices: Array<{ id: string; name: string }>): string[] | null {
+  if (choices.length < 2) return null;
+  const parts = choices.map((choice) => /^(\D*?)\s*(\d+)\s*(\D*)$/.exec(String(choice.name ?? '').trim()));
+  if (parts.some((part) => !part)) return null;
+  const same = (index: number) => new Set(parts.map((part) => part![index].trim().toLowerCase())).size === 1;
+  if (!same(1) || !same(3)) return null;
+  return choices
+    .map((choice, index) => ({ id: choice.id, n: Number(parts[index]![2]) }))
+    .sort((a, b) => a.n - b.n)
+    .map((choice) => choice.id);
 }
 
 // The first image in the text of a page, as a gallery shows it on a card.
