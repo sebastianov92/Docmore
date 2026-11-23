@@ -12,6 +12,7 @@ import { PageModule } from '../../core/page/page.module';
 import { BaseModule } from '../../core/base/base.module';
 import { NotionImportService } from './notion/notion-import.service';
 import { NotionImportController } from './notion/notion-import.controller';
+import { NotionConnectionService } from './notion/notion-connection.service';
 
 @Module({
   providers: [
@@ -22,6 +23,7 @@ import { NotionImportController } from './notion/notion-import.controller';
     DocumentImportService,
     ConfluenceImportService,
     NotionImportService,
+    NotionConnectionService,
   ],
   exports: [ImportService, ImportAttachmentService],
   controllers: [ImportController, FileTaskController, NotionImportController],

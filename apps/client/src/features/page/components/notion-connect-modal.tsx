@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import { Alert, Anchor, Button, Checkbox, Group, List, Modal, PasswordInput, ScrollArea, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
-import { IconDatabase, IconFileText, IconInfoCircle } from "@tabler/icons-react";
+import { Alert, Anchor, Button, Checkbox, Group, List, Modal, PasswordInput, Radio, ScrollArea, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { IconBrandNotion, IconDatabase, IconFileText, IconInfoCircle, IconKey } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import api from "@/lib/api-client";
 import { getApiErrorMessage } from "@/lib/api-error";
+import {
+  createNotionConnection,
+  NOTION_CONNECTIONS_KEY,
+  notionError,
+  useNotionConnections,
+} from "@/features/integration/notion/notion-connections";
 
 type Root = { id: string; kind: "page" | "database"; title: string; icon: string | null };
 type ImportNote = { code: string; name?: string; detail?: string; count?: number };
@@ -83,29 +89,20 @@ type ImportView = {
   error: string | null;
 };
 
-async function findRoots(token: string): Promise<{ items: Root[]; seen?: { pages: number; databases: number } }> {
-  return (await api.post("/import/notion/roots", { token })).data;
+// Who asks Notion: a connection the workspace keeps, by its id, or a secret pasted for this once.
+type Secret = { connectionId: string } | { token: string };
+
+async function findRoots(secret: Secret): Promise<{ items: Root[]; seen?: { pages: number; databases: number } }> {
+  return (await api.post("/import/notion/roots", secret)).data;
 }
-async function resolveLink(token: string, link: string): Promise<Root> {
-  return (await api.post("/import/notion/resolve", { token, link })).data;
+async function resolveLink(secret: Secret, link: string): Promise<Root> {
+  return (await api.post("/import/notion/resolve", { ...secret, link })).data;
 }
-async function startImport(data: { token: string; roots: Array<{ id: string; kind: string }>; spaceId: string }): Promise<ImportView> {
+async function startImport(data: Secret & { roots: Array<{ id: string; kind: string }>; spaceId: string }): Promise<ImportView> {
   return (await api.post("/import/notion/start", data)).data;
 }
 async function importStatus(importId: string): Promise<ImportView> {
   return (await api.post("/import/notion/status", { importId })).data;
-}
-
-// What Notion answered, in the reader's language when it is one of the usual cases.
-function notionError(message: string, t: (key: string) => string): string {
-  if (message.includes("did not accept the token")) return t("Notion did not accept the secret. Copy it again from your connection.");
-  if (message.includes("not allowed to read")) return t("The connection is not allowed to read that. Give it “Read content” in Notion.");
-  if (message.includes("shared with the connection")) return t("Notion did not find it: the page has to be shared with the connection.");
-  if (message.includes("limiting requests")) return t("Notion is limiting requests right now. Try again in a few minutes.");
-  if (message.includes("still running")) return t("An import of yours is still running.");
-  if (message.includes("does not look like the link")) return t("That does not look like the link of a Notion page.");
-  if (message.includes("in the trash")) return t("That page is in the trash in Notion.");
-  return message;
 }
 
 type Props = { spaceId: string; opened: boolean; onClose: () => void };
@@ -117,6 +114,19 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [token, setToken] = useState("");
+  // the kept connection in use; null = a secret pasted for this once
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  // which one is picked on the first step: a kept connection, or "another secret"
+  const [choice, setChoice] = useState<string | null>(null);
+  const [keep, setKeep] = useState(false);
+  const connections = useNotionConnections(opened);
+  const kept = connections.data?.items ?? [];
+  const canKeep = connections.data?.canManage === true;
+  const PASTE = "paste";
+  // with connections kept, the first one is the choice until the person picks
+  const chosen = choice ?? (kept.length ? kept[0].id : PASTE);
+  const pasting = chosen === PASTE;
+  const secret: Secret = connectionId ? { connectionId } : { token: token.trim() };
   const [roots, setRoots] = useState<Root[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [importId, setImportId] = useState<string | null>(null);
@@ -129,6 +139,9 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
     if (opened) return;
     // nothing of the secret stays on the screen once it closes
     setToken("");
+    setConnectionId(null);
+    setChoice(null);
+    setKeep(false);
     setRoots(null);
     setPicked(new Set());
     setImportId(null);
@@ -138,7 +151,23 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
   }, [opened]);
 
   const find = useMutation({
-    mutationFn: () => findRoots(token.trim()),
+    mutationFn: async () => {
+      if (!pasting) {
+        setConnectionId(chosen);
+        return findRoots({ connectionId: chosen });
+      }
+      if (keep && canKeep) {
+        // kept first: from here on the import goes by its id
+        const made = await createNotionConnection({ token: token.trim() });
+        queryClient.invalidateQueries({ queryKey: NOTION_CONNECTIONS_KEY });
+        setConnectionId(made.id);
+        setChoice(made.id);
+        setToken("");
+        return findRoots({ connectionId: made.id });
+      }
+      setConnectionId(null);
+      return findRoots({ token: token.trim() });
+    },
     onSuccess: (data) => {
       setError(null);
       setRoots(data.items);
@@ -149,7 +178,7 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
   });
   // a page by its link: asked for directly, so it works before Notion's search knows of it
   const add = useMutation({
-    mutationFn: () => resolveLink(token.trim(), link.trim()),
+    mutationFn: () => resolveLink(secret, link.trim()),
     onSuccess: (root) => {
       setError(null);
       setLink("");
@@ -159,7 +188,7 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
     onError: (err) => setError(notionError(getApiErrorMessage(err, t("Could not reach Notion")), t)),
   });
   const start = useMutation({
-    mutationFn: () => startImport({ token: token.trim(), roots: (roots ?? []).filter((r) => picked.has(r.id)).map((r) => ({ id: r.id, kind: r.kind })), spaceId }),
+    mutationFn: () => startImport({ ...secret, roots: (roots ?? []).filter((r) => picked.has(r.id)).map((r) => ({ id: r.id, kind: r.kind })), spaceId }),
     onSuccess: (data) => {
       setError(null);
       setImportId(data.id);
@@ -202,29 +231,85 @@ export function NotionConnectModal({ spaceId, opened, onClose }: Props) {
         {!roots && !importId && (
           <>
             <Text size="sm">{t("Works with your own pages and with templates: duplicate the template into your Notion first.")}</Text>
-            <List size="sm" spacing={6} type="ordered">
-              <List.Item>
-                {t("In Notion, create a connection and copy its secret:")}{" "}
-                <Anchor href="https://www.notion.so/profile/integrations" target="_blank" rel="noreferrer" size="sm">
-                  notion.so/profile/integrations
-                </Anchor>
-              </List.Item>
-              <List.Item>{t("Open the page to import, then ••• > Connections, and add your connection. Its sub-pages come with it.")}</List.Item>
-              <List.Item>{t("Paste the secret here. It is used for this import and not saved.")}</List.Item>
-            </List>
-            <PasswordInput
-              label={t("Secret of the connection")}
-              placeholder="ntn_…"
-              value={token}
-              onChange={(e) => setToken(e.currentTarget.value)}
-              autoComplete="off"
-              data-testid="notion-token"
-            />
+            {kept.length > 0 && (
+              <Stack gap={6} data-testid="notion-kept">
+                <Text size="sm" fw={500}>
+                  {t("Connection")}
+                </Text>
+                {kept.map((connection) => (
+                  <UnstyledButton
+                    key={connection.id}
+                    onClick={() => setChoice(connection.id)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--mantine-color-default-border)" }}
+                    aria-pressed={chosen === connection.id}
+                    data-testid="notion-kept-row"
+                  >
+                    <Radio checked={chosen === connection.id} readOnly tabIndex={-1} aria-hidden />
+                    <IconBrandNotion size={16} stroke={1.6} />
+                    <Text size="sm" truncate style={{ flex: 1 }}>
+                      {connection.name}
+                    </Text>
+                    {connection.account && connection.account !== connection.name && (
+                      <Text size="xs" c="dimmed" truncate>
+                        {connection.account}
+                      </Text>
+                    )}
+                  </UnstyledButton>
+                ))}
+                <UnstyledButton
+                  onClick={() => setChoice(PASTE)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--mantine-color-default-border)" }}
+                  aria-pressed={pasting}
+                  data-testid="notion-kept-other"
+                >
+                  <Radio checked={pasting} readOnly tabIndex={-1} aria-hidden />
+                  <IconKey size={16} stroke={1.6} />
+                  <Text size="sm" style={{ flex: 1 }}>
+                    {t("Another connection: paste its secret")}
+                  </Text>
+                </UnstyledButton>
+              </Stack>
+            )}
+            {pasting ? (
+              <>
+                <List size="sm" spacing={6} type="ordered">
+                  <List.Item>
+                    {t("In Notion, create a connection and copy its secret:")}{" "}
+                    <Anchor href="https://www.notion.so/profile/integrations" target="_blank" rel="noreferrer" size="sm">
+                      notion.so/profile/integrations
+                    </Anchor>
+                  </List.Item>
+                  <List.Item>{t("Open the page to import, then ••• > Connections, and add your connection. Its sub-pages come with it.")}</List.Item>
+                  <List.Item>{keep && canKeep ? t("Paste the secret here. It is kept encrypted and never shown again.") : t("Paste the secret here. It is used for this import and not saved.")}</List.Item>
+                </List>
+                <PasswordInput
+                  label={t("Secret of the connection")}
+                  placeholder="ntn_…"
+                  value={token}
+                  onChange={(e) => setToken(e.currentTarget.value)}
+                  autoComplete="off"
+                  data-testid="notion-token"
+                />
+                {canKeep && (
+                  <Checkbox
+                    checked={keep}
+                    onChange={(e) => setKeep(e.currentTarget.checked)}
+                    label={t("Keep this connection for next time")}
+                    description={t("It shows in Settings > Integrations, where it can be removed.")}
+                    data-testid="notion-keep"
+                  />
+                )}
+              </>
+            ) : (
+              <Text size="sm" c="dimmed">
+                {t("The page to import has to be shared with that connection in Notion: ••• > Connections on the page. Its sub-pages come with it.")}
+              </Text>
+            )}
             <Group justify="flex-end">
               <Button variant="default" onClick={onClose}>
                 {t("Cancel")}
               </Button>
-              <Button onClick={() => find.mutate()} loading={find.isPending} disabled={token.trim().length < 20} data-testid="notion-find">
+              <Button onClick={() => find.mutate()} loading={find.isPending} disabled={pasting && token.trim().length < 20} data-testid="notion-find">
                 {t("Find my pages")}
               </Button>
             </Group>

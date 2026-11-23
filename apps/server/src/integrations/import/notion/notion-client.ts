@@ -102,6 +102,11 @@ export class NotionClient {
     return out.slice(0, cap);
   }
 
+  // Who the secret belongs to: the connection (a bot) and its Notion workspace.
+  me(): Promise<any> {
+    return this.request('GET', '/v1/users/me');
+  }
+
   search(kind: 'page' | 'data_source', cap: number): Promise<any[]> {
     return this.all('POST', '/v1/search', { filter: { property: 'object', value: kind } }, undefined, cap);
   }

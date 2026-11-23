@@ -322,7 +322,16 @@ outside the `ee/` directories, so they are always on:
   duplicate it into your Notion, share it with the connection, import.
   The list of what to import comes from Notion's search, which can lag a
   few minutes behind a page that was just shared: a page can also be added
-  by pasting its link. The secret is used for the import and not stored. Written against the
+  by pasting its link. A secret pasted for one import is used for it and not
+  stored. To stop pasting it, whoever manages the workspace keeps one or
+  more Notion connections in Settings > Integrations (or ticks "Keep this
+  connection for next time" while importing): the secret is tried against
+  Notion, stored encrypted and never shown again, and the import dialog
+  offers the kept connections to pick from. Only workspace admins see and
+  use them; members still paste a secret of their own. For finding out why
+  something came over wrong, `POST /api/import/notion/inspect` (admins)
+  returns what Notion says about a page: its blocks in outline, its
+  databases, their columns and their views, with no rows or text. Written against the
   API reference (version 2026-03-11), tested with a stand-in server and
   tried with a real Notion template (a page with five linked views in
   columns).

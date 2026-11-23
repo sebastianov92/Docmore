@@ -14,6 +14,7 @@ import {
 } from "../queries/integration-query";
 import { getOAuthInstallUrl } from "../services/integration-service";
 import { notifications } from "@mantine/notifications";
+import { NotionConnectionsSection } from "../notion/notion-connections-section";
 
 export default function Integrations() {
   const { t } = useTranslation();
@@ -111,13 +112,9 @@ export default function Integrations() {
 
       {isLoading ? (
         <IntegrationListSkeleton />
-      ) : !available?.length ? (
-        <Text c="dimmed" size="sm">
-          {t("No integrations available.")}
-        </Text>
       ) : (
         <Stack gap={0}>
-          {available.map((def) => {
+          {(available ?? []).map((def) => {
             const installation = installed?.find((i) => i.type === def.type);
             return (
               <IntegrationRow
@@ -129,6 +126,8 @@ export default function Integrations() {
               />
             );
           })}
+          {/* not an app to install: secrets of connections made in Notion, kept for imports */}
+          <NotionConnectionsSection />
         </Stack>
       )}
     </>

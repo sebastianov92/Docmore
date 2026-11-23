@@ -15,6 +15,7 @@ import { IdempotencyKeys, OfflinePins, SyncChanges } from '@docmost/db/types/syn
 import { BaseCalendarFeeds } from '@docmost/db/types/calendar-feed.types';
 import { AiAgentRuns, AiAgents } from '@docmost/db/types/ai-agents.types';
 import { NotionImports } from '@docmost/db/types/notion-import.types';
+import { NotionConnections } from '@docmost/db/types/notion-connection.types';
 
 export interface DbInterface extends DB {
   pageEmbeddings: PageEmbeddings;
@@ -42,4 +43,5 @@ export interface DbInterface extends DB {
   aiAgents: AiAgents;
   aiAgentRuns: AiAgentRuns;
   notionImports: NotionImports;
+  notionConnections: NotionConnections;
 }

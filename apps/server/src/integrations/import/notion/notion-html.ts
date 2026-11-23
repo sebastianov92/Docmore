@@ -311,7 +311,8 @@ export function blocksToHtml(blocks: NotionBlock[], ctx: HtmlContext): string {
         }
         // the page itself lands in the tree; here goes a way to it
         const href = ctx.linkFor(normalId(block.id));
-        const title = esc(String(data.title ?? '') || 'Untitled');
+        const icon = ctx.iconFor?.(normalId(block.id));
+        const title = esc(`${icon ? `${icon} ` : ''}${String(data.title ?? '') || 'Untitled'}`);
         out += href ? `<p><a href="${esc(href)}">${title}</a></p>` : '';
         break;
       }

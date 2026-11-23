@@ -186,6 +186,8 @@ describe('notion blocks to html', () => {
       ctx,
     );
     expect(html).toBe('<p><a href="/s/general/p/sub">Sub page</a></p><p><a href="/s/general/p/db">Tasks</a></p><p>shared</p><p>notes</p>');
+    // with the emoji of the page or database, as Notion lists them
+    expect(blocksToHtml([block('child_database', { title: 'Tasks' }, undefined, 'dddddddd-dddd-dddd-dddd-dddddddddddd')], { ...ctx, iconFor: () => '#' })).toBe('<p><a href="/s/general/p/db"># Tasks</a></p>');
     expect([...ctx.skipped.entries()]).toEqual([
       ['unsupported (button)', 1],
       ['meeting_notes', 1],

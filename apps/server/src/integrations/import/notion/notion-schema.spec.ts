@@ -173,7 +173,7 @@ describe('notion data source to a base', () => {
     expect(mapView({ name: 'untitled', type: 'board', configuration: { type: 'board', group_by: { property_id: 'a6' } } }, properties, viewNotes)!.name).toBe('Board');
     // a board by a column that cannot group here comes as a table, and says so
     expect(mapView({ name: 'By owner', type: 'board', configuration: { type: 'board', group_by: { type: 'person', property_id: 'b3' } } }, properties, viewNotes)).toMatchObject({ name: 'By owner', type: 'table' });
-    expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'By owner' });
+    expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'By owner', detail: 'person b3' });
     // a board by a multi-select stays a board: a card shows under each of its options
     expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'a5' } } }, properties, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Tags' } });
     expect(viewNotes).not.toContainEqual({ code: 'board_as_table', name: 'Days' });
@@ -182,6 +182,15 @@ describe('notion data source to a base', () => {
     expect(mapView({ name: 'Covers', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_cover' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_cover' });
     expect(mapView({ name: 'First image', type: 'gallery', configuration: { type: 'gallery', cover: { type: 'page_content' } } }, properties, viewNotes)!.config).toEqual({ coverFrom: 'page_content' });
     expect(mapView({ name: 'No picture', type: 'gallery', configuration: { type: 'gallery', cover: null } }, properties, viewNotes)!.config).toEqual({});
+    // the id of a column comes url-encoded in the schema and plain in a view, or the other way round
+    const odd = mapSchema({ Name: { id: 'title', name: 'Name', type: 'title', title: {} }, Day: { id: '%3AvK%7B', name: 'Day', type: 'multi_select', multi_select: { options: [{ id: 'd1', name: 'Day 1', color: 'green' }] } }, Tags: { id: 'tg%40', name: 'Tags', type: 'multi_select', multi_select: { options: [] } } }, [], []);
+    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: ':vK{', hide_empty_groups: true } } }, odd, viewNotes)).toEqual({ name: 'Days', type: 'kanban', config: { groupBy: 'Day', hideEmptyGroups: true } });
+    expect(mapView({ name: 'By tags', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'tg@' }, properties: [{ property_id: ':vK{', visible: false }] } }, odd, viewNotes)!.config).toEqual({ groupBy: 'Tags', hidden: ['Day'] });
+    // an id the schema does not have: the kind of column and the name of the view say which one
+    expect(mapView({ name: 'Days', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'zzzz' } } }, odd, viewNotes)!.config.groupBy).toBe('Day');
+    // two columns of that kind and a name that points at neither: a table, and what Notion asked for is kept
+    expect(mapView({ name: 'Plan', type: 'board', configuration: { type: 'board', group_by: { type: 'multi_select', property_id: 'zzzz' } } }, odd, viewNotes)).toMatchObject({ type: 'table' });
+    expect(viewNotes).toContainEqual({ code: 'board_as_table', name: 'Plan', detail: 'multi_select zzzz' });
     // a board that names no column groups by the status column
     expect(mapView({ name: 'Plain board', type: 'board', configuration: null }, properties, viewNotes)!.config.groupBy).toBe('State');
     expect(mapView({ name: 'Form', type: 'form', configuration: { type: 'form' } }, properties, viewNotes)).toBeNull();

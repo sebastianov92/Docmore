@@ -320,6 +320,76 @@ export class NotionImportService {
     return view(row);
   }
 
+  // What Notion says about one page or database, as it says it: the blocks
+  // of the page in outline, the databases it shows, their columns (name, id,
+  // kind) and their views, whole. No rows and no text: this is for finding
+  // out why something did not come over as expected.
+  async inspect(token: string, link: string): Promise<Record<string, unknown>> {
+    const id = idFromLink(link);
+    if (!id) throw new BadRequestException('That does not look like a Notion link');
+    const client = new NotionClient(readToken(token));
+    const describe = async (databaseId: string) => {
+      let database: any;
+      try {
+        database = await client.database(databaseId);
+      } catch (err: any) {
+        return { id: norm(databaseId), unreadable: String(err?.message ?? '').slice(0, 160) };
+      }
+      const dataSources: unknown[] = [];
+      for (const ref of ((database?.data_sources ?? []) as Array<{ id: string; name?: string }>).slice(0, 5)) {
+        const source = await client.dataSource(ref.id).catch(() => null);
+        dataSources.push({
+          id: norm(ref.id),
+          name: ref.name ?? null,
+          properties: Object.fromEntries(Object.entries((source?.properties ?? {}) as Record<string, any>).map(([name, p]) => [name, { id: p?.id ?? null, type: p?.type ?? null }])),
+        });
+      }
+      const views = await client.views({ databaseId }, MAX_VIEWS).catch(() => [] as any[]);
+      return {
+        id: norm(databaseId),
+        title: plainText(database?.title).trim(),
+        isInline: database?.is_inline === true,
+        parent: database?.parent ?? null,
+        dataSources,
+        views: views.map((v) => ({ id: v?.id, name: v?.name, type: v?.type, dataSourceId: v?.data_source_id ?? null, parent: v?.parent ?? null, configuration: v?.configuration ?? null, sorts: v?.sorts ?? null, filter: v?.filter ?? null })),
+      };
+    };
+    let page: any;
+    try {
+      page = await client.page(id);
+    } catch (err: any) {
+      if (!(err instanceof NotionError)) throw err;
+      if (err.status === 401 || err.status === 403 || err.status === 429 || err.status === 0) throw new BadRequestException(err.message);
+      // not a page: a database, then
+      return { kind: 'database', database: await describe(id) };
+    }
+    const blocks = await this.readBlocks(client, id, 0);
+    let left = 600;
+    const outline = (list: NotionBlock[]): unknown[] =>
+      list.flatMap((block) => {
+        if (left-- <= 0) return [];
+        const data = (block as any)[block.type] ?? {};
+        const said: Record<string, unknown> = { type: block.type };
+        if (block.type === 'child_database' || block.type === 'child_page') Object.assign(said, { id: norm(block.id), title: data.title ?? '' });
+        if (block.type === 'column' && data.width_ratio !== undefined) said.widthRatio = data.width_ratio;
+        if (block.type === 'unsupported') said.blockType = data.block_type ?? null;
+        if (block.type === 'link_to_page') said.to = norm(String(data.page_id ?? data.database_id ?? ''));
+        if (block.children?.length) said.children = outline(block.children);
+        return [said];
+      });
+    const databases: unknown[] = [];
+    for (const databaseId of databaseBlocks(blocks).slice(0, 20)) databases.push(await describe(databaseId));
+    return {
+      kind: 'page',
+      id: norm(id),
+      title: pageTitle(page),
+      icon: page?.icon?.type ?? null,
+      cover: page?.cover?.type ?? null,
+      outline: outline(blocks),
+      databases,
+    };
+  }
+
   // The queue job.
   async process(data: { importId: string; token: string; roots: Array<{ id: string; kind: 'page' | 'database' }> }): Promise<void> {
     const job = await this.db.selectFrom('notionImports').selectAll().where('id', '=', data.importId).executeTakeFirst();
@@ -891,10 +961,26 @@ export class NotionImportService {
       // are none; so does the board here
       if (mapped.type === 'kanban' && mapped.config.groupBy) {
         const by = (source.mapped ?? []).find((p) => p.name === mapped.config.groupBy);
-        const every = by && source.rows.length > 0 && source.rows.every((row) => cellOf(by, row.properties[by.notionName]) !== undefined);
-        if (every) config.hiddenChoiceIds = [NO_VALUE_CHOICE];
+        const used = new Set<string>();
+        let bare = 0;
+        for (const row of by ? source.rows : []) {
+          const value = cellOf(by!, row.properties[by!.notionName]);
+          const options = Array.isArray(value) ? value : value === undefined ? [] : [value];
+          if (!options.length) bare++;
+          for (const option of options) used.add(String(option));
+        }
+        const hidden: string[] = [];
+        if (by && source.rows.length > 0 && bare === 0) hidden.push(NO_VALUE_CHOICE);
+        if (by && mapped.config.hideEmptyGroups) {
+          const choices = ((by.typeOptions as any)?.choices ?? []) as Array<{ id: string }>;
+          for (const choice of choices) if (!used.has(choice.id)) hidden.push(choice.id);
+        }
+        if (hidden.length) config.hiddenChoiceIds = hidden;
       }
       const hidden = (mapped.config.hidden ?? []).map(id).filter(Boolean);
+      // the column made to hold the pictures of the cards is not one of
+      // Notion's: it shows as the picture, not as a column of its own
+      if (source.coverPropertyId) hidden.push(source.coverPropertyId);
       if (hidden.length) config.hiddenPropertyIds = hidden;
       const sorts = (mapped.config.sorts ?? []).map((s) => ({ propertyId: id(s.property), direction: s.direction })).filter((s) => s.propertyId);
       if (sorts.length) config.sorts = sorts;

@@ -401,6 +401,8 @@ export interface MappedView {
   // by column name here; the caller turns names into ids
   config: {
     groupBy?: string;
+    // Notion shows no column for an option no card has
+    hideEmptyGroups?: boolean;
     calendarBy?: string;
     timelineStart?: string;
     timelineEnd?: string;
@@ -434,6 +436,18 @@ const VIEW_NAMES: Record<MappedView['type'], string> = {
   list: 'List',
 };
 
+// Notion writes the id of a column url-encoded in the schema of a table
+// ("%3AvK%7B") and as it is in other places (":vK{"). Both are one column.
+export function plainId(id: string): string {
+  try {
+    return decodeURIComponent(id);
+  } catch {
+    return id;
+  }
+}
+
+const GROUP_TYPES: Record<string, BaseType> = { select: 'select', status: 'status', multi_select: 'multiSelect' };
+
 // A Notion view as a view of the base. Columns are named by Notion id or
 // name there; here by the name of the column they became.
 export function mapView(view: any, properties: MappedProperty[], notes: ImportNote[]): MappedView | null {
@@ -447,8 +461,9 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
   }
   const column = (ref: unknown): MappedProperty | undefined => {
     if (typeof ref !== 'string' || !ref) return undefined;
+    const want = plainId(ref);
     return (
-      properties.find((p) => p.type && !p.endOf && p.notionId === ref) ??
+      properties.find((p) => p.type && !p.endOf && plainId(p.notionId) === want) ??
       properties.find((p) => p.type && !p.endOf && p.notionName === ref)
     );
   };
@@ -468,14 +483,29 @@ export function mapView(view: any, properties: MappedProperty[], notes: ImportNo
 
   if (type === 'kanban') {
     const asked = settings.group_by?.property_id;
-    const by = column(asked);
-    if (by && (by.type === 'select' || by.type === 'status' || by.type === 'multiSelect')) config.groupBy = by.name;
-    else {
+    let by = column(asked);
+    if (!by && asked) {
+      // The column is named by an id the schema does not have. Notion still
+      // says what kind of column it is: when only one of that kind could be
+      // meant (the only one there is, or the one the view is named after:
+      // "Days" by "Day"), that is the one.
+      const kind = GROUP_TYPES[String(settings.group_by?.type ?? '')];
+      const those = kind ? properties.filter((p) => p.type === kind && !p.endOf) : [];
+      const label = name.toLowerCase();
+      const named = those.filter((p) => label.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(label));
+      by = those.length === 1 ? those[0] : named.length === 1 ? named[0] : undefined;
+    }
+    if (by && (by.type === 'select' || by.type === 'status' || by.type === 'multiSelect')) {
+      config.groupBy = by.name;
+      if (settings.group_by?.hide_empty_groups === true) config.hideEmptyGroups = true;
+    } else {
       // told to group by a column that cannot group here (a person, a
       // date): a table, rather than a board by some other column
       const fallback = asked ? undefined : (properties.find((p) => p.type === 'status') ?? properties.find((p) => p.type === 'select'));
       if (!fallback) {
-        notes.push({ code: 'board_as_table', name });
+        // `detail`: what Notion asked for, to tell an unknown column from one that cannot group
+        const detail = [settings.group_by?.type, asked].filter((part) => typeof part === 'string' && part).join(' ').slice(0, 80);
+        notes.push({ code: 'board_as_table', name, ...(detail ? { detail } : {}) });
         return { name, type: 'table', config };
       }
       config.groupBy = fallback.name;
